@@ -8,7 +8,7 @@
 #include <QTextEdit>
 #include <QLayout>
 
-#include "mos6502.hpp"
+#include "cpu_info.hpp"
 
 namespace petito {
 class MainWindow : public QMainWindow
@@ -37,17 +37,7 @@ private:
     QAction* aboutAct;
     QAction* aboutQtAct;
 
-    QLabel* flags;
-    QLabel* programCounter;
-    QLabel* accumulator;
-    QLabel* xRegister;
-    QLabel* yRegister;
-    QLabel* stackPointer;
-    QLabel* clockCounter;
-
-    QLayout* initCpuInfo();
-    void setCpuInfo(const mos6502::CpuData& cpuData);
-    void setFlags(const mos6502::Flags& cpuFlags);
+    CpuInfo* cpuInfo;
 
     QTextEdit* programEditor;
 };

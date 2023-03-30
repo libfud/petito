@@ -3,27 +3,28 @@
 #include "logger/logger.hpp"
 #include <fmt/core.h>
 #include <QApplication>
-#include <QFont>
 #include <QMenuBar>
+#include <QMessageBox>
 #include <QSizePolicy>
 #include <QStatusBar>
 #include <QVBoxLayout>
 
 namespace petito {
 
+using logger::LogLevel;
+
 MainWindow::MainWindow()
 {
     QWidget* widget = new QWidget;
     setCentralWidget(widget);
 
-    auto cpuInfoLayout = initCpuInfo();
-
     QVBoxLayout* layout = new QVBoxLayout;
 
     programEditor = new QTextEdit;
+    cpuInfo = new CpuInfo;
 
     layout->setContentsMargins(5, 5, 5, 5);
-    layout->addLayout(cpuInfoLayout);
+    layout->addWidget(cpuInfo);
     layout->addWidget(programEditor);
 
     widget->setLayout(layout);
@@ -36,38 +37,6 @@ MainWindow::MainWindow()
 
     setWindowTitle("Petito");
     setMinimumSize(400, 400);
-}
-
-QLayout* MainWindow::initCpuInfo()
-{
-    QFont monoFont("Monospace");
-    monoFont.setStyleHint(QFont::TypeWriter);
-    auto makeLabel = [&]() {
-        auto label = new QLabel;
-        label->setFont(monoFont);
-        return label;
-    };
-
-    flags = makeLabel();
-    programCounter = makeLabel();
-    accumulator = makeLabel();
-    xRegister = makeLabel();
-    yRegister = makeLabel();
-    stackPointer = makeLabel();
-    clockCounter = makeLabel();
-
-    mos6502::CpuData cpuData{};
-    setCpuInfo(cpuData);
-
-    QVBoxLayout* layout = new QVBoxLayout;
-    layout->addWidget(flags);
-    layout->addWidget(programCounter);
-    layout->addWidget(accumulator);
-    layout->addWidget(xRegister);
-    layout->addWidget(yRegister);
-    layout->addWidget(stackPointer);
-    layout->addWidget(clockCounter);
-    return layout;
 }
 
 void MainWindow::createActions()
@@ -103,78 +72,33 @@ void MainWindow::createMenus()
 
 void MainWindow::load()
 {
-    using logger::LogLevel;
     logger::log(LogLevel::Info, "Load!");
 }
 
 void MainWindow::reset()
 {
-    using logger::LogLevel;
     logger::log(LogLevel::Info, "Reset!");
 }
 
 void MainWindow::unload()
 {
-    using logger::LogLevel;
     logger::log(LogLevel::Info, "Unload!");
 }
 
 void MainWindow::exit()
 {
-    using logger::LogLevel;
     logger::log(LogLevel::Info, "Quit!");
     QCoreApplication::quit();
 }
 
 void MainWindow::about()
 {
-    using logger::LogLevel;
-    logger::log(LogLevel::Info, "About!");
+    QMessageBox::about(this, "About Petito", "A MOS6502 Machine Creator");
 }
 
 void MainWindow::aboutQt()
 {
-    using logger::LogLevel;
-    logger::log(LogLevel::Info, "About Qt!");
-}
-
-void MainWindow::setCpuInfo(const mos6502::CpuData& cpuData)
-{
-    setFlags(cpuData.flags);
-
-    auto setHex2 = [](auto& label, auto num) {
-        auto text = fmt::format("0x{:02X}", num);
-        label->setText(QString::fromStdString(text));
-    };
-
-    auto setHex4 = [](auto& label, auto num) {
-        auto text = fmt::format("0x{:04X}", num);
-        label->setText(QString::fromStdString(text));
-    };
-
-    setHex4(programCounter, cpuData.pc);
-    setHex2(accumulator, cpuData.acc);
-    setHex2(xRegister, cpuData.x);
-    setHex2(yRegister, cpuData.y);
-    setHex2(stackPointer, cpuData.stack_ptr);
-
-    clockCounter->setText(QString::number(cpuData.clock_counter));
-}
-
-void MainWindow::setFlags(const mos6502::Flags& cpuFlags)
-{
-    auto flagText = fmt::format(
-        "{}{}{}{}{}{}{}",
-        cpuFlags.carry ? "C" : "0",
-        cpuFlags.zero ? "Z" : "0",
-        cpuFlags.interrupt_inhibit ? "I" : "0",
-        cpuFlags.bcd_arithmetic ? "D" : "0",
-        cpuFlags.brk ? "Br" : "0o",
-        cpuFlags.overflow ? "V" : "0",
-        cpuFlags.negative ? "N" : "0"
-    );
-
-    flags->setText(QString::fromStdString(flagText));
+    QMessageBox::aboutQt(this);
 }
 
 }

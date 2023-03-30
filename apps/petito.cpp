@@ -7,8 +7,6 @@ namespace petito {
 int run(int argc, char **argv) {
     QApplication app(argc, argv);
 
-    // QPushButton button("Hello world!");
-    // button.show();
     MainWindow mainWindow{};
     mainWindow.show();
 
