@@ -5,6 +5,8 @@
 
 #include "mos6502_config.hpp"
 
+using logger::LogLevel;
+
 std::optional<nes::Cartridge> load_rom(const std::string& filename)
 {
     fmt::print("using rom {}\n", filename);
@@ -25,7 +27,7 @@ int main(int argc, char** argv)
 {
     // logger::set_pattern("[%H:%M:%S %z] [%n] [%^---%L---%$] [thread %t] %v");
     logger::set_pattern("[%H:%M:%S] [%^-%L-%$] %v");
-    logger::set_level(logger::LogLevel::Debug);
+    logger::set_level(LogLevel::Error);
     option_parser::OptionParser opts(argc, argv, "mos6502", "MOS6502 emulator");
 
     auto flags_added = opts.add_flag_set({
@@ -40,18 +42,19 @@ int main(int argc, char** argv)
 
     if (flags_added.is_ok())
     {
-        flags_added = opts.add_argument<uint16_t>("i", "init_addr", "Initial address");
+        flags_added = opts.add_argument<uint16_t>("i", "init-addr", "Initial address");
     }
-    else
+
+    if (flags_added.is_ok())
     {
-        std::exit(1);
+        flags_added = opts.add_argument<std::string>("l", "log-level", "Log level");
     }
 
     if (flags_added.is_err())
     {
         auto err = flags_added.get_err().format();
         fmt::print(stderr, "Failed to add flags {}\n", err);
-        logger::log(logger::LogLevel::Critical, "Failed to add flags: {}", err);
+        logger::log(LogLevel::Critical, "Failed to add flags: {}", err);
         std::exit(1);
     }
 
@@ -61,7 +64,7 @@ int main(int argc, char** argv)
     {
         auto err = parsed_res.get_err().format();
         fmt::print(stderr, "Failed to parse arguments: {}\n", err);
-        logger::log(logger::LogLevel::Critical, "Failed to parse arguments: {}", err);
+        logger::log(LogLevel::Critical, "Failed to parse arguments: {}", err);
         std::exit(1);
     }
 
@@ -72,23 +75,30 @@ int main(int argc, char** argv)
 
     opts.handle_flag("version");
 
+    if (auto log_level_str = opts.flag_value<std::string>("log-level"))
+    {
+        auto log_level = logger::logLevelFromStr(*log_level_str);
+        if (log_level) {
+            logger::set_level(*log_level);
+        }
+    }
+
     if (auto rom_name = opts.flag_value<std::string>("rom"))
     {
-        logger::set_level(logger::LogLevel::Trace);
         auto cart = load_rom(*rom_name);
         if (!cart)
         {
-            logger::log(logger::LogLevel::Error, "Failed to load {}", *rom_name);
+            logger::log(LogLevel::Error, "Failed to load {}", *rom_name);
             std::exit(1);
         }
         nes::NES nes(std::move(*cart));
-        logger::set_level(logger::LogLevel::Debug);
-        if (auto init_addr = opts.flag_value<uint16_t>("init_addr"))
+
+        if (auto init_addr = opts.flag_value<uint16_t>("init-addr"))
         {
             nes.memory.init();
             nes.cpu.reset();
             nes.cpu.pc = *init_addr;
-            logger::log(logger::LogLevel::Debug, "Using init address {:04X}", nes.cpu.pc);
+            logger::log(LogLevel::Debug, "Using init address {:04X}", nes.cpu.pc);
             while (true)
             {
                 nes.cpu.step();

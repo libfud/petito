@@ -462,7 +462,7 @@ void MOS6502::step()
             reinterpret_cast<char*>(&(dynamic_cast<nes::NesMemory*>(memory)->cart.prg_ram[4]))
         );
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(0));
+    // std::this_thread::sleep_for(std::chrono::milliseconds(0));
 
     bool update_pc = true;
     switch (opcode)

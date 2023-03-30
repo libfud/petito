@@ -9,6 +9,7 @@
 #include "spdlog/common.h"
 #include "fmt/core.h"
 #include <string>
+#include <optional>
 
 namespace logger
 {
@@ -24,6 +25,7 @@ enum class LogLevel
     Off = spdlog::level::off
 };
 
+std::optional<LogLevel> logLevelFromStr(const std::string& logLevelStr);
 
 template<class ... Args>
 void log(LogLevel level, const fmt::format_string<Args...> format, Args&&... args)
