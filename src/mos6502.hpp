@@ -7,6 +7,8 @@
 
 namespace mos6502 {
 
+constexpr uint16_t MIN_RAM_SIZE = 256;
+
 constexpr uint16_t NMI_VECTOR = 0xFFFA;
 constexpr uint16_t RESET_VECTOR = 0xFFFC;
 constexpr uint16_t IRQ_VECTOR = 0xFFFE;
@@ -22,6 +24,7 @@ struct Flags
     bool negative;
 
     uint8_t get();
+    uint8_t get_fmt();
     uint8_t get_php();
     uint16_t get_carry();
 

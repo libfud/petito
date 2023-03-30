@@ -13,6 +13,48 @@
 
 namespace mos = mos6502;
 
+TEST(TestFlags, get)
+{
+    mos::Flags flags{};
+    flags.carry = false;
+    flags.zero = false;
+    flags.interrupt_inhibit = false;
+    flags.bcd_arithmetic = false;
+    flags.brk = false;
+    flags.overflow = false;
+    flags.negative = false;
+
+    EXPECT_EQ(flags.get(), (1 << 5) | (0 << 4));
+    EXPECT_EQ(flags.get_php(), (1 << 5) | (1 << 4));
+
+    flags.brk = true;
+    EXPECT_EQ(flags.get(), (1 << 5) | (1 << 4));
+    EXPECT_EQ(flags.get_php(), (1 << 5) | (1 << 4));
+
+    flags.carry = true;
+
+    EXPECT_EQ(flags.get(), (1 << 5) | (1 << 4) | 1);
+    EXPECT_EQ(flags.get_php(), (1 << 5) | (1 << 4) | 1);
+
+    flags.zero = true;
+
+    EXPECT_EQ(flags.get(), (1 << 5) | (1 << 4) | (1 << 1) | 1);
+    EXPECT_EQ(flags.get_php(), (1 << 5) | (1 << 4) | (1 << 1) | 1);
+
+    flags.interrupt_inhibit = true;
+    flags.bcd_arithmetic = true;
+    flags.brk = true;
+    flags.overflow = true;
+    flags.negative = true;
+
+    EXPECT_EQ(flags.get(), 0xFF);
+    EXPECT_EQ(flags.get_php(), 0xFF);
+
+    flags.brk = false;
+    EXPECT_EQ(flags.get(), 0xFF - (1 << 4));
+    EXPECT_EQ(flags.get_php(), 0xFF);
+}
+
 class TestMemory : public Memory
 {
 public:

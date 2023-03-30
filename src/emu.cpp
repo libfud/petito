@@ -1,6 +1,5 @@
 #include "logger/logger.hpp"
 #include "option_parser/option_parser.hpp"
-#include "mos6502.hpp"
 #include "nes.hpp"
 #include "cartridge.hpp"
 
@@ -39,6 +38,15 @@ int main(int argc, char** argv)
         flags_added = opts.add_argument<std::string>("r", "rom", "ROM file to load");
     }
 
+    if (flags_added.is_ok())
+    {
+        flags_added = opts.add_argument<uint16_t>("i", "init_addr", "Initial address");
+    }
+    else
+    {
+        std::exit(1);
+    }
+
     if (flags_added.is_err())
     {
         auto err = flags_added.get_err().format();
@@ -75,7 +83,21 @@ int main(int argc, char** argv)
         }
         nes::NES nes(std::move(*cart));
         logger::set_level(logger::LogLevel::Debug);
-        nes.run();
+        if (auto init_addr = opts.flag_value<uint16_t>("init_addr"))
+        {
+            nes.memory.init();
+            nes.cpu.reset();
+            nes.cpu.pc = *init_addr;
+            logger::log(logger::LogLevel::Debug, "Using init address {:04X}", nes.cpu.pc);
+            while (true)
+            {
+                nes.cpu.step();
+            }
+        }
+        else
+        {
+            nes.run();
+        }
     }
 
     return 0;

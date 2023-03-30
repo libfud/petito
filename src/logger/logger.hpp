@@ -25,29 +25,29 @@ enum class LogLevel
 };
 
 
-template<typename FormatString, typename ... Args>
-void log(LogLevel level, const FormatString& content, Args&&... args)
+template<class ... Args>
+void log(LogLevel level, const fmt::format_string<Args...> format, Args&&... args)
 {
     switch (level)
     {
     case LogLevel::Info:
-        spdlog::info(content, std::forward<Args>(args)...);
+        spdlog::info(format, std::forward<Args>(args)...);
         break;
 
     case LogLevel::Debug:
-        spdlog::debug(content, std::forward<Args>(args)...);
+        spdlog::debug(format, std::forward<Args>(args)...);
         break;
 
     case LogLevel::Warn:
-        spdlog::warn(content, std::forward<Args>(args)...);
+        spdlog::warn(format, std::forward<Args>(args)...);
         break;
 
     case LogLevel::Error:
-        spdlog::error(content, std::forward<Args>(args)...);
+        spdlog::error(format, std::forward<Args>(args)...);
         break;
 
     case LogLevel::Critical:
-        spdlog::critical(content, std::forward<Args>(args)...);
+        spdlog::critical(format, std::forward<Args>(args)...);
         break;
 
     default:

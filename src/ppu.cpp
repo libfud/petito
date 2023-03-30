@@ -15,9 +15,10 @@ uint16_t PPU::map_address(uint16_t address)
 
 uint8_t PPU::read(uint16_t address)
 {
-    auto mapped_address = map_address(address);
-    auto data = raw_data[mapped_address];
-    return data;
+    // auto mapped_address = map_address(address);
+    // auto data = raw_data[mapped_address];
+    // return data;
+    return 0xFF;
 }
 
 void PPU::write(uint16_t address, uint8_t data)

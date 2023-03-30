@@ -15,14 +15,25 @@ namespace mos6502 {
 uint8_t Flags::get()
 {
     return
-        (negative << 7) |
-        (overflow << 6) |
+        (static_cast<uint8_t>(negative) << 7) |
+        (static_cast<uint8_t>(overflow) << 6) |
         (1 << 5) |
-        (brk << 4) |
-        (bcd_arithmetic << 3) |
-        (interrupt_inhibit << 2) |
-        (zero << 1) |
-        carry;
+        (static_cast<uint8_t>(brk) << 4) |
+        (static_cast<uint8_t>(bcd_arithmetic) << 3) |
+        (static_cast<uint8_t>(interrupt_inhibit) << 2) |
+        (static_cast<uint8_t>(zero) << 1) |
+        static_cast<uint8_t>(carry);
+}
+
+uint8_t Flags::get_fmt()
+{
+    return
+        (static_cast<uint8_t>(negative) << 7) |
+        (static_cast<uint8_t>(overflow) << 6) |
+        (static_cast<uint8_t>(bcd_arithmetic) << 3) |
+        (static_cast<uint8_t>(interrupt_inhibit) << 2) |
+        (static_cast<uint8_t>(zero) << 1) |
+        static_cast<uint8_t>(carry);
 }
 
 uint8_t Flags::get_php()
@@ -44,12 +55,12 @@ uint16_t Flags::get_carry()
 
 void Flags::set(uint8_t data)
 {
-    carry = data & 0x01;
-    zero = (data >> 1) & 0x01;
-    interrupt_inhibit = (data >> 2) & 0x01;
-    bcd_arithmetic = (data >> 3) & 0x01;
-    overflow = (data >> 6) & 0x01;
-    negative = (data >> 7) & 0x01;
+    carry = (data & 0x01) == 1;
+    zero = ((data >> 1) & 0x01) == 1;
+    interrupt_inhibit = ((data >> 2) & 0x01) == 1;
+    bcd_arithmetic = ((data >> 3) & 0x01) == 1;
+    overflow = ((data >> 6) & 0x01) == 1;
+    negative = ((data >> 7) & 0x01) == 1;
 }
 
 void Flags::set_n_and_z(uint8_t data)
@@ -394,14 +405,15 @@ void MOS6502::step()
     {
         logger::log(
             logger::LogLevel::Debug,
-            "{:04X}  {} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} CYC:{:>3}, EXTRA: {:02X}, {:02X}, {:02X}, {:02X}",
+            // "{:04X}  {} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} CYC:{:>3}, EXTRA: {:02X}, {:02X}, {:02X}, {:02X}",
+            "{:04X}  {} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} CYC:{:>3}",
             pc, instr_fmt,
             acc, x, y, flags.get(), stack_ptr,
-            static_cast<unsigned int>(clock_counter % 1000),
-            dynamic_cast<nes::NesMemory*>(memory)->cart.prg_ram[00],
-            dynamic_cast<nes::NesMemory*>(memory)->cart.prg_ram[01],
-            dynamic_cast<nes::NesMemory*>(memory)->cart.prg_ram[02],
-            dynamic_cast<nes::NesMemory*>(memory)->cart.prg_ram[03]
+            static_cast<unsigned int>(clock_counter % 1000)//,
+            // dynamic_cast<nes::NesMemory*>(memory)->cart.prg_ram[00],
+            // dynamic_cast<nes::NesMemory*>(memory)->cart.prg_ram[01],
+            // dynamic_cast<nes::NesMemory*>(memory)->cart.prg_ram[02],
+            // dynamic_cast<nes::NesMemory*>(memory)->cart.prg_ram[03]
         );
     }
     if (status == 0x80)
@@ -452,11 +464,12 @@ void MOS6502::step()
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(0));
 
+    bool update_pc = true;
     switch (opcode)
     {
     case BRK_IMPL:
+        update_pc = false;
         flags.brk = true;
-        irq_signal = true;
         break;
 
     case ORA_X_IND:
@@ -528,6 +541,7 @@ void MOS6502::step()
         break;
 
     case JSR_ABS:
+        update_pc = false;
         pc += 2;
         push_pc();
         pc = effective_address;
@@ -611,10 +625,10 @@ void MOS6502::step()
         break;
 
     case RTI_IMPL:
+        update_pc = false;
         data = pull();
         flags.set(data);
         pull_pc();
-        pc -= 1;
         break;
 
     case EOR_X_IND:
@@ -643,6 +657,7 @@ void MOS6502::step()
         break;
 
     case JMP_ABS:
+        update_pc = false;
         pc = effective_address;
         break;
 
@@ -720,6 +735,7 @@ void MOS6502::step()
         break;
 
     case JMP_IND:
+        update_pc = false;
         pc = effective_address;
         break;
 
@@ -1273,30 +1289,17 @@ void MOS6502::step()
         break;
     }
 
-    if (opcode != JSR_ABS && opcode != JMP_ABS && opcode != JMP_IND)
+    clock_counter += op_info.min_cycles;
+
+    // if (opcode != JSR_ABS && opcode != JMP_ABS && opcode != JMP_IND)
+    if (update_pc)
     {
         pc += 1 + read_bytes;
     }
-    if (flags.brk)
-    {
-        flags.brk = true;
-        irq_signal = false;
-        flags.interrupt_inhibit = true;
-        irq();
-    }
 
-    clock_counter += op_info.min_cycles;
-
-    if (irq_signal & !flags.interrupt_inhibit)
+    if (flags.brk || irq_signal && !flags.interrupt_inhibit)
     {
-        pc -= 1;
-        flags.interrupt_inhibit = true;
-        irq_signal = false;
         irq();
-    }
-    else
-    {
-        // pc += read_bytes;
     }
 
     if (clock_counter > 999999999)
@@ -1327,13 +1330,26 @@ void MOS6502::reset()
 
 void MOS6502::irq()
 {
-    if (flags.interrupt_inhibit)
+    irq_signal = false;
+    std::string interrupt_type;
+    uint8_t p_flags;
+    if (flags.brk)
     {
-        return;
+        interrupt_type = "BRK";
+        pc += 2;
+        p_flags = flags.get_php();
+        logger::log(logger::LogLevel::Critical, "FLAGS = 0x{:08b}", p_flags);
+        flags.brk = false;
+        flags.interrupt_inhibit = true;
     }
-
+    else
+    {
+        interrupt_type = "IRQ";
+        p_flags = flags.get();
+        pc -= 1;
+    }
     push_pc();
-    push(flags.get());
+    push(p_flags);
 
     uint8_t low_addr = read(IRQ_VECTOR);
     uint8_t high_addr = read(IRQ_VECTOR + 1);
@@ -1341,7 +1357,10 @@ void MOS6502::irq()
 
     clock_counter += 7;
 
-    logger::log(logger::LogLevel::Debug, "IRQ: PC=0x{:04X} from 0x{:02X} 0x{:02X}", pc, high_addr, low_addr);
+    logger::log(
+        logger::LogLevel::Debug, "{}: PC=0x{:04X} from 0x{:02X} 0x{:02X}",
+        interrupt_type,
+        pc, high_addr, low_addr);
 }
 
 void MOS6502::nmi()
