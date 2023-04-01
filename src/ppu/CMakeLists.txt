@@ -6,7 +6,12 @@ find_package(spdlog REQUIRED)
 add_minimal_target(
     ppu_lib
     SOURCES ppu.cpp ppu_ctrl.cpp ppu_mask.cpp ppu_status.cpp
-    TEST_SOURCES test_ppu.cpp test_ppu_ctrl.cpp)
+    TEST_SOURCES
+    test_ppu.cpp
+    test_ppu_ctrl.cpp
+    test_ppu_mask.cpp
+    test_ppu_status.cpp
+)
 
 target_link_libraries(ppu_lib PRIVATE cartridge_lib)
 
