@@ -7,16 +7,27 @@
 
 namespace nes {
 
+constexpr uint16_t NAMETABLE_0 = 0x2000;
+constexpr uint16_t NAMETABLE_1 = 0x2400;
+constexpr uint16_t NAMETABLE_2 = 0x2800;
+constexpr uint16_t NAMETABLE_3 = 0x2C00;
+
+constexpr uint8_t VRAM_INCREMENT_ACROSS = 1;
+constexpr uint8_t VRAM_INCREMENT_DOWN = 32;
+
+constexpr uint16_t SPRITE_TABLE_0 = 0;
+constexpr uint16_t SPRITE_TABLE_1 = 0x1000;
+
+constexpr uint16_t BG_TABLE_0 = 0;
+constexpr uint16_t BG_TABLE_1 = 0x1000;
+
 struct PpuCtrl : public PpuRegister {
     // bits 0, 1
-    /* Base nametable address
-     * (0 = $2000; 1 = $2400; 2 = $2800; 3 = $2C00)
-     */
+    /* Base nametable address */
     uint8_t nametable_base;
 
     // bit 2
-    /* VRAM address increment per CPU read/write of PPUDATA
-     * (0: add 1, going across; 1: add 32, going down) */
+    /* VRAM address increment per CPU read/write of PPUDATA */
     uint8_t vram_increment;
 
     // bit 3

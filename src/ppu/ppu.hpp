@@ -52,7 +52,7 @@ public:
     uint8_t ppu_read();
     void ppu_write(uint8_t data);
 
-private:
+protected:
     static constexpr size_t OAM_SIZE = 256;
     static constexpr uint16_t PPU_REG_HIGH = 0x2000;
     static constexpr uint32_t PALETTE_RAM_START = 0x3F00;

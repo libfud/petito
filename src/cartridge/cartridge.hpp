@@ -33,7 +33,7 @@ public:
 
     void init_mapper();
 
-private:
+protected:
     static constexpr size_t TRAINER_SIZE = 512;
     static constexpr size_t ROM_START = 0x4020;
 

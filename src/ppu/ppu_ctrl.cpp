@@ -43,17 +43,17 @@ uint16_t PpuCtrl::get_base_nametable_address() const
 
 uint8_t PpuCtrl::get_vram_increment() const
 {
-    return (vram_increment & 1) == 0 ? 1 : 32;
+    return (vram_increment & 1) == 0 ? VRAM_INCREMENT_ACROSS : VRAM_INCREMENT_DOWN;
 }
 
 uint16_t PpuCtrl::get_sprite_pattern_address() const
 {
-    return (sprite_pattern_table & 1) == 0 ? 0 : 0x1000;
+    return (sprite_pattern_table & 1) == 0 ? SPRITE_TABLE_0 : SPRITE_TABLE_1;
 }
 
 uint16_t PpuCtrl::get_background_pattern_address() const
 {
-    return (background_pattern_table & 1) == 0 ? 0 : 0x1000;
+    return (background_pattern_table & 1) == 0 ? BG_TABLE_0: BG_TABLE_1;
 }
 
 } // namespace nes
