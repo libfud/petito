@@ -16,7 +16,7 @@
 
 namespace nes {
 
-constexpr double DEFAULT_CPU_CLOCK_RATE = 1.789733 * 1e6;
+constexpr int32_t DEFAULT_CPU_CLOCK_RATE = 1789733;
 
 class NesMemory : public Memory
 {
@@ -57,7 +57,7 @@ private:
 class NES
 {
 public:
-    NES(Cartridge&& cart, double cpu_clock_rate = DEFAULT_CPU_CLOCK_RATE);
+    NES(Cartridge&& cart, int32_t cpu_clock_rate = DEFAULT_CPU_CLOCK_RATE);
     ~NES();
     void run(bool reset = true);
 

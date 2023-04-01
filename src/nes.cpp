@@ -67,7 +67,7 @@ const Cartridge& NesMemory::get_cart() const
     return cart;
 }
 
-NES::NES(Cartridge&& cart, double cpu_clock_rate) :
+NES::NES(Cartridge&& cart, int32_t cpu_clock_rate) :
     cpu(cpu_clock_rate),
     memory(std::move(cart), cpu.clock_counter)
 {
