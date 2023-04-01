@@ -102,6 +102,7 @@ TEST_F(TestNes, NesTestRom)
     nes::NES nes(std::move(cart));
     nes.memory.init();
     nes.cpu.reset();
+    nes.cpu.heavy_diagnostics = true;
     nes.cpu.pc = 0xC000;
 
     logger::set_pattern("%v");

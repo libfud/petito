@@ -98,6 +98,7 @@ int main(int argc, char** argv)
             nes.memory.init();
             nes.cpu.reset();
             nes.cpu.pc = *init_addr;
+            nes.cpu.heavy_diagnostics = true;
             logger::log(LogLevel::Debug, "Using init address {:04X}", nes.cpu.pc);
             while (true)
             {

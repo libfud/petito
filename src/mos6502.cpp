@@ -99,14 +99,6 @@ uint8_t MOS6502::read(uint16_t address)
 void MOS6502::write(uint16_t address, uint8_t data)
 {
     memory->write(address, data);
-    if ((address == 0x4010 && (data & 0x80)) ||
-        (address == 0x4017 && !(data & 0xC0)))
-    {
-        if (!flags.interrupt_inhibit)
-        {
-            irq_signal = true;
-        }
-    }
 }
 
 void MOS6502::load_reg(uint8_t& reg, uint8_t data)
@@ -1047,10 +1039,20 @@ void MOS6502::step()
         pc += 1 + op_decode.read_bytes;
     }
 
-    if (flags.brk || irq_signal && !flags.interrupt_inhibit)
+    if (flags.brk || (irq_signal && !flags.interrupt_inhibit))
     {
         irq();
     }
+    /*
+    if (flags.brk)
+    {
+        irq();
+    }
+    else if (irq_signal && !flags.interrupt_inhibit)
+    {
+        irq();
+    }
+    */
 
     if (clock_counter > static_cast<int32_t>(clock_rate))
     {
@@ -1064,7 +1066,6 @@ void MOS6502::reset()
     uint8_t low_addr = read(RESET_VECTOR);
     uint8_t high_addr = read(RESET_VECTOR + 1);
     pc = make_address(low_addr, high_addr);
-    // pc = make_address(high_addr, low_addr);
     flags.interrupt_inhibit = true;
 
     clock_counter += 7;
@@ -1082,16 +1083,14 @@ void MOS6502::irq()
         interrupt_type = "BRK";
         pc += 2;
         p_flags = flags.get_php();
-        logger::log(logger::LogLevel::Debug, "FLAGS = 0x{:08b}", p_flags);
         flags.brk = false;
-        flags.interrupt_inhibit = true;
     }
     else
     {
         interrupt_type = "IRQ";
         p_flags = flags.get();
-        pc -= 1;
     }
+    flags.interrupt_inhibit = true;
     push_pc();
     push(p_flags);
 
@@ -1101,10 +1100,12 @@ void MOS6502::irq()
 
     clock_counter += 7;
 
+    /*
     logger::log(
         logger::LogLevel::Debug, "{}: PC=0x{:04X} from 0x{:02X} 0x{:02X}",
         interrupt_type,
         pc, high_addr, low_addr);
+    */
 }
 
 void MOS6502::nmi()
