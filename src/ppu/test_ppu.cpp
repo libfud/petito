@@ -28,15 +28,20 @@ public:
         : PPU{test_clock, static_cast<Cartridge&>(test_cartridge)}
     {
     }
+
+    PpuCtrl& get_ctrl() { return ctrl; }
+
 };
 
-TEST(TestPpu, BasicAssertions)
+TEST(TestPpu, PpuCtrl)
 {
     int test_clock = 0;
     TestCartridge test_cartridge;
     test_cartridge.load(test_rom);
     TestPpu test_ppu{test_clock, test_cartridge};
-    ASSERT_TRUE(true);
+
+    test_ppu.cpu_write(PPU_REG_HIGH + PPU_CTRL, 0x00);
+    ASSERT_EQ(test_ppu.get_ctrl().serialize(), 0x00);
 }
 
 } // namespace nes

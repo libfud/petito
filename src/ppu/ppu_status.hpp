@@ -7,8 +7,6 @@
 #include <vector>
 
 #include "ppu_register.hpp"
-#include "ppu_ctrl.hpp"
-#include "ppu_mask.hpp"
 
 namespace nes {
 

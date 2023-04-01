@@ -13,8 +13,24 @@
 
 namespace nes {
 
-constexpr int PPU_CLOCKS_PER_CPU_CLOCK = 3;
-constexpr int PPU_TICKS_PER_SEC = 5369319;
+static constexpr int PPU_CLOCKS_PER_CPU_CLOCK = 3;
+static constexpr int PPU_TICKS_PER_SEC = 5369319;
+
+static constexpr size_t OAM_SIZE = 256;
+static constexpr uint16_t PPU_REG_HIGH = 0x2000;
+static constexpr uint32_t PALETTE_RAM_START = 0x3F00;
+static constexpr uint32_t PALETTE_RAM_SIZE = 0x3F20 - PALETTE_RAM_START;
+
+static constexpr uint8_t PPU_CTRL = 0;
+static constexpr uint8_t PPU_MASK = 1;
+static constexpr uint8_t PPU_STATUS = 2;
+static constexpr uint8_t OAM_ADDR = 3;
+static constexpr uint8_t OAM_DATA = 4;
+static constexpr uint8_t PPU_SCROLL = 5;
+static constexpr uint8_t PPU_ADDR = 6;
+static constexpr uint8_t PPU_DATA = 7;
+static constexpr uint8_t PPU_ADDR_MASK = 0x0007;
+static constexpr uint16_t OAM_DMA = 0x4014;
 
 class ObjectAttributeMemory
 {
@@ -53,22 +69,6 @@ public:
     void ppu_write(uint8_t data);
 
 protected:
-    static constexpr size_t OAM_SIZE = 256;
-    static constexpr uint16_t PPU_REG_HIGH = 0x2000;
-    static constexpr uint32_t PALETTE_RAM_START = 0x3F00;
-    static constexpr uint32_t PALETTE_RAM_SIZE = 0x3F20 - PALETTE_RAM_START;
-
-    static constexpr uint8_t PPU_CTRL = 0;
-    static constexpr uint8_t PPU_MASK = 1;
-    static constexpr uint8_t PPU_STATUS = 2;
-    static constexpr uint8_t OAM_ADDR = 3;
-    static constexpr uint8_t OAM_DATA = 4;
-    static constexpr uint8_t PPU_SCROLL = 5;
-    static constexpr uint8_t PPU_ADDR = 6;
-    static constexpr uint8_t PPU_DATA = 7;
-    static constexpr uint8_t PPU_ADDR_MASK = 0x0007;
-    static constexpr uint16_t OAM_DMA = 0x4014;
-
     PpuCtrl ctrl;
     PpuMask mask;
     PpuStatus status;
