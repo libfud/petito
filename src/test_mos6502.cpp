@@ -8,7 +8,7 @@
 #include "mos6502.hpp"
 #include "memory.hpp"
 #include "nes.hpp"
-#include "cartridge.hpp"
+#include "cartridge/cartridge.hpp"
 #include "logger/logger.hpp"
 
 namespace mos = mos6502;
@@ -140,7 +140,7 @@ TEST_F(TestNes, Stack)
     std::copy_n(cart.prg_rom.begin(), cart.prg_rom.size(), std::back_inserter(test_memory.data));
     std::copy_n(cart.chr_rom.begin(), cart.chr_rom.size(), std::back_inserter(test_memory.data));
 
-    mos::MOS6502 cpu{};
+    mos::MOS6502 cpu{nes::DEFAULT_CPU_CLOCK_RATE};
     cpu.set_memory(&test_memory);
 
     cpu.reset();
@@ -172,7 +172,7 @@ TEST_F(TestNes, Addressing)
     std::copy_n(cart.prg_rom.begin(), cart.prg_rom.size(), std::back_inserter(test_memory.data));
     std::copy_n(cart.chr_rom.begin(), cart.chr_rom.size(), std::back_inserter(test_memory.data));
 
-    mos::MOS6502 cpu{};
+    mos::MOS6502 cpu{nes::DEFAULT_CPU_CLOCK_RATE};
     cpu.set_memory(&test_memory);
 
     cpu.reset();

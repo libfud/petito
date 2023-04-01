@@ -1,7 +1,7 @@
 #include "logger/logger.hpp"
 #include "option_parser/option_parser.hpp"
 #include "nes.hpp"
-#include "cartridge.hpp"
+#include "cartridge/cartridge.hpp"
 
 #include "mos6502_config.hpp"
 

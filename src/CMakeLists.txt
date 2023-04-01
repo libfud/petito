@@ -6,19 +6,15 @@ set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} -Wunused-variable)
 
 add_library(mos6502_lib mos6502.cpp opcode_table.cpp)
 
-add_library(ppu_lib ppu.cpp)
 add_library(apu_lib apu.cpp)
 add_library(nes_lib nes.cpp)
-add_library(header_lib header.cpp)
-add_library(cartridge_lib cartridge.cpp)
 add_executable(mos6502 emu.cpp)
 
 add_subdirectory(logger)
 add_subdirectory(result)
 add_subdirectory(option_parser)
-
-add_common_dependency(cartridge_lib Logger)
-target_link_libraries(cartridge_lib PUBLIC header_lib)
+add_subdirectory(cartridge)
+add_subdirectory(ppu)
 
 add_common_dependency(nes_lib Logger)
 target_link_libraries(nes_lib PUBLIC

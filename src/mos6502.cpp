@@ -7,7 +7,7 @@
 #include "mos6502.hpp"
 #include "logger/logger.hpp"
 #include "nes.hpp"
-#include "cartridge.hpp"
+#include "cartridge/cartridge.hpp"
 #include "opcode_table.hpp"
 
 namespace mos6502 {
@@ -69,7 +69,7 @@ void Flags::set_n_and_z(uint8_t data)
     negative = data >> 7;
 }
 
-MOS6502::MOS6502() :
+MOS6502::MOS6502(double cpu_clock_rate) :
     flags(),
     pc(RESET_VECTOR),
     acc(0),
@@ -77,6 +77,7 @@ MOS6502::MOS6502() :
     y(0),
     stack_ptr(0x00),
     memory(nullptr),
+    clock_rate(cpu_clock_rate),
     clock_counter(0),
     irq_signal(false)
 {
@@ -309,8 +310,8 @@ void MOS6502::ror(uint8_t& value)
     flags.set_n_and_z(compound_value);
 }
 
-unsigned int running_counter = 0;
-unsigned int last_clock = 0;
+int running_counter = 0;
+int last_clock = 0;
 bool reset_triggered = false;
 
 CpuData MOS6502::save_state()
@@ -405,15 +406,10 @@ void MOS6502::step()
     {
         logger::log(
             logger::LogLevel::Debug,
-            // "{:04X}  {} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} CYC:{:>3}, EXTRA: {:02X}, {:02X}, {:02X}, {:02X}",
             "{:04X}  {} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} CYC:{:>3}",
             pc, instr_fmt,
             acc, x, y, flags.get(), stack_ptr,
             static_cast<unsigned int>(clock_counter % 1000)//,
-            // dynamic_cast<nes::NesMemory*>(memory)->cart.prg_ram[00],
-            // dynamic_cast<nes::NesMemory*>(memory)->cart.prg_ram[01],
-            // dynamic_cast<nes::NesMemory*>(memory)->cart.prg_ram[02],
-            // dynamic_cast<nes::NesMemory*>(memory)->cart.prg_ram[03]
         );
     }
     if (status == 0x80)
@@ -423,10 +419,10 @@ void MOS6502::step()
             logger::log(
                 logger::LogLevel::Debug,
                 "Test in progress {:02X} {:02X} {:02X}\nmessage={}",
-                dynamic_cast<nes::NesMemory*>(memory)->cart.prg_ram[1],
-                dynamic_cast<nes::NesMemory*>(memory)->cart.prg_ram[2],
-                dynamic_cast<nes::NesMemory*>(memory)->cart.prg_ram[3],
-                reinterpret_cast<char*>(&(dynamic_cast<nes::NesMemory*>(memory)->cart.prg_ram[4]))
+                dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[1],
+                dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[2],
+                dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[3],
+                reinterpret_cast<const char*>(&(dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[4]))
             );
         }
     }
@@ -436,7 +432,7 @@ void MOS6502::step()
             logger::LogLevel::Debug,
             "reset status=0x{:02X} message={}",
             status,
-            reinterpret_cast<char*>(&(dynamic_cast<nes::NesMemory*>(memory)->cart.prg_ram[4]))
+            reinterpret_cast<const char*>(&(dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[4]))
         );
 
         if (reset_triggered && (clock_counter - last_clock > 2000))
@@ -459,7 +455,7 @@ void MOS6502::step()
             logger::LogLevel::Debug,
             "Test status=0x{:02X} message={}",
             status,
-            reinterpret_cast<char*>(&(dynamic_cast<nes::NesMemory*>(memory)->cart.prg_ram[4]))
+            reinterpret_cast<const char*>(&(dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[4]))
         );
     }
     // std::this_thread::sleep_for(std::chrono::milliseconds(0));

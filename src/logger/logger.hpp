@@ -36,6 +36,9 @@ void log(LogLevel level, const fmt::format_string<Args...> format, Args&&... arg
         spdlog::info(format, std::forward<Args>(args)...);
         break;
 
+    case LogLevel::Trace:
+        spdlog::trace(format, std::forward<Args>(args)...);
+
     case LogLevel::Debug:
         spdlog::debug(format, std::forward<Args>(args)...);
         break;
@@ -55,6 +58,42 @@ void log(LogLevel level, const fmt::format_string<Args...> format, Args&&... arg
     default:
         break;
     }
+}
+
+template<class ... Args>
+void trace(const fmt::format_string<Args...> format, Args&&... args)
+{
+    spdlog::trace(format, std::forward<Args>(args)...);
+}
+
+template<class ... Args>
+void info(const fmt::format_string<Args...> format, Args&&... args)
+{
+    spdlog::info(format, std::forward<Args>(args)...);
+}
+
+template<class ... Args>
+void debug(const fmt::format_string<Args...> format, Args&&... args)
+{
+    spdlog::debug(format, std::forward<Args>(args)...);
+}
+
+template<class ... Args>
+void warn(const fmt::format_string<Args...> format, Args&&... args)
+{
+    spdlog::warn(format, std::forward<Args>(args)...);
+}
+
+template<class ... Args>
+void error(const fmt::format_string<Args...> format, Args&&... args)
+{
+    spdlog::error(format, std::forward<Args>(args)...);
+}
+
+template<class ... Args>
+void critical(const fmt::format_string<Args...> format, Args&&... args)
+{
+    spdlog::critical(format, std::forward<Args>(args)...);
 }
 
 template<typename FormatString>

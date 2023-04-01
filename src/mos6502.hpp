@@ -41,14 +41,14 @@ struct CpuData
     uint8_t y;
     uint8_t stack_ptr;
 
-    unsigned int clock_counter;
+    int clock_counter;
 };
 
 class MOS6502
 {
 
 public:
-    MOS6502();
+    explicit MOS6502(double cpu_clock_rate);
 
     void set_memory(Memory* memory);
 
@@ -74,7 +74,9 @@ public:
     uint8_t y;
     uint8_t stack_ptr;
 
-    unsigned int clock_counter;
+    double clock_rate;
+
+    int clock_counter;
 
     bool irq_signal;
 

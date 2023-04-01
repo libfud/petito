@@ -10,16 +10,19 @@
 
 #include "mos6502.hpp"
 #include "apu.hpp"
-#include "ppu.hpp"
+#include "ppu/ppu.hpp"
 #include "memory.hpp"
-#include "cartridge.hpp"
+#include "cartridge/cartridge.hpp"
 
 namespace nes {
+
+constexpr double DEFAULT_CPU_CLOCK_RATE = 1.789733 * 1e6;
+
 class NesMemory : public Memory
 {
 
 public:
-    explicit NesMemory(Cartridge&& cart);
+    NesMemory(Cartridge&& cartridge, int& clock_counter);
 
     ~NesMemory();
 
@@ -28,6 +31,8 @@ public:
     uint8_t read(uint16_t address) override;
 
     void write(uint16_t address, uint8_t data) override;
+
+    const Cartridge& get_cart() const;
 
 private:
     static constexpr uint16_t INTERNAL_RAM_END = 0x1FFF;
@@ -42,19 +47,17 @@ private:
     /* 2K internal RAM */
     std::vector<uint8_t> internal_ram;
 
+    Cartridge cart;
+
     PPU ppu;
 
     APU apu;
-
-public:
-    Cartridge cart;
-
 };
 
 class NES
 {
 public:
-    explicit NES(Cartridge&& cart);
+    NES(Cartridge&& cart, double cpu_clock_rate = DEFAULT_CPU_CLOCK_RATE);
     ~NES();
     void run(bool reset = true);
 
