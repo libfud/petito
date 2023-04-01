@@ -69,7 +69,7 @@ void Flags::set_n_and_z(uint8_t data)
     negative = data >> 7;
 }
 
-MOS6502::MOS6502(double cpu_clock_rate) :
+MOS6502::MOS6502(int32_t cpu_clock_rate) :
     flags(),
     pc(RESET_VECTOR),
     acc(0),
@@ -310,10 +310,6 @@ void MOS6502::ror(uint8_t& value)
     flags.set_n_and_z(compound_value);
 }
 
-int running_counter = 0;
-int last_clock = 0;
-bool reset_triggered = false;
-
 CpuData MOS6502::save_state()
 {
     return {flags, pc, acc, x, y, stack_ptr, clock_counter};
@@ -415,21 +411,18 @@ void MOS6502::step_diagnostics(uint8_t opcode, OpDecode& op_decode)
     }
     if (status == 0x80)
     {
-        // if (running_counter == clock_counter)
+        std::string message{reinterpret_cast<const char*>(
+                &(dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[4]))};
+        if (message.size() > 6)
         {
-            std::string message{reinterpret_cast<const char*>(
-                    &(dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[4]))};
-            if (message.size() > 6)
-            {
-                logger::log(
-                    logger::LogLevel::Warn,
-                    "Test in progress {:02X} {:02X} {:02X}\nmessage={}",
-                    dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[1],
-                    dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[2],
-                    dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[3],
-                    message
-                );
-            }
+            logger::log(
+                logger::LogLevel::Warn,
+                "Test in progress {:02X} {:02X} {:02X}\nmessage={}",
+                dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[1],
+                dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[2],
+                dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[3],
+                message
+            );
         }
     }
 }
@@ -1059,15 +1052,9 @@ void MOS6502::step()
         irq();
     }
 
-    if (clock_counter > 999999999)
+    if (clock_counter > static_cast<int32_t>(clock_rate))
     {
-        clock_counter = 0;
-        last_clock = 0;
-        running_counter = 0;
-    }
-    if (clock_counter - running_counter > 100000)
-    {
-        running_counter = clock_counter;
+        clock_counter -= clock_rate;
     }
 }
 

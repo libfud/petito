@@ -49,7 +49,7 @@ class MOS6502
 {
 
 public:
-    explicit MOS6502(double cpu_clock_rate);
+    explicit MOS6502(int32_t cpu_clock_rate);
 
     void set_memory(Memory* memory);
 
@@ -79,7 +79,7 @@ public:
     uint8_t y;
     uint8_t stack_ptr;
 
-    double clock_rate;
+    int32_t clock_rate;
 
     int clock_counter;
 
