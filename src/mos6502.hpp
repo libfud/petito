@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "memory.hpp"
+#include "opcode_table.hpp"
 
 namespace mos6502 {
 
@@ -52,6 +53,10 @@ public:
 
     void set_memory(Memory* memory);
 
+    OpDecode decode(uint8_t opcode);
+
+    void step_diagnostics(uint8_t opcode, OpDecode& op_decode);
+
     /** Driving clock */
     void step();
 
@@ -81,6 +86,9 @@ public:
     bool irq_signal;
 
     Memory* memory;
+
+    bool diagnostics;
+    bool heavy_diagnostics;
 
     void push(uint8_t data);
 

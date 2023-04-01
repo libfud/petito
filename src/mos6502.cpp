@@ -76,10 +76,12 @@ MOS6502::MOS6502(double cpu_clock_rate) :
     x(0),
     y(0),
     stack_ptr(0x00),
-    memory(nullptr),
     clock_rate(cpu_clock_rate),
     clock_counter(0),
-    irq_signal(false)
+    irq_signal(false),
+    memory(nullptr),
+    diagnostics(true),
+    heavy_diagnostics(false)
 {
     flags.set(0x34);
 }
@@ -96,12 +98,10 @@ uint8_t MOS6502::read(uint16_t address)
 
 void MOS6502::write(uint16_t address, uint8_t data)
 {
-    logger::log(logger::LogLevel::Trace, "writing 0x{:04X} 0x{:02X}", address, data);
     memory->write(address, data);
     if ((address == 0x4010 && (data & 0x80)) ||
         (address == 0x4017 && !(data & 0xC0)))
     {
-        // logger::log(logger::LogLevel::Debug, "HEYHO {:04X} {:02X}", address, data);
         if (!flags.interrupt_inhibit)
         {
             irq_signal = true;
@@ -319,95 +319,96 @@ CpuData MOS6502::save_state()
     return {flags, pc, acc, x, y, stack_ptr, clock_counter};
 }
 
-void MOS6502::step()
+OpDecode MOS6502::decode(uint8_t opcode)
 {
-    uint16_t effective_address = 0;
-    uint8_t data = 0;
-    uint8_t opcode = read(pc);
-    uint8_t status = read(0x6000);
+    OpDecode op_decode{
+        .op_info = OPCODE_INFO_TABLE[opcode],
+        .effective_address = 0,
+        .data = 0,
+        .b1 = 0,
+        .b2 = 0,
+        .read_bytes = 0
+    };
 
-    OpcodeInfo op_info = OPCODE_INFO_TABLE[opcode];
-    uint8_t b1 = 0;
-    uint8_t b2 = 0;
-    uint8_t read_bytes = address_mode_num_bytes(op_info.address_type);
-    switch (read_bytes)
+    const auto& address_type = op_decode.op_info.address_type;
+    op_decode.read_bytes = address_mode_num_bytes(address_type);
+
+    switch (op_decode.read_bytes)
     {
     case 2:
-        b2 = read(pc + 2);
+        op_decode.b2 = read(pc + 2);
     case 1:
-        b1 = read(pc + 1);
+        op_decode.b1 = read(pc + 1);
     case 0:
         break;
     default:
         throw std::runtime_error("invalid number of bytes to read");
     }
 
-    switch (op_info.address_type)
+    switch (address_type)
     {
     case AddressType::A:
-        break;
-    case AddressType::ABS:
-        effective_address = absolute(b1, b2);
-        data = read(effective_address);
-        break;
-    case AddressType::ABS_X:
-        effective_address = absolute_idx(b1, b2, x);
-        data = read(effective_address);
-        break;
-    case AddressType::ABS_Y:
-        effective_address = absolute_idx(b1, b2, y);
-        data = read(effective_address);
-        break;
     case AddressType::IMM:
-        break;
     case AddressType::IMPL:
         break;
+    case AddressType::ABS:
+        op_decode.effective_address = absolute(op_decode.b1, op_decode.b2);
+        op_decode.data = read(op_decode.effective_address);
+        break;
+    case AddressType::ABS_X:
+        op_decode.effective_address = absolute_idx(op_decode.b1, op_decode.b2, x);
+        op_decode.data = read(op_decode.effective_address);
+        break;
+    case AddressType::ABS_Y:
+        op_decode.effective_address = absolute_idx(op_decode.b1, op_decode.b2, y);
+        op_decode.data = read(op_decode.effective_address);
+        break;
     case AddressType::IND:
-        effective_address = indirect(b1, b2);
-        data = read(effective_address);
+        op_decode.effective_address = indirect(op_decode.b1, op_decode.b2);
+        op_decode.data = read(op_decode.effective_address);
         break;
     case AddressType::X_IND:
-        effective_address = x_indirect(b1);
-        data = read(effective_address);
+        op_decode.effective_address = x_indirect(op_decode.b1);
+        op_decode.data = read(op_decode.effective_address);
         break;
     case AddressType::IND_Y:
-        effective_address = indirect_y(b1);
-        data = read(effective_address);
+        op_decode.effective_address = indirect_y(op_decode.b1);
+        op_decode.data = read(op_decode.effective_address);
         break;
     case AddressType::REL:
-        effective_address = rel_addr(b1);
+        op_decode.effective_address = rel_addr(op_decode.b1);
         break;
     case AddressType::ZPG:
-        effective_address = b1;
-        data = read(effective_address);
+        op_decode.effective_address = op_decode.b1;
+        op_decode.data = read(op_decode.effective_address);
         break;
     case AddressType::ZPG_X:
-        effective_address = zero_page_x(b1);
-        data = read(effective_address);
+        op_decode.effective_address = zero_page_x(op_decode.b1);
+        op_decode.data = read(op_decode.effective_address);
         break;
     case AddressType::ZPG_Y:
-        effective_address = zero_page_y(b1);
-        data = read(effective_address);
+        op_decode.effective_address = zero_page_y(op_decode.b1);
+        op_decode.data = read(op_decode.effective_address);
         break;
     default:
         logger::log(logger::LogLevel::Critical, "Invalid addressing mode PC={:04X} opcode={:02X} {}",
-                    pc, opcode, static_cast<uint8_t>(op_info.address_type));
+                    pc, opcode, static_cast<uint8_t>(address_type));
         throw std::runtime_error("Invalid addressing mode");
     }
 
-    uint16_t extra_info = effective_address;
-    if (op_info.address_type == AddressType::REL)
-    {
-        extra_info = pc + 2 + effective_address;
-    }
+    return op_decode;
+}
 
-    std::string instr_fmt = format_opcode6502(opcode, b1, b2, x, y, extra_info, data);
-    // if (clock_counter == running_counter)
+void MOS6502::step_diagnostics(uint8_t opcode, OpDecode& op_decode)
+{
+    uint8_t status = read(0x6000);
+
+    if (heavy_diagnostics)
     {
         logger::log(
             logger::LogLevel::Debug,
             "{:04X}  {} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} CYC:{:>3}",
-            pc, instr_fmt,
+            pc, op_decode.instr_fmt(opcode, x, y, pc),
             acc, x, y, flags.get(), stack_ptr,
             static_cast<unsigned int>(clock_counter % 1000)//,
         );
@@ -416,53 +417,170 @@ void MOS6502::step()
     {
         // if (running_counter == clock_counter)
         {
-            logger::log(
-                logger::LogLevel::Debug,
-                "Test in progress {:02X} {:02X} {:02X}\nmessage={}",
-                dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[1],
-                dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[2],
-                dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[3],
-                reinterpret_cast<const char*>(&(dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[4]))
-            );
+            std::string message{reinterpret_cast<const char*>(
+                    &(dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[4]))};
+            if (message.size() > 6)
+            {
+                logger::log(
+                    logger::LogLevel::Warn,
+                    "Test in progress {:02X} {:02X} {:02X}\nmessage={}",
+                    dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[1],
+                    dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[2],
+                    dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[3],
+                    message
+                );
+            }
         }
     }
-    else if (status == 0x81)
-    {
-        logger::log(
-            logger::LogLevel::Debug,
-            "reset status=0x{:02X} message={}",
-            status,
-            reinterpret_cast<const char*>(&(dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[4]))
-        );
+}
 
-        if (reset_triggered && (clock_counter - last_clock > 2000))
-        {
-            logger::log(logger::LogLevel::Debug, "RESET!");
-            reset_triggered = false;
-            reset();
-            last_clock = clock_counter;
-            return;
-        }
-        else
-        {
-            reset_triggered = true;
-            logger::log(logger::LogLevel::Debug, "Future Reset requested");
-        }
-    }
-    else if (status != 0)
+void MOS6502::step()
+{
+    uint8_t opcode = read(pc);
+
+    OpDecode op_decode = decode(opcode);
+
+    if (diagnostics)
     {
-        logger::log(
-            logger::LogLevel::Debug,
-            "Test status=0x{:02X} message={}",
-            status,
-            reinterpret_cast<const char*>(&(dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[4]))
-        );
+        step_diagnostics(opcode, op_decode);
     }
+
     // std::this_thread::sleep_for(std::chrono::milliseconds(0));
 
     bool update_pc = true;
+    /*
+     * 11.82%  $A5 LDA zero-page
+     * 10.37%  $D0 BNE
+     * 7.33%  $4C JMP absolute
+     * 6.97%  $E8 INX
+     * 4.46%  $10 BPL
+     * 3.82%  $C9 CMP immediate
+     * 3.49%  $30 BMI
+     * 3.32%  $F0 BEQ
+     * 3.32%  $24 BIT zero-page
+     * 2.94%  $85 STA zero-page
+     * 2.00%  $88 DEX
+     * 1.98%  $C8 INY
+     * 1.77%  $A8 TAY
+     * 1.74%  $E6 INC zero-page
+     * 1.74%  $B0 BCS
+     * 1.66%  $BD LDA absolute,X
+     * 1.64%  $B5 LDA zero-page,X
+     * 1.51%  $AD LDA absolute
+     * 1.41%  $20 JSR absolute
+     * 1.38%  $4A LSR A
+     * 1.37%  $60 RTS
+     * 1.35%  $B1 LDA (zero-page),Y
+     * 1.32%  $29 AND immediate
+     * 1.27%  $9D STA absolute,X
+     * 1.24%  $8D STA absolute
+     * 1.08%  $18 CLC
+     * 1.03%  $A9 LDA immediate
+     */
     switch (opcode)
     {
+    case LDA_ZPG:
+    case LDA_X_IND:
+    case LDA_ABS:
+    case LDA_IND_Y:
+    case LDA_ZPG_X:
+    case LDA_ABS_Y:
+    case LDA_ABS_X:
+        load_reg(acc, op_decode.data);
+        break;
+
+    case BNE_REL:
+        branch(op_decode.effective_address, !flags.zero);
+        break;
+
+    case JMP_ABS:
+        update_pc = false;
+        pc = op_decode.effective_address;
+        break;
+
+    case INX_IMPL:
+        increment(x);
+        break;
+
+    case BPL_REL:
+        branch(op_decode.effective_address, !flags.negative);
+        break;
+
+    case CMP_IMM:
+        compare(acc, op_decode.b1);
+        break;
+
+    case BMI_REL:
+        branch(op_decode.effective_address, flags.negative);
+        break;
+
+    case BEQ_REL:
+        branch(op_decode.effective_address, flags.zero);
+        break;
+
+    case BIT_ZPG:
+    case BIT_ABS:
+        bit_test(op_decode.data);
+        break;
+
+    case STA_X_IND:
+    case STA_ZPG:
+    case STA_ABS:
+    case STA_IND_Y:
+    case STA_ZPG_X:
+    case STA_ABS_Y:
+    case STA_ABS_X:
+        write(op_decode.effective_address, acc);
+        break;
+
+    case DEX_IMPL:
+        decrement(x);
+        break;
+
+    case INY_IMPL:
+        increment(y);
+        break;
+
+    case TAY_IMPL:
+        y = acc;
+        flags.set_n_and_z(y);
+        break;
+
+    case INC_ZPG:
+    case INC_ABS:
+    case INC_ZPG_X:
+    case INC_ABS_X:
+        increment(op_decode.data);
+        write(op_decode.effective_address, op_decode.data);
+        break;
+
+    case BCS_REL:
+        branch(op_decode.effective_address, flags.carry);
+        break;
+
+    case JSR_ABS:
+        update_pc = false;
+        pc += 2;
+        push_pc();
+        pc = op_decode.effective_address;
+        break;
+
+    case LSR_A:
+        lsr(acc);
+        break;
+
+    case RTS_IMPL:
+        pull_pc();
+        break;
+
+    case AND_IMM:
+        and_op(op_decode.b1);
+        break;
+
+    case CLC_IMPL:
+        flags.carry = false;
+        break;
+
     case BRK_IMPL:
         update_pc = false;
         flags.brk = true;
@@ -475,15 +593,15 @@ void MOS6502::step()
     case ORA_ZPG_X:
     case ORA_ABS_Y:
     case ORA_ABS_X:
-        ora(data);
+        ora(op_decode.data);
         break;
 
     case ASL_ZPG:
     case ASL_ABS:
     case ASL_ZPG_X:
     case ASL_ABS_X:
-        asl(data);
-        write(effective_address, data);
+        asl(op_decode.data);
+        write(op_decode.effective_address, op_decode.data);
         break;
 
     case PHP_IMPL:
@@ -491,26 +609,11 @@ void MOS6502::step()
         break;
 
     case ORA_IMM:
-        ora(b1);
+        ora(op_decode.b1);
         break;
 
     case ASL_A:
         asl(acc);
-        break;
-
-    case BPL_REL:
-        branch(effective_address, !flags.negative);
-        break;
-
-    case CLC_IMPL:
-        flags.carry = false;
-        break;
-
-    case JSR_ABS:
-        update_pc = false;
-        pc += 2;
-        push_pc();
-        pc = effective_address;
         break;
 
     case AND_X_IND:
@@ -520,37 +623,24 @@ void MOS6502::step()
     case AND_ZPG_X:
     case AND_ABS_Y:
     case AND_ABS_X:
-        and_op(data);
-        break;
-
-    case BIT_ZPG:
-    case BIT_ABS:
-        bit_test(data);
+        and_op(op_decode.data);
         break;
 
     case ROL_ZPG:
     case ROL_ABS:
     case ROL_ZPG_X:
     case ROL_ABS_X:
-        rol(data);
-        write(effective_address, data);
+        rol(op_decode.data);
+        write(op_decode.effective_address, op_decode.data);
         break;
 
     case PLP_IMPL:
-        data = pull();
-        flags.set(data);
-        break;
-
-    case AND_IMM:
-        and_op(b1);
+        op_decode.data = pull();
+        flags.set(op_decode.data);
         break;
 
     case ROL_A:
         rol(acc);
-        break;
-
-    case BMI_REL:
-        branch(effective_address, flags.negative);
         break;
 
     case SEC_IMPL:
@@ -559,23 +649,23 @@ void MOS6502::step()
 
     case RTI_IMPL:
         update_pc = false;
-        data = pull();
-        flags.set(data);
+        op_decode.data = pull();
+        flags.set(op_decode.data);
         pull_pc();
         break;
 
     case EOR_X_IND:
     case EOR_ZPG:
     case EOR_ABS:
-        eor(read(effective_address));
+        eor(read(op_decode.effective_address));
         break;
 
     case LSR_ZPG:
     case LSR_ABS:
     case LSR_ZPG_X:
     case LSR_ABS_X:
-        lsr(data);
-        write(effective_address, data);
+        lsr(op_decode.data);
+        write(op_decode.effective_address, op_decode.data);
         break;
 
     case PHA_IMPL:
@@ -583,35 +673,22 @@ void MOS6502::step()
         break;
 
     case EOR_IMM:
-        eor(b1);
-        break;
-
-    case LSR_A:
-        lsr(acc);
-        break;
-
-    case JMP_ABS:
-        update_pc = false;
-        pc = effective_address;
+        eor(op_decode.b1);
         break;
 
     case BVC_REL:
-        branch(effective_address, !flags.overflow);
+        branch(op_decode.effective_address, !flags.overflow);
         break;
 
     case EOR_IND_Y:
     case EOR_ZPG_X:
     case EOR_ABS_Y:
     case EOR_ABS_X:
-        eor(data);
+        eor(op_decode.data);
         break;
 
     case CLI_IMPL:
         flags.interrupt_inhibit = false;
-        break;
-
-    case RTS_IMPL:
-        pull_pc();
         break;
 
     case ADC_X_IND:
@@ -621,15 +698,15 @@ void MOS6502::step()
     case ADC_ZPG_X:
     case ADC_ABS_Y:
     case ADC_ABS_X:
-        adc(data);
+        adc(op_decode.data);
         break;
 
     case ROR_ZPG:
     case ROR_ABS:
     case ROR_ZPG_X:
     case ROR_ABS_X:
-        ror(data);
-        write(effective_address, data);
+        ror(op_decode.data);
+        write(op_decode.effective_address, op_decode.data);
         break;
 
     case PLA_IMPL:
@@ -638,7 +715,7 @@ void MOS6502::step()
         break;
 
     case ADC_IMM:
-        adc(b1);
+        adc(op_decode.b1);
         break;
 
     case ROR_A:
@@ -647,37 +724,27 @@ void MOS6502::step()
 
     case JMP_IND:
         update_pc = false;
-        pc = effective_address;
+        pc = op_decode.effective_address;
         break;
 
     case BVS_REL:
-        branch(effective_address, flags.overflow);
+        branch(op_decode.effective_address, flags.overflow);
         break;
 
     case SEI_IMPL:
         flags.interrupt_inhibit = true;
         break;
 
-    case STA_X_IND:
-    case STA_ZPG:
-    case STA_ABS:
-    case STA_IND_Y:
-    case STA_ZPG_X:
-    case STA_ABS_Y:
-    case STA_ABS_X:
-        write(effective_address, acc);
-        break;
-
     case STY_ZPG:
     case STY_ABS:
     case STY_ZPG_X:
-        write(effective_address, y);
+        write(op_decode.effective_address, y);
         break;
 
     case STX_ZPG:
     case STX_ABS:
     case STX_ZPG_Y:
-        write(effective_address, x);
+        write(op_decode.effective_address, x);
         break;
 
     case DEY_IMPL:
@@ -690,11 +757,11 @@ void MOS6502::step()
         break;
 
     case BCC_REL:
-        branch(effective_address, !flags.carry);
+        branch(op_decode.effective_address, !flags.carry);
         break;
 
     case LDX_IMM:
-        load_reg(x, b1);
+        load_reg(x, op_decode.b1);
         break;
 
     case TYA_IMPL:
@@ -707,49 +774,30 @@ void MOS6502::step()
         break;
 
     case LDY_IMM:
-        load_reg(y, b1);
-        break;
-
-    case LDA_X_IND:
-    case LDA_ZPG:
-    case LDA_ABS:
-    case LDA_IND_Y:
-    case LDA_ZPG_X:
-    case LDA_ABS_Y:
-    case LDA_ABS_X:
-        load_reg(acc, data);
+        load_reg(y, op_decode.b1);
         break;
 
     case LDY_ZPG:
     case LDY_ABS:
     case LDY_ZPG_X:
     case LDY_ABS_X:
-        load_reg(y, data);
+        load_reg(y, op_decode.data);
         break;
 
     case LDX_ZPG:
     case LDX_ABS:
     case LDX_ZPG_Y:
     case LDX_ABS_Y:
-        load_reg(x, data);
-        break;
-
-    case TAY_IMPL:
-        y = acc;
-        flags.set_n_and_z(y);
+        load_reg(x, op_decode.data);
         break;
 
     case LDA_IMM:
-        load_reg(acc, b1);
+        load_reg(acc, op_decode.b1);
         break;
 
     case TAX_IMPL:
         x = acc;
         flags.set_n_and_z(x);
-        break;
-
-    case BCS_REL:
-        branch(effective_address, flags.carry);
         break;
 
     case CLV_IMPL:
@@ -762,7 +810,7 @@ void MOS6502::step()
         break;
 
     case CPY_IMM:
-        compare(y, b1);
+        compare(y, op_decode.b1);
         break;
 
     case CMP_X_IND:
@@ -772,36 +820,20 @@ void MOS6502::step()
     case CMP_ZPG_X:
     case CMP_ABS_Y:
     case CMP_ABS_X:
-        compare(acc, data);
+        compare(acc, op_decode.data);
         break;
 
     case CPY_ZPG:
     case CPY_ABS:
-        compare(y, data);
+        compare(y, op_decode.data);
         break;
 
     case DEC_ZPG:
     case DEC_ABS:
     case DEC_ZPG_X:
     case DEC_ABS_X:
-        decrement(data);
-        write(effective_address, data);
-        break;
-
-    case INY_IMPL:
-        increment(y);
-        break;
-
-    case CMP_IMM:
-        compare(acc, b1);
-        break;
-
-    case DEX_IMPL:
-        decrement(x);
-        break;
-
-    case BNE_REL:
-        branch(effective_address, !flags.zero);
+        decrement(op_decode.data);
+        write(op_decode.effective_address, op_decode.data);
         break;
 
     case CLD_IMPL:
@@ -809,7 +841,7 @@ void MOS6502::step()
         break;
 
     case CPX_IMM:
-        compare(x, b1);
+        compare(x, op_decode.b1);
         break;
 
     case SBC_X_IND:
@@ -819,32 +851,16 @@ void MOS6502::step()
     case SBC_ZPG_X:
     case SBC_ABS_Y:
     case SBC_ABS_X:
-        sbc(data);
+        sbc(op_decode.data);
         break;
 
     case CPX_ZPG:
     case CPX_ABS:
-        compare(x, data);
-        break;
-
-    case INC_ZPG:
-    case INC_ABS:
-    case INC_ZPG_X:
-    case INC_ABS_X:
-        increment(data);
-        write(effective_address, data);
-        break;
-
-    case INX_IMPL:
-        increment(x);
+        compare(x, op_decode.data);
         break;
 
     case SBC_IMM:
-        sbc(b1);
-        break;
-
-    case BEQ_REL:
-        branch(effective_address, flags.zero);
+        sbc(op_decode.b1);
         break;
 
     case SED_IMPL:
@@ -887,14 +903,14 @@ void MOS6502::step()
     case LAX_ABS_Y:
     case LAX_X_IND:
     case LAX_IND_Y:
-        acc = data;
-        x = data;
+        acc = op_decode.data;
+        x = op_decode.data;
         flags.set_n_and_z(x);
         break;
 
     case LXA_IMM:
         ora(0xFF);
-        and_op(b1);
+        and_op(op_decode.b1);
         x = acc;
         break;
 
@@ -902,17 +918,17 @@ void MOS6502::step()
     case SAX_ZPG_Y:
     case SAX_ABS:
     case SAX_X_IND:
-        data = acc & x;
-        write(effective_address, data);
+        op_decode.data = acc & x;
+        write(op_decode.effective_address, op_decode.data);
         break;
 
     case SBX_IMM:
-        compare(acc & x, b1);
-        x = (acc & x) - b1;
+        compare(acc & x, op_decode.b1);
+        x = (acc & x) - op_decode.b1;
         break;
 
     case USBC_IMM:
-        sbc(b1);
+        sbc(op_decode.b1);
         break;
 
     case DCP_ZPG:
@@ -922,9 +938,9 @@ void MOS6502::step()
     case DCP_ABS_Y:
     case DCP_X_IND:
     case DCP_IND_Y:
-        decrement(data);
-        write(effective_address, data);
-        compare(acc, data);
+        decrement(op_decode.data);
+        write(op_decode.effective_address, op_decode.data);
+        compare(acc, op_decode.data);
         break;
 
     case ISB_ZPG:
@@ -934,9 +950,9 @@ void MOS6502::step()
     case ISB_ABS_Y:
     case ISB_X_IND:
     case ISB_IND_Y:
-        increment(data);
-        write(effective_address, data);
-        sbc(data);
+        increment(op_decode.data);
+        write(op_decode.effective_address, op_decode.data);
+        sbc(op_decode.data);
         break;
 
     case SLO_ZPG:
@@ -946,9 +962,9 @@ void MOS6502::step()
     case SLO_ABS_Y:
     case SLO_X_IND:
     case SLO_IND_Y:
-        asl(data);
-        ora(data);
-        write(effective_address, data);
+        asl(op_decode.data);
+        ora(op_decode.data);
+        write(op_decode.effective_address, op_decode.data);
         break;
 
     case RLA_ZPG:
@@ -958,9 +974,9 @@ void MOS6502::step()
     case RLA_ABS_Y:
     case RLA_X_IND:
     case RLA_IND_Y:
-        rol(data);
-        and_op(data);
-        write(effective_address, data);
+        rol(op_decode.data);
+        and_op(op_decode.data);
+        write(op_decode.effective_address, op_decode.data);
         break;
 
     case SRE_ZPG:
@@ -970,9 +986,9 @@ void MOS6502::step()
     case SRE_ABS_Y:
     case SRE_X_IND:
     case SRE_IND_Y:
-        lsr(data);
-        eor(data);
-        write(effective_address, data);
+        lsr(op_decode.data);
+        eor(op_decode.data);
+        write(op_decode.effective_address, op_decode.data);
         break;
 
     case RRA_ZPG:
@@ -982,35 +998,35 @@ void MOS6502::step()
     case RRA_ABS_Y:
     case RRA_X_IND:
     case RRA_IND_Y:
-        ror(data);
-        adc(data);
-        write(effective_address, data);
+        ror(op_decode.data);
+        adc(op_decode.data);
+        write(op_decode.effective_address, op_decode.data);
         break;
 
     case ALR_IMM:
-        and_op(b1);
+        and_op(op_decode.b1);
         lsr(acc);
         break;
 
     case ANC_IMM1:
     case ANC_IMM2:
-        and_op(b1);
+        and_op(op_decode.b1);
         flags.carry = acc & 0x80;
         break;
 
     case ARR_IMM:
-        arr(b1);
+        arr(op_decode.b1);
         break;
 
     case SHY_ABS_X:
-        effective_address = ((y & ((effective_address >> 8) + 1)) << 8) | (effective_address & 0xFF);
-        write(effective_address, effective_address >> 8);
+        op_decode.effective_address = ((y & ((op_decode.effective_address >> 8) + 1)) << 8) | (op_decode.effective_address & 0xFF);
+        write(op_decode.effective_address, op_decode.effective_address >> 8);
 
         break;
 
     case SHX_ABS_Y:
-        effective_address = ((x & ((effective_address >> 8) + 1)) << 8) | (effective_address & 0xFF);
-        write(effective_address, effective_address >> 8);
+        op_decode.effective_address = ((x & ((op_decode.effective_address >> 8) + 1)) << 8) | (op_decode.effective_address & 0xFF);
+        write(op_decode.effective_address, op_decode.effective_address >> 8);
         break;
 
     case JAM_X00:
@@ -1031,11 +1047,11 @@ void MOS6502::step()
         break;
     }
 
-    clock_counter += op_info.min_cycles;
+    clock_counter += op_decode.op_info.min_cycles;
 
     if (update_pc)
     {
-        pc += 1 + read_bytes;
+        pc += 1 + op_decode.read_bytes;
     }
 
     if (flags.brk || irq_signal && !flags.interrupt_inhibit)
@@ -1079,7 +1095,7 @@ void MOS6502::irq()
         interrupt_type = "BRK";
         pc += 2;
         p_flags = flags.get_php();
-        logger::log(logger::LogLevel::Critical, "FLAGS = 0x{:08b}", p_flags);
+        logger::log(logger::LogLevel::Debug, "FLAGS = 0x{:08b}", p_flags);
         flags.brk = false;
         flags.interrupt_inhibit = true;
     }

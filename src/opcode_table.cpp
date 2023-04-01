@@ -2,17 +2,15 @@
 
 namespace mos6502 {
 
-std::string format_opcode6502(
-    uint8_t opcode,
-    uint8_t b1,
-    uint8_t b2,
-    uint8_t x,
-    uint8_t y,
-    uint16_t effective_address,
-    uint8_t data)
+std::string OpDecode::instr_fmt(uint8_t opcode, uint8_t x, uint8_t y, uint16_t pc)
 {
     OpcodeInfo op_info = OPCODE_INFO_TABLE[opcode];
     auto address_type = op_info.address_type;
+    auto addr_data = effective_address;
+    if (address_type == AddressType::REL)
+    {
+        addr_data = pc + 2 + effective_address;
+    }
 
     std::string meminfo;
     meminfo = "                   ";
@@ -25,30 +23,30 @@ std::string format_opcode6502(
             meminfo = fmt::format("= {:02X}               ", data);
             break;
         case AddressType::ABS_X:
-            meminfo = fmt::format("@ {:04X} = {:02X}        ", effective_address, data);
+            meminfo = fmt::format("@ {:04X} = {:02X}        ", addr_data, data);
             break;
         case AddressType::ABS_Y:
-            meminfo = fmt::format("@ {:04X} = {:02X}        ", effective_address, data);
+            meminfo = fmt::format("@ {:04X} = {:02X}        ", addr_data, data);
             break;
         case AddressType::ZPG:
             meminfo = fmt::format("= {:02X}                   ", data);
             break;
         case AddressType::ZPG_X:
-            meminfo = fmt::format("@ {:02X} = {:02X}            ", effective_address, data);
+            meminfo = fmt::format("@ {:02X} = {:02X}            ", addr_data, data);
             break;
         case AddressType::ZPG_Y:
-            meminfo = fmt::format("@ {:02X} = {:02X}            ", effective_address, data);
+            meminfo = fmt::format("@ {:02X} = {:02X}            ", addr_data, data);
             break;
         case AddressType::IND:
-            meminfo = fmt::format("= {:04X}             ", effective_address);
+            meminfo = fmt::format("= {:04X}             ", addr_data);
             break;
         case AddressType::X_IND:
-            meminfo = fmt::format("@ {:02X} = {:04X} = {:02X}   ", b1 + x & 0xFF, effective_address, data);
+            meminfo = fmt::format("@ {:02X} = {:04X} = {:02X}   ", b1 + x & 0xFF, addr_data, data);
             break;
         case AddressType::IND_Y:
             meminfo = fmt::format(
                 "= {:04X} @ {:04X} = {:02X} ",
-                static_cast<uint16_t>(effective_address - y), effective_address, data);
+                static_cast<uint16_t>(addr_data - y), addr_data, data);
             break;
         default:
             break;
@@ -76,7 +74,7 @@ std::string format_opcode6502(
     case AddressType::IND_Y:
         return fmt::format("{:02X} {:02X}     {} (${:02X}),Y {}", opcode, b1, op_info.name, b1, meminfo);
     case AddressType::REL:
-        return fmt::format("{:02X} {:02X}     {} ${:04X}   {}", opcode, b1, op_info.name, effective_address, meminfo);
+        return fmt::format("{:02X} {:02X}     {} ${:04X}   {}", opcode, b1, op_info.name, addr_data, meminfo);
     case AddressType::ZPG:
         return fmt::format("{:02X} {:02X}     {} ${:02X} {}", opcode, b1, op_info.name, b1, meminfo);
     case AddressType::ZPG_X:

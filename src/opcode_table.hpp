@@ -405,14 +405,18 @@ static const std::array<OpcodeInfo, 256> OPCODE_INFO_TABLE = {
 
 uint8_t address_mode_num_bytes(AddressType address_type);
 
-std::string format_opcode6502(
-    uint8_t opcode,
-    uint8_t b1,
-    uint8_t b2,
-    uint8_t x,
-    uint8_t y,
-    uint16_t effective_addr,
-    uint8_t data);
+struct OpDecode
+{
+    OpcodeInfo op_info;
+    uint16_t effective_address;
+    uint8_t data;
+    uint8_t b1;
+    uint8_t b2;
+    uint8_t read_bytes;
+    std::string instr_fmt(uint8_t opcode, uint8_t x, uint8_t y, uint16_t pc);
+};
+
+constexpr size_t foo_size = sizeof(OPCODE_INFO_TABLE);
 
 }
 
