@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "memory.hpp"
+#include "interrupt_signals.hpp"
 #include "opcode_table.hpp"
 
 namespace mos6502 {
@@ -83,12 +84,14 @@ public:
 
     int clock_counter;
 
-    bool irq_signal;
+    InterruptSignals interrupt_signals;
 
     Memory* memory;
 
     bool diagnostics;
     bool heavy_diagnostics;
+    uint64_t irq_counter;
+    uint64_t nmi_counter;
 
     void push(uint8_t data);
 
@@ -153,7 +156,6 @@ public:
     void rol(uint8_t& value);
 
     void ror(uint8_t& value);
-
 };
 
 }

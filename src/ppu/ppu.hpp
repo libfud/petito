@@ -10,11 +10,15 @@
 #include "ppu_mask.hpp"
 #include "ppu_status.hpp"
 #include "../cartridge/cartridge.hpp"
+#include "../interrupt_signals.hpp"
 
 namespace nes {
 
 static constexpr int PPU_CLOCKS_PER_CPU_CLOCK = 3;
 static constexpr int PPU_TICKS_PER_SEC = 5369319;
+
+static constexpr size_t NTSC_WIDTH = 256;
+static constexpr size_t NTSC_HEIGHT = 240;
 
 static constexpr size_t OAM_SIZE = 256;
 static constexpr uint16_t PPU_REG_HIGH = 0x2000;
@@ -58,7 +62,7 @@ private:
 class PPU
 {
 public:
-    PPU(const int& clock, Cartridge& cartridge);
+    PPU(const int& clock, mos6502::InterruptSignals& interrupt_signals, Cartridge& cartridge);
 
     // main bus comms
     uint8_t cpu_read(uint16_t address);
@@ -85,6 +89,7 @@ protected:
 
     ObjectAttributeMemory object_attribute_memory;
     std::vector<uint8_t> palette_table;
+    std::vector<uint32_t> rendered_image;
 
     uint8_t latch;
     const int& clock_counter;
@@ -92,9 +97,18 @@ protected:
 
     Cartridge& cart;
 
+    mos6502::InterruptSignals& signals;
+
     void fill_latch(uint8_t data);
 
     uint16_t cpu_map_address(uint16_t address);
+
+    void nmi();
+
+public:
+    void step();
+
+    void render();
 };
 
 }

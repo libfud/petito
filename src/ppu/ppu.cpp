@@ -1,5 +1,6 @@
 #include "ppu.hpp"
 #include "../logger/logger.hpp"
+#include <SDL.h>
 
 namespace nes {
 
@@ -46,7 +47,7 @@ void AddressLatch::increment(uint8_t increment)
     address += increment;
 }
 
-PPU::PPU(const int& clock, Cartridge& cartridge) :
+PPU::PPU(const int& clock, mos6502::InterruptSignals& interrupt_signals, Cartridge& cartridge) :
     ctrl{},
     mask{},
     status{},
@@ -62,7 +63,8 @@ PPU::PPU(const int& clock, Cartridge& cartridge) :
     latch{},
     clock_counter{clock},
     latch_clock{},
-    cart{cartridge}
+    cart{cartridge},
+    signals{interrupt_signals}
 {}
 
 void PPU::fill_latch(uint8_t data)
@@ -197,6 +199,114 @@ void PPU::ppu_write(uint8_t data)
         palette_table[mapped_address] = data;
     }
     // raw_data[mapped_address] = data;
+}
+
+void PPU::nmi()
+{
+    signals.nmi = true;
+}
+
+void PPU::step()
+{
+}
+
+bool is_initialized = false;
+SDL_Window* Window = nullptr;
+SDL_Surface* ScreenSurface = nullptr;
+SDL_Surface* RenderedImage = nullptr;
+
+bool init();
+
+bool init()
+{
+    if (SDL_Init(SDL_INIT_VIDEO) < 0)
+    {
+        logger::critical("Could not initialize vidoe: {}", SDL_GetError());
+        return false;
+    }
+
+    Window = SDL_CreateWindow(
+        "Petito NES",
+        SDL_WINDOWPOS_UNDEFINED,
+        SDL_WINDOWPOS_UNDEFINED,
+        NTSC_WIDTH,
+        NTSC_HEIGHT,
+        SDL_WINDOW_SHOWN);
+    if (Window == nullptr)
+    {
+        logger::critical("Could not initialize Window: {}", SDL_GetError());
+        return false;
+    }
+
+    ScreenSurface = SDL_GetWindowSurface(Window);
+
+    is_initialized = true;
+    return true;
+}
+
+void PPU::render()
+{
+    if (!is_initialized)
+    {
+        init();
+        auto depth = 32;
+        RenderedImage = SDL_CreateRGBSurface(
+            0,
+            NTSC_WIDTH,
+            NTSC_HEIGHT,
+            depth,
+            0x00FF0000,
+            0x0000FF00,
+            0x000000FF,
+            0);
+        if (RenderedImage == nullptr)
+        {
+            logger::critical("Could not get create surface {}", SDL_GetError());
+            return;
+        }
+        auto fmt = RenderedImage->format;
+        if (fmt->BitsPerPixel != depth)
+        {
+            logger::critical("Could not get correct format");
+            return;
+        }
+        rendered_image.resize(NTSC_WIDTH * NTSC_HEIGHT);
+        auto third_width = NTSC_WIDTH / 3;
+        for (auto row = 0; row < NTSC_HEIGHT; ++row)
+        {
+            for (auto col = 0; col < NTSC_WIDTH; ++col)
+            {
+                auto index = row * NTSC_WIDTH + col;
+                uint32_t& pixel = rendered_image[index];
+                if (col < third_width)
+                {
+                    pixel = 0x00FF0000;
+                }
+                else if (col < (2 * third_width))
+                {
+                    pixel = 0x0000FF00;
+                }
+                else
+                {
+                    pixel = 0x000000FF;
+                }
+            }
+        }
+    }
+    // SDL_LockSurface(RenderedImage);
+    auto pixel_ptr = static_cast<uint32_t*>(RenderedImage->pixels);
+    std::memcpy(pixel_ptr, rendered_image.data(), sizeof(uint32_t) * rendered_image.size());
+    // SDL_UnlockSurface(RenderedImage);
+    SDL_BlitSurface(RenderedImage, nullptr, ScreenSurface, nullptr);
+    SDL_UpdateWindowSurface(Window);
+    SDL_Event e;
+    while (SDL_PollEvent(&e))
+    {
+        if (e.type == SDL_QUIT)
+        {
+            std::exit(0);
+        }
+    }
 }
 
 }

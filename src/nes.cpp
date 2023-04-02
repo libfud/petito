@@ -8,10 +8,10 @@
 
 namespace nes {
 
-NesMemory::NesMemory(Cartridge&& cartridge, int& clock_counter) :
+NesMemory::NesMemory(Cartridge&& cartridge, mos6502::InterruptSignals& interrupt_signals, int& clock_counter) :
     internal_ram(2048),
     cart(std::move(cartridge)),
-    ppu(clock_counter, cart),
+    ppu(clock_counter, interrupt_signals, cart),
     apu()
 {}
 
@@ -69,7 +69,7 @@ const Cartridge& NesMemory::get_cart() const
 
 NES::NES(Cartridge&& cart, int32_t cpu_clock_rate) :
     cpu(cpu_clock_rate),
-    memory(std::move(cart), cpu.clock_counter)
+    memory(std::move(cart), cpu.interrupt_signals, cpu.clock_counter)
 {
     cpu.set_memory(&memory);
 }
@@ -88,6 +88,7 @@ void NES::run(bool reset)
     while (true)
     {
         cpu.step();
+        // memory.ppu.render();
     }
 }
 

@@ -22,7 +22,7 @@ class NesMemory : public Memory
 {
 
 public:
-    NesMemory(Cartridge&& cartridge, int& clock_counter);
+    NesMemory(Cartridge&& cartridge, mos6502::InterruptSignals& interrupt_signals, int& clock_counter);
 
     ~NesMemory();
 
@@ -49,8 +49,10 @@ private:
 
     Cartridge cart;
 
+public:
     PPU ppu;
 
+private:
     APU apu;
 };
 

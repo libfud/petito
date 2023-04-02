@@ -78,10 +78,12 @@ MOS6502::MOS6502(int32_t cpu_clock_rate) :
     stack_ptr(0x00),
     clock_rate(cpu_clock_rate),
     clock_counter(0),
-    irq_signal(false),
+    interrupt_signals{0},
     memory(nullptr),
     diagnostics(true),
-    heavy_diagnostics(false)
+    heavy_diagnostics(false),
+    irq_counter(0),
+    nmi_counter(0)
 {
     flags.set(0x34);
 }
@@ -1039,7 +1041,7 @@ void MOS6502::step()
         pc += 1 + op_decode.read_bytes;
     }
 
-    if (flags.brk || (irq_signal && !flags.interrupt_inhibit))
+    if (flags.brk || (interrupt_signals.irq && !flags.interrupt_inhibit))
     {
         irq();
     }
@@ -1069,43 +1071,33 @@ void MOS6502::reset()
     flags.interrupt_inhibit = true;
 
     clock_counter += 7;
-
-    logger::log(logger::LogLevel::Debug, "Reset: PC=0x{:04X} from 0x{:02X} 0x{:02X}", pc, high_addr, low_addr);
+    interrupt_signals.reset = false;
 }
 
 void MOS6502::irq()
 {
-    irq_signal = false;
-    std::string interrupt_type;
     uint8_t p_flags;
     if (flags.brk)
     {
-        interrupt_type = "BRK";
         pc += 2;
         p_flags = flags.get_php();
         flags.brk = false;
     }
     else
     {
-        interrupt_type = "IRQ";
         p_flags = flags.get();
     }
-    flags.interrupt_inhibit = true;
     push_pc();
     push(p_flags);
 
     uint8_t low_addr = read(IRQ_VECTOR);
     uint8_t high_addr = read(IRQ_VECTOR + 1);
     pc = make_address(low_addr, high_addr);
+    flags.interrupt_inhibit = true;
 
     clock_counter += 7;
-
-    /*
-    logger::log(
-        logger::LogLevel::Debug, "{}: PC=0x{:04X} from 0x{:02X} 0x{:02X}",
-        interrupt_type,
-        pc, high_addr, low_addr);
-    */
+    irq_counter++;
+    interrupt_signals.irq = false;
 }
 
 void MOS6502::nmi()
@@ -1120,6 +1112,8 @@ void MOS6502::nmi()
     clock_counter += 8;
 
     logger::log(logger::LogLevel::Debug, "NMI: PC=0x{:04X} from 0x{:02X} 0x{:02X}", pc, high_addr, low_addr);
+    nmi_counter++;
+    interrupt_signals.nmi = false;
 }
 
 } // namespace mos6502
