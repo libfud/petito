@@ -95,7 +95,6 @@ int main(int argc, char** argv)
 
         if (auto init_addr = opts.flag_value<uint16_t>("init-addr"))
         {
-            nes.memory.init();
             nes.cpu.reset();
             nes.cpu.pc = *init_addr;
             nes.cpu.heavy_diagnostics = true;

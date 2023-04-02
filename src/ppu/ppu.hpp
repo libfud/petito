@@ -9,11 +9,11 @@
 #include "ppu_ctrl.hpp"
 #include "ppu_mask.hpp"
 #include "ppu_status.hpp"
-#include "../cartridge/cartridge.hpp"
-#include "../interrupt_signals.hpp"
 #include "ppu_constants.hpp"
 
 namespace nes {
+
+class NesSystemBus;
 
 static constexpr uint8_t PPU_CTRL = 0;
 static constexpr uint8_t PPU_MASK = 1;
@@ -52,7 +52,7 @@ private:
 class PPU
 {
 public:
-    PPU(const int& clock, mos6502::InterruptSignals& interrupt_signals, Cartridge& cartridge);
+    explicit PPU(NesSystemBus& system_bus);
 
     // main bus comms
     uint8_t cpu_read(uint16_t address);
@@ -88,21 +88,21 @@ protected:
     std::vector<uint32_t> rendered_image;
 
     uint8_t latch;
-    const int& clock_counter;
     int latch_clock;
     uint16_t line_index;
     uint16_t cycle_index;
     bool odd_frame;
+    bool nmi_occurred;
 
-    Cartridge& cart;
-
-    mos6502::InterruptSignals& signals;
+    NesSystemBus& system_bus;
 
     void fill_latch(uint8_t data);
 
     uint16_t cpu_map_address(uint16_t address);
 
     void nmi();
+
+    void dma();
 };
 
 }

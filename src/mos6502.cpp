@@ -6,8 +6,7 @@
 
 #include "mos6502.hpp"
 #include "logger/logger.hpp"
-#include "nes.hpp"
-#include "cartridge/cartridge.hpp"
+#include "system_bus.hpp"
 #include "opcode_table.hpp"
 
 namespace mos6502 {
@@ -69,7 +68,7 @@ void Flags::set_n_and_z(uint8_t data)
     negative = data >> 7;
 }
 
-MOS6502::MOS6502(int32_t cpu_clock_rate) :
+MOS6502::MOS6502(SystemBus& system_bus, int32_t cpu_clock_rate) :
     flags(),
     pc(RESET_VECTOR),
     acc(0),
@@ -78,8 +77,7 @@ MOS6502::MOS6502(int32_t cpu_clock_rate) :
     stack_ptr(0x00),
     clock_rate(cpu_clock_rate),
     clock_counter(0),
-    interrupt_signals{0},
-    memory(nullptr),
+    system_bus(system_bus),
     diagnostics(true),
     heavy_diagnostics(false),
     irq_counter(0),
@@ -88,19 +86,14 @@ MOS6502::MOS6502(int32_t cpu_clock_rate) :
     flags.set(0x34);
 }
 
-void MOS6502::set_memory(Memory* external_memory)
-{
-    memory = external_memory;
-}
-
 uint8_t MOS6502::read(uint16_t address)
 {
-    return memory->read(address);
+    return system_bus.read(address);
 }
 
 void MOS6502::write(uint16_t address, uint8_t data)
 {
-    memory->write(address, data);
+    system_bus.write(address, data);
 }
 
 void MOS6502::load_reg(uint8_t& reg, uint8_t data)
@@ -413,14 +406,14 @@ void MOS6502::step_diagnostics(uint8_t opcode, OpDecode& op_decode)
     if (status == 0x80)
     {
         std::string message{reinterpret_cast<const char*>(
-                &(dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[4]))};
+                &(static_cast<nes::NesSystemBus&>(system_bus).cart.prg_ram[4]))};
         if (message.size() > 6)
         {
             logger::warn(
                 "Test in progress {:02X} {:02X} {:02X}\nmessage={}",
-                dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[1],
-                dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[2],
-                dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[3],
+                static_cast<nes::NesSystemBus&>(system_bus).cart.prg_ram[1],
+                static_cast<nes::NesSystemBus&>(system_bus).cart.prg_ram[2],
+                static_cast<nes::NesSystemBus&>(system_bus).cart.prg_ram[3],
                 message
             );
         }
@@ -1048,9 +1041,13 @@ uint8_t MOS6502::step()
         pc += 1 + op_decode.read_bytes;
     }
 
-    if (flags.brk || (interrupt_signals.irq && !flags.interrupt_inhibit))
+    if (flags.brk || (system_bus.get_interrupt_signals().irq && !flags.interrupt_inhibit))
     {
         irq();
+    }
+    if (system_bus.get_interrupt_signals().nmi)
+    {
+        nmi();
     }
 
     auto stop_clock = clock_counter;
@@ -1073,7 +1070,7 @@ void MOS6502::reset()
     flags.interrupt_inhibit = true;
 
     clock_counter += 7;
-    interrupt_signals.reset = false;
+    system_bus.get_interrupt_signals().reset = false;
 }
 
 void MOS6502::irq()
@@ -1099,7 +1096,7 @@ void MOS6502::irq()
 
     clock_counter += 7;
     irq_counter++;
-    interrupt_signals.irq = false;
+    system_bus.get_interrupt_signals().irq = false;
 }
 
 void MOS6502::nmi()
@@ -1115,7 +1112,7 @@ void MOS6502::nmi()
 
     logger::debug("NMI: PC=0x{:04X} from 0x{:02X} 0x{:02X}", pc, high_addr, low_addr);
     nmi_counter++;
-    interrupt_signals.nmi = false;
+    system_bus.get_interrupt_signals().nmi = false;
 }
 
 } // namespace mos6502

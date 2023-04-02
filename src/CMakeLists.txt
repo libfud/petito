@@ -7,7 +7,7 @@ set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} -Wunused-variable)
 add_library(mos6502_lib mos6502.cpp opcode_table.cpp)
 
 add_library(apu_lib apu.cpp)
-add_library(nes_lib nes.cpp)
+add_library(nes_lib nes.cpp system_bus.cpp)
 add_executable(mos6502 emu.cpp)
 
 add_subdirectory(logger)

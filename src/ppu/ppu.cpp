@@ -1,5 +1,6 @@
 #include "ppu.hpp"
 #include "../logger/logger.hpp"
+#include "../system_bus.hpp"
 #include <SDL.h>
 
 namespace nes {
@@ -47,7 +48,7 @@ void AddressLatch::increment(uint8_t increment)
     address += increment;
 }
 
-PPU::PPU(const int& clock, mos6502::InterruptSignals& interrupt_signals, Cartridge& cartridge) :
+PPU::PPU(NesSystemBus& system_bus) :
     ctrl{},
     mask{},
     status{},
@@ -61,20 +62,21 @@ PPU::PPU(const int& clock, mos6502::InterruptSignals& interrupt_signals, Cartrid
     object_attribute_memory{oam_address},
     palette_table{PALETTE_RAM_SIZE},
     latch{},
-    clock_counter{clock},
     latch_clock{},
-    cart{cartridge},
+    system_bus{system_bus},
     line_index{0},
     cycle_index{0},
     odd_frame{false},
-    signals{interrupt_signals}
+    nmi_occurred{false}
 {}
 
 void PPU::fill_latch(uint8_t data)
 {
     latch = data;
-    latch_clock = clock_counter;
-    log(LogLevel::Debug, "Latch Set! {} {}", clock_counter, latch_clock);
+    auto old_clock = latch_clock;
+    latch_clock = system_bus.ppu_clock;
+    auto diff = latch_clock - old_clock;
+    log(LogLevel::Debug, "Latch Set!   {} {} {}", old_clock, latch_clock, diff);
 }
 
 uint16_t PPU::cpu_map_address(uint16_t address)
@@ -91,10 +93,23 @@ uint8_t PPU::cpu_read(uint16_t address)
 {
     auto mapped_address = cpu_map_address(address);
     uint8_t data = 0xFF;
-    if ((clock_counter - latch_clock) > PPU_TICKS_PER_SEC)
+    auto clock_diff = system_bus.ppu_clock - latch_clock;
+    if (clock_diff > PPU_TICKS_PER_SEC)
     {
-        log(LogLevel::Debug, "Latch Decay! {} {}", clock_counter, latch_clock);
+        logger::debug(
+            "Latch Decay! {} {} {}",
+            system_bus.ppu_clock,
+            latch_clock,
+            clock_diff);
         latch = 0x00;
+    }
+    else
+    {
+        logger::debug(
+            "No Decay!    {} {} {}",
+            system_bus.ppu_clock,
+            latch_clock,
+            clock_diff);
     }
     switch (mapped_address)
     {
@@ -144,7 +159,9 @@ void PPU::cpu_write(uint16_t address, uint8_t data)
     switch (mapped_address)
     {
     case PPU_CTRL:
+        logger::debug("Writing {:02X} to PPU_CTRL", data);
         ctrl.deserialize(data);
+        logger::debug("NMI status = {}", ctrl.generate_nmi);
         break;
     case PPU_MASK:
         mask.deserialize(data);
@@ -169,10 +186,11 @@ void PPU::cpu_write(uint16_t address, uint8_t data)
         data_register = data;
         break;
     case OAM_DMA:
+        logger::debug("OAM DMA!");
         oam_dma = data;
         break;
     default:
-        log(LogLevel::Critical, "Invalid read from PPU {:04X}", address);
+        logger::critical("Invalid read from PPU {:04X}", address);
         break;
     }
     fill_latch(data);
@@ -187,7 +205,7 @@ uint8_t PPU::ppu_read()
         auto mapped_address = (address - PALETTE_RAM_START) % PALETTE_RAM_SIZE;
         return palette_table[mapped_address];
     }
-    auto data = cart.ppu_read(address);
+    auto data = system_bus.ppu_read(address);
     return data;
 }
 
@@ -201,14 +219,20 @@ void PPU::ppu_write(uint8_t data)
     }
     else
     {
-        cart.ppu_write(address, data);
+        system_bus.ppu_write(address, data);
     }
 }
 
 void PPU::nmi()
 {
-    signals.nmi = true;
+    logger::debug("NMI!");
+    system_bus.signals.nmi = true;
     ctrl.generate_nmi = false;
+}
+
+void PPU::dma()
+{
+
 }
 
 void PPU::run(int cpu_cycles)
@@ -218,6 +242,7 @@ void PPU::run(int cpu_cycles)
     {
         step();
         steps--;
+        system_bus.ppu_clock++;
     }
 }
 
@@ -226,13 +251,15 @@ void PPU::step()
     if (line_index == POST_RENDER_LINE_0 + 1 && cycle_index == 1)
     {
         status.in_v_blank = true;
+        nmi_occurred = true;
     }
     else if (line_index < POST_RENDER_LINE_0)
     {
         status.in_v_blank = false;
+        nmi_occurred = false;
     }
 
-    if (ctrl.generate_nmi && status.in_v_blank)
+    if (ctrl.generate_nmi && nmi_occurred)
     {
         nmi();
     }

@@ -3,11 +3,12 @@
 
 #include <cstdint>
 
-#include "memory.hpp"
 #include "interrupt_signals.hpp"
 #include "opcode_table.hpp"
 
 namespace mos6502 {
+
+class SystemBus;
 
 constexpr uint16_t MIN_RAM_SIZE = 256;
 
@@ -50,9 +51,9 @@ class MOS6502
 {
 
 public:
-    explicit MOS6502(int32_t cpu_clock_rate);
+    MOS6502(SystemBus& system_bus, int32_t cpu_clock_rate);
 
-    void set_memory(Memory* memory);
+    // void set_system_bus(SystemBus* system_bus);
 
     OpDecode decode(uint8_t opcode);
 
@@ -84,9 +85,7 @@ public:
 
     int clock_counter;
 
-    InterruptSignals interrupt_signals;
-
-    Memory* memory;
+    SystemBus& system_bus;
 
     bool diagnostics;
     bool heavy_diagnostics;

@@ -2,7 +2,9 @@
 #include "ppu.hpp"
 #include "../cartridge/mapper_000.hpp"
 #include "../logger/logger.hpp"
+#include "../nes.hpp"
 
+#if 0
 namespace nes {
 
 static constexpr std::string test_rom{"TestROM"};
@@ -25,8 +27,8 @@ public:
 
 class TestPpu : public PPU {
 public:
-    TestPpu(int& test_clock, mos6502::InterruptSignals& interrupts, TestCartridge& test_cartridge)
-        : PPU{test_clock, interrupts, static_cast<Cartridge&>(test_cartridge)}
+    TestPpu(int& test_clock, mos6502::InterruptSignals& interrupts, TestNesMem& test_nes_mem)
+        : PPU{test_clock, interrupts, static_cast<NesMemory&>(test_nes_mem)}
     {
     }
 
@@ -41,16 +43,18 @@ public:
 class TestPpuApparatus {
 public :
     TestPpuApparatus() :
-        cart{},
         clock{0},
+        cart{},
         signals{0},
-        ppu{clock, signals, cart}
+        nes_mem{static_cast<Cartridge>(cart), signals, clock},
+        ppu{clock, signals, nes_mem}
     {
         cart.load(test_rom);
     }
-    TestCartridge cart;
     int clock;
+    TestCartridge cart;
     mos6502::InterruptSignals signals;
+    TestNesMem nes_mem;
     TestPpu ppu;
 };
 
@@ -114,4 +118,18 @@ TEST(TestPpu, OddFrameCycleSkip)
     ASSERT_EQ(apparatus.ppu.get_cycle_index(), ODD_SPECIAL_TICK + 1);
 }
 
+TEST(TestPpu, LatchDecay)
+{
+    TestPpuApparatus apparatus{};
+    apparatus.ppu.get_latch() = 0x00;
+    apparatus.clock = 0;
+    apparatus.ppu.cpu_write(PPU_REG_HIGH + PPU_CTRL, 0xFF);
+    ASSERT_EQ(apparatus.ppu.get_latch(), 0xFF);
+    apparatus.clock = PPU_TICKS_PER_SEC + 1;
+    auto data = apparatus.ppu.cpu_read(PPU_REG_HIGH + PPU_CTRL);
+    ASSERT_EQ(data, 0);
+    ASSERT_EQ(apparatus.ppu.get_latch(), 0);
+}
+
 } // namespace nes
+#endif

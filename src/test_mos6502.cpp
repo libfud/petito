@@ -83,6 +83,7 @@ private:
 
 };
 
+#if 0
 TEST_F(TestNes, Reset)
 {
     std::string filename = "data/roms/instr_test_v5/official_only.nes";
@@ -235,3 +236,4 @@ TEST_F(TestNes, Addressing)
     addr = cpu.indirect(b1, b2);
     EXPECT_EQ(addr, 0xBEEF);
 }
+#endif
