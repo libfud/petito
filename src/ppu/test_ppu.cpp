@@ -1,10 +1,10 @@
 #include "gtest/gtest.h"
 #include "ppu.hpp"
+#include "../apu.hpp"
 #include "../cartridge/mapper_000.hpp"
 #include "../logger/logger.hpp"
-#include "../nes.hpp"
+#include "../system_bus.hpp"
 
-#if 0
 namespace nes {
 
 static constexpr std::string test_rom{"TestROM"};
@@ -27,8 +27,8 @@ public:
 
 class TestPpu : public PPU {
 public:
-    TestPpu(int& test_clock, mos6502::InterruptSignals& interrupts, TestNesMem& test_nes_mem)
-        : PPU{test_clock, interrupts, static_cast<NesMemory&>(test_nes_mem)}
+    TestPpu(NesSystemBus& system_bus)
+        : PPU{system_bus}
     {
     }
 
@@ -38,24 +38,24 @@ public:
     uint16_t& get_line_index() { return line_index; }
     uint16_t& get_cycle_index() { return cycle_index; }
     bool& get_odd_frame() { return odd_frame; }
+    bool& get_nmi_occurred() { return nmi_occurred; }
 };
 
 class TestPpuApparatus {
 public :
     TestPpuApparatus() :
-        clock{0},
         cart{},
-        signals{0},
-        nes_mem{static_cast<Cartridge>(cart), signals, clock},
-        ppu{clock, signals, nes_mem}
+        apu{},
+        ppu{system_bus},
+        system_bus{cart, ppu, apu}
     {
         cart.load(test_rom);
+        system_bus.init();
     }
-    int clock;
     TestCartridge cart;
-    mos6502::InterruptSignals signals;
-    TestNesMem nes_mem;
+    APU apu;
     TestPpu ppu;
+    NesSystemBus system_bus;
 };
 
 TEST(TestPpu, PpuCtrl)
@@ -78,12 +78,13 @@ TEST(TestPpu, GenerateNmi)
     TestPpuApparatus apparatus{};
     logger::set_pattern("%v");
     logger::set_level(logger::LogLevel::Debug);
-    apparatus.signals.nmi = false;
+    apparatus.system_bus.signals.nmi = false;
     apparatus.ppu.get_ctrl().generate_nmi = true;
     apparatus.ppu.get_line_index() = POST_RENDER_LINE_0 + 1;
     apparatus.ppu.get_cycle_index() = 1;
     apparatus.ppu.step();
-    ASSERT_TRUE(apparatus.signals.nmi);
+    ASSERT_TRUE(apparatus.system_bus.signals.nmi);
+    ASSERT_TRUE(apparatus.ppu.get_nmi_occurred());
     ASSERT_FALSE(apparatus.ppu.get_ctrl().generate_nmi);
     ASSERT_TRUE(apparatus.ppu.get_status().in_v_blank);
     ASSERT_EQ(apparatus.ppu.get_line_index(), POST_RENDER_LINE_0 + 1);
@@ -122,14 +123,13 @@ TEST(TestPpu, LatchDecay)
 {
     TestPpuApparatus apparatus{};
     apparatus.ppu.get_latch() = 0x00;
-    apparatus.clock = 0;
+    apparatus.system_bus.ppu_clock = 0;
     apparatus.ppu.cpu_write(PPU_REG_HIGH + PPU_CTRL, 0xFF);
     ASSERT_EQ(apparatus.ppu.get_latch(), 0xFF);
-    apparatus.clock = PPU_TICKS_PER_SEC + 1;
+    apparatus.system_bus.ppu_clock = PPU_TICKS_PER_SEC + 1;
     auto data = apparatus.ppu.cpu_read(PPU_REG_HIGH + PPU_CTRL);
     ASSERT_EQ(data, 0);
     ASSERT_EQ(apparatus.ppu.get_latch(), 0);
 }
 
 } // namespace nes
-#endif

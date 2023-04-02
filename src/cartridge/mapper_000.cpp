@@ -44,6 +44,10 @@ uint8_t& Mapper000::ppu_map(uint16_t address)
     {
         return cartridge.ppu_ram[(address - SIZE_8K) % PPU_RAM_SIZE];
     }
+    if (cartridge.chr_ram.size() > 0)
+    {
+        return cartridge.chr_ram[address];
+    }
     return cartridge.chr_rom[address];
 }
 

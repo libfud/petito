@@ -16,6 +16,6 @@ add_minimal_target(
 )
 
 target_include_directories(ppu_lib PRIVATE ${SDL2_INCLUDE_DIRS})
-target_link_libraries(ppu_lib PRIVATE cartridge_lib ${SDL2_LIBRARIES})
+target_link_libraries(ppu_lib PRIVATE cartridge_lib nes_lib ${SDL2_LIBRARIES})
 
 add_common_dependency(ppu_lib Logger)

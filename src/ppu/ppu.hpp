@@ -83,6 +83,8 @@ protected:
 
     AddressLatch vram_address;
 
+    uint8_t ppu_data_buffer;
+
     ObjectAttributeMemory object_attribute_memory;
     std::vector<uint8_t> palette_table;
     std::vector<uint32_t> rendered_image;

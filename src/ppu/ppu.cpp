@@ -11,13 +11,18 @@ using logger::log;
 ObjectAttributeMemory::ObjectAttributeMemory(uint8_t &oam_address)
     :
     address(oam_address),
-    internal_data(256)
+    internal_data(256, 0)
 {
 }
 
 uint8_t ObjectAttributeMemory::read() const
 {
-    return internal_data[address];
+    auto data = internal_data[address];
+    if ((address % 4) == 2)
+    {
+        data &= 0xE3;
+    }
+    return data;
 }
 
 void ObjectAttributeMemory::write(uint8_t data)
@@ -59,8 +64,9 @@ PPU::PPU(NesSystemBus& system_bus) :
     oam_dma{},
     scroll_address{},
     vram_address{},
+    ppu_data_buffer{0},
     object_attribute_memory{oam_address},
-    palette_table{PALETTE_RAM_SIZE},
+    palette_table{PALETTE_RAM_SIZE, 0},
     latch{},
     latch_clock{},
     system_bus{system_bus},
@@ -124,7 +130,6 @@ uint8_t PPU::cpu_read(uint16_t address)
         status.in_v_blank = false;
         vram_address.reset();
         scroll_address.reset();
-        fill_latch(data);
         break;
     case OAM_ADDR:
         data = latch;
@@ -141,7 +146,6 @@ uint8_t PPU::cpu_read(uint16_t address)
         break;
     case PPU_DATA:
         data = ppu_read();
-        fill_latch(data);
         break;
     case OAM_DMA:
         data = oam_dma;
@@ -184,6 +188,7 @@ void PPU::cpu_write(uint16_t address, uint8_t data)
         break;
     case PPU_DATA:
         data_register = data;
+        ppu_write(data);
         break;
     case OAM_DMA:
         logger::debug("OAM DMA!");
@@ -200,18 +205,27 @@ uint8_t PPU::ppu_read()
 {
     auto address = vram_address.get_address();
     vram_address.increment(ctrl.vram_increment);
+    uint8_t data = latch;
     if (address >= PALETTE_RAM_START)
     {
         auto mapped_address = (address - PALETTE_RAM_START) % PALETTE_RAM_SIZE;
-        return palette_table[mapped_address];
+        auto new_data = palette_table[mapped_address];
+        fill_latch(new_data);
+        return new_data;
     }
-    auto data = system_bus.ppu_read(address);
+    else
+    {
+        auto new_data = system_bus.ppu_read(address);
+        fill_latch(new_data);
+    }
+
     return data;
 }
 
 void PPU::ppu_write(uint8_t data)
 {
     auto address = vram_address.get_address();
+    vram_address.increment(ctrl.vram_increment);
     if (address >= PALETTE_RAM_START)
     {
         auto mapped_address = (address - PALETTE_RAM_START) % PALETTE_RAM_SIZE;
@@ -232,7 +246,15 @@ void PPU::nmi()
 
 void PPU::dma()
 {
-
+    logger::debug("DMA!");
+    uint16_t base_address = oam_dma << 8;
+    for (auto idx = 0; idx < 256; ++idx)
+    {
+        auto address = base_address + idx;
+        object_attribute_memory.write(system_bus.read(address));
+    }
+    system_bus.cpu_clock += 513;
+    system_bus.ppu_clock += 513 * 3;
 }
 
 void PPU::run(int cpu_cycles)
@@ -253,7 +275,7 @@ void PPU::step()
         status.in_v_blank = true;
         nmi_occurred = true;
     }
-    else if (line_index < POST_RENDER_LINE_0)
+    else if (line_index < POST_RENDER_LINE_0 || line_index > POST_RENDER_LINE_F)
     {
         status.in_v_blank = false;
         nmi_occurred = false;

@@ -1107,6 +1107,7 @@ void MOS6502::nmi()
     uint8_t low_addr = read(NMI_VECTOR);
     uint8_t high_addr = read(NMI_VECTOR + 1);
     pc = make_address(low_addr, high_addr);
+    flags.interrupt_inhibit = true;
 
     clock_counter += 8;
 

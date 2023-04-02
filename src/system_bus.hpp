@@ -1,7 +1,6 @@
 #ifndef NES_SYSTEM_BUS_HPP
 #define NES_SYSTEM_BUS_HPP
 
-#include "mos6502.hpp"
 #include "interrupt_signals.hpp"
 #include "cartridge/cartridge.hpp"
 #include "ppu/ppu.hpp"
@@ -22,7 +21,6 @@ public:
 
 namespace nes {
 
-using mos6502::MOS6502;
 using mos6502::InterruptSignals;;
 
 class NesSystemBus : public mos6502::SystemBus {
