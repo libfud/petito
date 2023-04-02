@@ -64,6 +64,9 @@ PPU::PPU(const int& clock, mos6502::InterruptSignals& interrupt_signals, Cartrid
     clock_counter{clock},
     latch_clock{},
     cart{cartridge},
+    line_index{0},
+    cycle_index{0},
+    odd_frame{false},
     signals{interrupt_signals}
 {}
 
@@ -147,7 +150,6 @@ void PPU::cpu_write(uint16_t address, uint8_t data)
         mask.deserialize(data);
         break;
     case PPU_STATUS:
-        status.deserialize(data);
         break;
     case OAM_ADDR:
         oam_address = data;
@@ -185,9 +187,8 @@ uint8_t PPU::ppu_read()
         auto mapped_address = (address - PALETTE_RAM_START) % PALETTE_RAM_SIZE;
         return palette_table[mapped_address];
     }
-    // auto data = raw_data[mapped_address];
-    // return data;
-    return 0;
+    auto data = cart.ppu_read(address);
+    return data;
 }
 
 void PPU::ppu_write(uint8_t data)
@@ -198,16 +199,52 @@ void PPU::ppu_write(uint8_t data)
         auto mapped_address = (address - PALETTE_RAM_START) % PALETTE_RAM_SIZE;
         palette_table[mapped_address] = data;
     }
-    // raw_data[mapped_address] = data;
+    else
+    {
+        cart.ppu_write(address, data);
+    }
 }
 
 void PPU::nmi()
 {
     signals.nmi = true;
+    ctrl.generate_nmi = false;
 }
 
 void PPU::step()
 {
+    if (line_index == POST_RENDER_LINE_0 + 1 && cycle_index == 1)
+    {
+        status.in_v_blank = true;
+    }
+    else if (line_index < POST_RENDER_LINE_0)
+    {
+        status.in_v_blank = false;
+    }
+
+    if (ctrl.generate_nmi && status.in_v_blank)
+    {
+        nmi();
+    }
+
+    if (odd_frame && line_index == PRE_RENDER_SCANLINE && cycle_index == ODD_SPECIAL_TICK)
+    {
+        line_index = 0;
+        cycle_index = 0;
+        return;
+    }
+
+    cycle_index++;
+    if (cycle_index >= PPU_TICKS_PER_LINE)
+    {
+        cycle_index = 0;
+        line_index++;
+    }
+
+    if (line_index >= SCANLINES_PER_FRAME)
+    {
+        line_index = 0;
+    }
 }
 
 bool is_initialized = false;

@@ -11,19 +11,9 @@
 #include "ppu_status.hpp"
 #include "../cartridge/cartridge.hpp"
 #include "../interrupt_signals.hpp"
+#include "ppu_constants.hpp"
 
 namespace nes {
-
-static constexpr int PPU_CLOCKS_PER_CPU_CLOCK = 3;
-static constexpr int PPU_TICKS_PER_SEC = 5369319;
-
-static constexpr size_t NTSC_WIDTH = 256;
-static constexpr size_t NTSC_HEIGHT = 240;
-
-static constexpr size_t OAM_SIZE = 256;
-static constexpr uint16_t PPU_REG_HIGH = 0x2000;
-static constexpr uint32_t PALETTE_RAM_START = 0x3F00;
-static constexpr uint32_t PALETTE_RAM_SIZE = 0x3F20 - PALETTE_RAM_START;
 
 static constexpr uint8_t PPU_CTRL = 0;
 static constexpr uint8_t PPU_MASK = 1;
@@ -94,6 +84,9 @@ protected:
     uint8_t latch;
     const int& clock_counter;
     int latch_clock;
+    uint16_t line_index;
+    uint16_t cycle_index;
+    bool odd_frame;
 
     Cartridge& cart;
 
