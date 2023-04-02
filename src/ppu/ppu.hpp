@@ -62,6 +62,12 @@ public:
     uint8_t ppu_read();
     void ppu_write(uint8_t data);
 
+    void run(int cpu_cycles);
+
+    void step();
+
+    void render();
+
 protected:
     PpuCtrl ctrl;
     PpuMask mask;
@@ -97,11 +103,6 @@ protected:
     uint16_t cpu_map_address(uint16_t address);
 
     void nmi();
-
-public:
-    void step();
-
-    void render();
 };
 
 }

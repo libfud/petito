@@ -20,6 +20,11 @@ bool Cartridge::load(const std::string& rom_name)
         logger::error("No file with name {}.", rom_name);
         return false;
     }
+    else if (!fs::is_regular_file(rom_name))
+    {
+        logger::error("{} is not a regular file.", rom_name);
+        return false;
+    }
     fs::path rom_path = rom_name;
     size_t rom_size = fs::file_size(rom_path);
     size_t min_size = NesHeader::HEADER_SIZE;

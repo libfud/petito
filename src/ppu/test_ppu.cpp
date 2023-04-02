@@ -35,6 +35,7 @@ public:
     uint8_t& get_latch() { return latch; };
     uint16_t& get_line_index() { return line_index; }
     uint16_t& get_cycle_index() { return cycle_index; }
+    bool& get_odd_frame() { return odd_frame; }
 };
 
 class TestPpuApparatus {
@@ -93,6 +94,24 @@ TEST(TestPpu, ReadStatus)
     auto data = apparatus.ppu.cpu_read(PPU_REG_HIGH + PPU_STATUS);
     ASSERT_FALSE(apparatus.ppu.get_status().in_v_blank);
     ASSERT_EQ(data, 0x9F);
+}
+
+TEST(TestPpu, OddFrameCycleSkip)
+{
+    TestPpuApparatus apparatus{};
+    apparatus.ppu.get_line_index() = PRE_RENDER_SCANLINE;
+    apparatus.ppu.get_cycle_index() = ODD_SPECIAL_TICK;
+    apparatus.ppu.get_odd_frame() = true;
+    apparatus.ppu.step();
+    ASSERT_EQ(apparatus.ppu.get_line_index(), 0);
+    ASSERT_EQ(apparatus.ppu.get_cycle_index(), 0);
+
+    apparatus.ppu.get_line_index() = PRE_RENDER_SCANLINE;
+    apparatus.ppu.get_cycle_index() = ODD_SPECIAL_TICK;
+    apparatus.ppu.get_odd_frame() = false;
+    apparatus.ppu.step();
+    ASSERT_EQ(apparatus.ppu.get_line_index(), PRE_RENDER_SCANLINE);
+    ASSERT_EQ(apparatus.ppu.get_cycle_index(), ODD_SPECIAL_TICK + 1);
 }
 
 } // namespace nes

@@ -381,8 +381,11 @@ OpDecode MOS6502::decode(uint8_t opcode)
         op_decode.data = read(op_decode.effective_address);
         break;
     default:
-        logger::log(logger::LogLevel::Critical, "Invalid addressing mode PC={:04X} opcode={:02X} {}",
-                    pc, opcode, static_cast<uint8_t>(address_type));
+        logger::critical(
+            "Invalid addressing mode PC={:04X} opcode={:02X} {}",
+            pc,
+            opcode,
+            static_cast<uint8_t>(address_type));
         throw std::runtime_error("Invalid addressing mode");
     }
 
@@ -395,11 +398,15 @@ void MOS6502::step_diagnostics(uint8_t opcode, OpDecode& op_decode)
 
     if (heavy_diagnostics)
     {
-        logger::log(
-            logger::LogLevel::Debug,
+        logger::debug(
             "{:04X}  {} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} CYC:{:>3}",
-            pc, op_decode.instr_fmt(opcode, x, y, pc),
-            acc, x, y, flags.get(), stack_ptr,
+            pc,
+            op_decode.instr_fmt(opcode, x, y, pc),
+            acc,
+            x,
+            y,
+            flags.get(),
+            stack_ptr,
             static_cast<unsigned int>(clock_counter % 1000)//,
         );
     }
@@ -409,8 +416,7 @@ void MOS6502::step_diagnostics(uint8_t opcode, OpDecode& op_decode)
                 &(dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[4]))};
         if (message.size() > 6)
         {
-            logger::log(
-                logger::LogLevel::Warn,
+            logger::warn(
                 "Test in progress {:02X} {:02X} {:02X}\nmessage={}",
                 dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[1],
                 dynamic_cast<nes::NesMemory*>(memory)->get_cart().prg_ram[2],
@@ -421,8 +427,9 @@ void MOS6502::step_diagnostics(uint8_t opcode, OpDecode& op_decode)
     }
 }
 
-void MOS6502::step()
+uint8_t MOS6502::step()
 {
+    auto start_clock = clock_counter;
     uint8_t opcode = read(pc);
 
     OpDecode op_decode = decode(opcode);
@@ -1024,12 +1031,12 @@ void MOS6502::step()
     case JAM_X05:
     case JAM_X06:
     case JAM_X07:
-        logger::log(logger::LogLevel::Critical, "Unimplemented opcode=0x{:02X} encountered at clock {}", opcode, clock_counter);
+        logger::critical("Unimplemented opcode=0x{:02X} encountered at clock {}", opcode, clock_counter);
         throw std::runtime_error("unimplemented opcode");
         break;
 
     default:
-        logger::log(logger::LogLevel::Critical, "Unimplemented opcode=0x{:02X} encountered at clock {}", opcode, clock_counter);
+        logger::critical("Unimplemented opcode=0x{:02X} encountered at clock {}", opcode, clock_counter);
         throw std::runtime_error("unimplemented opcode");
         break;
     }
@@ -1045,21 +1052,16 @@ void MOS6502::step()
     {
         irq();
     }
-    /*
-    if (flags.brk)
-    {
-        irq();
-    }
-    else if (irq_signal && !flags.interrupt_inhibit)
-    {
-        irq();
-    }
-    */
+
+    auto stop_clock = clock_counter;
+    uint8_t cycles =  stop_clock - start_clock;
 
     if (clock_counter > static_cast<int32_t>(clock_rate))
     {
         clock_counter -= clock_rate;
     }
+
+    return cycles;
 }
 
 void MOS6502::reset()
@@ -1111,7 +1113,7 @@ void MOS6502::nmi()
 
     clock_counter += 8;
 
-    logger::log(logger::LogLevel::Debug, "NMI: PC=0x{:04X} from 0x{:02X} 0x{:02X}", pc, high_addr, low_addr);
+    logger::debug("NMI: PC=0x{:04X} from 0x{:02X} 0x{:02X}", pc, high_addr, low_addr);
     nmi_counter++;
     interrupt_signals.nmi = false;
 }

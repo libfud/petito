@@ -211,6 +211,16 @@ void PPU::nmi()
     ctrl.generate_nmi = false;
 }
 
+void PPU::run(int cpu_cycles)
+{
+    int steps = cpu_cycles * PPU_CLOCKS_PER_CPU_CLOCK;
+    while (steps > 0)
+    {
+        step();
+        steps--;
+    }
+}
+
 void PPU::step()
 {
     if (line_index == POST_RENDER_LINE_0 + 1 && cycle_index == 1)
@@ -229,9 +239,11 @@ void PPU::step()
 
     if (odd_frame && line_index == PRE_RENDER_SCANLINE && cycle_index == ODD_SPECIAL_TICK)
     {
-        line_index = 0;
-        cycle_index = 0;
-        return;
+        // line_index = 0;
+        // cycle_index = 0;
+        // odd_frame = !odd_frame;
+        // return;
+        cycle_index++;
     }
 
     cycle_index++;
@@ -244,6 +256,7 @@ void PPU::step()
     if (line_index >= SCANLINES_PER_FRAME)
     {
         line_index = 0;
+        odd_frame = !odd_frame;
     }
 }
 

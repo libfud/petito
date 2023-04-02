@@ -87,7 +87,8 @@ void NES::run(bool reset)
     }
     while (true)
     {
-        cpu.step();
+        auto cycles = cpu.step();
+        memory.ppu.run(cycles);
         // memory.ppu.render();
     }
 }

@@ -59,7 +59,7 @@ public:
     void step_diagnostics(uint8_t opcode, OpDecode& op_decode);
 
     /** Driving clock */
-    void step();
+    uint8_t step();
 
     /** Reset signal */
     void reset();
