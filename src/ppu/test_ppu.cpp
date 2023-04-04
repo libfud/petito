@@ -33,6 +33,7 @@ public:
     }
 
     PpuCtrl& get_ctrl() { return ctrl; }
+    PpuMask& get_mask() { return mask; }
     PpuStatus& get_status() { return status; }
     uint8_t& get_latch() { return latch; };
     uint16_t& get_line_index() { return line_index; }
@@ -96,6 +97,8 @@ TEST(TestPpu, ReadStatus)
     TestPpuApparatus apparatus{};
     apparatus.ppu.get_status().in_v_blank = true;
     apparatus.ppu.get_latch() = 0xFF;
+    apparatus.ppu.get_mask().show_sprites = true;
+    apparatus.ppu.get_mask().show_background = true;
     auto data = apparatus.ppu.cpu_read(PPU_REG_HIGH + PPU_STATUS);
     ASSERT_FALSE(apparatus.ppu.get_status().in_v_blank);
     ASSERT_EQ(data, 0x9F);
@@ -106,6 +109,8 @@ TEST(TestPpu, OddFrameCycleSkip)
     TestPpuApparatus apparatus{};
     apparatus.ppu.get_line_index() = PRE_RENDER_SCANLINE;
     apparatus.ppu.get_cycle_index() = ODD_SPECIAL_TICK;
+    apparatus.ppu.get_mask().show_sprites = true;
+    apparatus.ppu.get_mask().show_background = true;
     apparatus.ppu.get_odd_frame() = true;
     apparatus.ppu.step();
     ASSERT_EQ(apparatus.ppu.get_line_index(), 0);
@@ -130,6 +135,54 @@ TEST(TestPpu, LatchDecay)
     auto data = apparatus.ppu.cpu_read(PPU_REG_HIGH + PPU_CTRL);
     ASSERT_EQ(data, 0);
     ASSERT_EQ(apparatus.ppu.get_latch(), 0);
+}
+
+TEST(TestPpu, WholeFrameCycle)
+{
+    TestPpuApparatus apparatus{};
+    apparatus.ppu.get_latch() = 0x00;
+    apparatus.system_bus.ppu_clock = 0;
+    ASSERT_EQ(apparatus.ppu.get_line_index(), 0);
+    ASSERT_EQ(apparatus.ppu.get_cycle_index(), 0);
+    ASSERT_FALSE(apparatus.ppu.get_odd_frame());
+    apparatus.ppu.get_mask().show_sprites = true;
+    apparatus.ppu.get_mask().show_background = true;
+
+    apparatus.ppu.run(SCANLINES_PER_FRAME * PPU_TICKS_PER_LINE / 3 + 1);
+    ASSERT_EQ(apparatus.system_bus.ppu_clock, SCANLINES_PER_FRAME * PPU_TICKS_PER_LINE + 1);
+    // (* 341 262) 89342
+    // (/ 89343 3) 29781
+    // (* 29781 3) 89343
+    // (* 3 (+ (/ (* 341 262) 3) 1)) 89343
+    ASSERT_EQ(apparatus.ppu.get_line_index(), 0);
+    ASSERT_EQ(apparatus.ppu.get_cycle_index(), 1);
+    ASSERT_TRUE(apparatus.ppu.get_odd_frame());
+}
+
+TEST(TestPpu, RunWholeFrameCycle)
+{
+    TestPpuApparatus apparatus{};
+    apparatus.ppu.get_latch() = 0x00;
+    apparatus.system_bus.ppu_clock = 0;
+    ASSERT_EQ(apparatus.ppu.get_line_index(), 0);
+    ASSERT_EQ(apparatus.ppu.get_cycle_index(), 0);
+    ASSERT_FALSE(apparatus.ppu.get_odd_frame());
+    apparatus.ppu.get_mask().show_sprites = true;
+    apparatus.ppu.get_mask().show_background = true;
+
+    // SCANLINES_PER_FRAME * PPU_TICKS_PER_LINE / 3 + 1
+    static_assert(
+        (SCANLINES_PER_FRAME * PPU_TICKS_PER_LINE / 3 + 1) == 29781,
+        "WHAT");
+    apparatus.ppu.run(SCANLINES_PER_FRAME * PPU_TICKS_PER_LINE / 3 + 1);
+    ASSERT_EQ(apparatus.system_bus.ppu_clock, SCANLINES_PER_FRAME * PPU_TICKS_PER_LINE + 1);
+    // (* 341 262) 89342
+    // (/ 89343 3) 29781
+    // (* 29781 3) 89343
+    // (* 3 (+ (/ (* 341 262) 3) 1)) 89343
+    ASSERT_EQ(apparatus.ppu.get_line_index(), 0);
+    ASSERT_EQ(apparatus.ppu.get_cycle_index(), 1);
+    ASSERT_TRUE(apparatus.ppu.get_odd_frame());
 }
 
 } // namespace nes

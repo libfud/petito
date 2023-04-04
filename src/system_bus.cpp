@@ -12,6 +12,7 @@ NesSystemBus::NesSystemBus(Cartridge &cart, PPU &ppu, APU &apu)
     : cart{cart},
       ppu{ppu},
       apu{apu},
+      signals{0},
       internal_ram(2048),
       clock_rate{21477272},
       master_clock{0},

@@ -73,16 +73,86 @@ PPU::PPU(NesSystemBus& system_bus) :
     line_index{0},
     cycle_index{0},
     odd_frame{false},
-    nmi_occurred{false}
-{}
+    nmi_occurred{false},
+    pal_screen(PALETTE_SCREEN_SIZE, 0)
+{
+    auto make_pixel = [](auto r, auto g, auto b)
+    {
+        return r << 16 | g << 8 | b;
+    };
+    pal_screen[0x00] = make_pixel(84, 84, 84);
+	pal_screen[0x01] = make_pixel(0, 30, 116);
+	pal_screen[0x02] = make_pixel(8, 16, 144);
+	pal_screen[0x03] = make_pixel(48, 0, 136);
+	pal_screen[0x04] = make_pixel(68, 0, 100);
+	pal_screen[0x05] = make_pixel(92, 0, 48);
+	pal_screen[0x06] = make_pixel(84, 4, 0);
+	pal_screen[0x07] = make_pixel(60, 24, 0);
+	pal_screen[0x08] = make_pixel(32, 42, 0);
+	pal_screen[0x09] = make_pixel(8, 58, 0);
+	pal_screen[0x0A] = make_pixel(0, 64, 0);
+	pal_screen[0x0B] = make_pixel(0, 60, 0);
+	pal_screen[0x0C] = make_pixel(0, 50, 60);
+	pal_screen[0x0D] = make_pixel(0, 0, 0);
+	pal_screen[0x0E] = make_pixel(0, 0, 0);
+	pal_screen[0x0F] = make_pixel(0, 0, 0);
+
+	pal_screen[0x10] = make_pixel(152, 150, 152);
+	pal_screen[0x11] = make_pixel(8, 76, 196);
+	pal_screen[0x12] = make_pixel(48, 50, 236);
+	pal_screen[0x13] = make_pixel(92, 30, 228);
+	pal_screen[0x14] = make_pixel(136, 20, 176);
+	pal_screen[0x15] = make_pixel(160, 20, 100);
+	pal_screen[0x16] = make_pixel(152, 34, 32);
+	pal_screen[0x17] = make_pixel(120, 60, 0);
+	pal_screen[0x18] = make_pixel(84, 90, 0);
+	pal_screen[0x19] = make_pixel(40, 114, 0);
+	pal_screen[0x1A] = make_pixel(8, 124, 0);
+	pal_screen[0x1B] = make_pixel(0, 118, 40);
+	pal_screen[0x1C] = make_pixel(0, 102, 120);
+	pal_screen[0x1D] = make_pixel(0, 0, 0);
+	pal_screen[0x1E] = make_pixel(0, 0, 0);
+	pal_screen[0x1F] = make_pixel(0, 0, 0);
+
+	pal_screen[0x20] = make_pixel(236, 238, 236);
+	pal_screen[0x21] = make_pixel(76, 154, 236);
+	pal_screen[0x22] = make_pixel(120, 124, 236);
+	pal_screen[0x23] = make_pixel(176, 98, 236);
+	pal_screen[0x24] = make_pixel(228, 84, 236);
+	pal_screen[0x25] = make_pixel(236, 88, 180);
+	pal_screen[0x26] = make_pixel(236, 106, 100);
+	pal_screen[0x27] = make_pixel(212, 136, 32);
+	pal_screen[0x28] = make_pixel(160, 170, 0);
+	pal_screen[0x29] = make_pixel(116, 196, 0);
+	pal_screen[0x2A] = make_pixel(76, 208, 32);
+	pal_screen[0x2B] = make_pixel(56, 204, 108);
+	pal_screen[0x2C] = make_pixel(56, 180, 204);
+	pal_screen[0x2D] = make_pixel(60, 60, 60);
+	pal_screen[0x2E] = make_pixel(0, 0, 0);
+	pal_screen[0x2F] = make_pixel(0, 0, 0);
+
+	pal_screen[0x30] = make_pixel(236, 238, 236);
+	pal_screen[0x31] = make_pixel(168, 204, 236);
+	pal_screen[0x32] = make_pixel(188, 188, 236);
+	pal_screen[0x33] = make_pixel(212, 178, 236);
+	pal_screen[0x34] = make_pixel(236, 174, 236);
+	pal_screen[0x35] = make_pixel(236, 174, 212);
+	pal_screen[0x36] = make_pixel(236, 180, 176);
+	pal_screen[0x37] = make_pixel(228, 196, 144);
+	pal_screen[0x38] = make_pixel(204, 210, 120);
+	pal_screen[0x39] = make_pixel(180, 222, 120);
+	pal_screen[0x3A] = make_pixel(168, 226, 144);
+	pal_screen[0x3B] = make_pixel(152, 226, 180);
+	pal_screen[0x3C] = make_pixel(160, 214, 228);
+	pal_screen[0x3D] = make_pixel(160, 162, 160);
+	pal_screen[0x3E] = make_pixel(0, 0, 0);
+	pal_screen[0x3F] = make_pixel(0, 0, 0);
+}
 
 void PPU::fill_latch(uint8_t data)
 {
     latch = data;
-    auto old_clock = latch_clock;
     latch_clock = system_bus.ppu_clock;
-    auto diff = latch_clock - old_clock;
-    log(LogLevel::Debug, "Latch Set!   {} {} {}", old_clock, latch_clock, diff);
 }
 
 uint16_t PPU::cpu_map_address(uint16_t address)
@@ -100,23 +170,11 @@ uint8_t PPU::cpu_read(uint16_t address)
     auto mapped_address = cpu_map_address(address);
     uint8_t data = 0xFF;
     auto clock_diff = system_bus.ppu_clock - latch_clock;
-    if (clock_diff > PPU_TICKS_PER_SEC)
+    if (clock_diff > (PPU_TICKS_PER_SEC / 2))
     {
-        logger::debug(
-            "Latch Decay! {} {} {}",
-            system_bus.ppu_clock,
-            latch_clock,
-            clock_diff);
         latch = 0x00;
     }
-    else
-    {
-        logger::debug(
-            "No Decay!    {} {} {}",
-            system_bus.ppu_clock,
-            latch_clock,
-            clock_diff);
-    }
+
     switch (mapped_address)
     {
     case PPU_CTRL:
@@ -163,9 +221,7 @@ void PPU::cpu_write(uint16_t address, uint8_t data)
     switch (mapped_address)
     {
     case PPU_CTRL:
-        logger::debug("Writing {:02X} to PPU_CTRL", data);
         ctrl.deserialize(data);
-        logger::debug("NMI status = {}", ctrl.generate_nmi);
         break;
     case PPU_MASK:
         mask.deserialize(data);
@@ -191,7 +247,7 @@ void PPU::cpu_write(uint16_t address, uint8_t data)
         ppu_write(data);
         break;
     case OAM_DMA:
-        logger::debug("OAM DMA!");
+        logger::warn("OAM DMA!");
         oam_dma = data;
         break;
     default:
@@ -237,56 +293,75 @@ void PPU::ppu_write(uint8_t data)
     }
 }
 
+int64_t cpu_clock_nmi = 0;
 void PPU::nmi()
 {
-    logger::debug("NMI!");
+    auto cpu_clock_2 = system_bus.cpu_clock;
+    auto clock_diff = cpu_clock_2 - cpu_clock_nmi;
+    logger::warn("NMI {} {} {}", cpu_clock_nmi, cpu_clock_2, clock_diff);
+    cpu_clock_nmi = cpu_clock_2;
+    logger::warn("NMI!");
     system_bus.signals.nmi = true;
     ctrl.generate_nmi = false;
 }
 
 void PPU::dma()
 {
-    logger::debug("DMA!");
+    logger::warn("DMA!");
     uint16_t base_address = oam_dma << 8;
+    run(1);
     for (auto idx = 0; idx < 256; ++idx)
     {
         auto address = base_address + idx;
         object_attribute_memory.write(system_bus.read(address));
+        run(2);
     }
-    system_bus.cpu_clock += 513;
-    system_bus.ppu_clock += 513 * 3;
+    // system_bus.cpu_clock += 513;
+    // system_bus.ppu_clock += 513 * 3;
 }
 
 void PPU::run(int cpu_cycles)
 {
     int steps = cpu_cycles * PPU_CLOCKS_PER_CPU_CLOCK;
-    while (steps > 0)
+    for (int idx = 0; idx < steps; ++idx)
     {
         step();
-        steps--;
         system_bus.ppu_clock++;
     }
 }
 
+int64_t cpu_clock_1 = 0;
 void PPU::step()
 {
-    if (line_index == POST_RENDER_LINE_0 + 1 && cycle_index == 1)
+    auto is_rendering = mask.show_sprites && mask.show_background;
+    if (line_index == VBLANK_LINE_0 && cycle_index == 1)
     {
+        auto cpu_clock_2 = system_bus.cpu_clock;
+        auto clock_diff = cpu_clock_2 - cpu_clock_1;
+        // logger::warn("IN VBLANK {} {} {}", cpu_clock_1, cpu_clock_2, clock_diff);
+        cpu_clock_1 = system_bus.cpu_clock;
         status.in_v_blank = true;
         nmi_occurred = true;
+
+        if (ctrl.generate_nmi && nmi_occurred)
+        {
+            nmi();
+        }
     }
-    else if (line_index < POST_RENDER_LINE_0 || line_index > POST_RENDER_LINE_F)
+    else if (line_index == PRE_RENDER_SCANLINE && cycle_index == 1)
     {
+        auto cpu_clock_2 = system_bus.cpu_clock;
+        auto clock_diff = cpu_clock_2 - cpu_clock_1;
+        // logger::warn("Out of VBLANK {} {} {}", cpu_clock_1, cpu_clock_2, clock_diff);
         status.in_v_blank = false;
         nmi_occurred = false;
+        status.sprite_overflow = false;
+        status.sprite_0_hit = false;
     }
 
-    if (ctrl.generate_nmi && nmi_occurred)
-    {
-        nmi();
-    }
-
-    if (odd_frame && line_index == PRE_RENDER_SCANLINE && cycle_index == ODD_SPECIAL_TICK)
+    // auto render = true;
+    auto special_dot = line_index == PRE_RENDER_SCANLINE && cycle_index == ODD_SPECIAL_TICK;
+    if (odd_frame && is_rendering && special_dot)
     {
         // line_index = 0;
         // cycle_index = 0;
@@ -370,28 +445,26 @@ void PPU::render()
             return;
         }
         rendered_image.resize(NTSC_WIDTH * NTSC_HEIGHT);
-        auto third_width = NTSC_WIDTH / 3;
-        for (auto row = 0; row < NTSC_HEIGHT; ++row)
+        for (auto& val : rendered_image)
         {
-            for (auto col = 0; col < NTSC_WIDTH; ++col)
-            {
-                auto index = row * NTSC_WIDTH + col;
-                uint32_t& pixel = rendered_image[index];
-                if (col < third_width)
-                {
-                    pixel = 0x00FF0000;
-                }
-                else if (col < (2 * third_width))
-                {
-                    pixel = 0x0000FF00;
-                }
-                else
-                {
-                    pixel = 0x000000FF;
-                }
-            }
+            val = 0;
         }
     }
+
+    // (* 240 256) 61440
+    for (auto row = 0; row < NTSC_HEIGHT; ++row)
+    {
+        for (auto col = 0; col < NTSC_WIDTH; ++col)
+        {
+            auto index = row * NTSC_WIDTH + col;
+            uint32_t& pixel = rendered_image[index];
+            pixel = system_bus.ppu_read(0x0000 + index % 0x1000);
+            pixel |= system_bus.ppu_read(0x1000 + index % 0x1000 + 1) << 8;
+            pixel |= system_bus.ppu_read(0x0000 + index % 0x1000 + 2) << 16;
+            pixel |= system_bus.ppu_read(0x1000 + index % 0x1000 + 3) << 24;
+        }
+    }
+
     // SDL_LockSurface(RenderedImage);
     auto pixel_ptr = static_cast<uint32_t*>(RenderedImage->pixels);
     std::memcpy(pixel_ptr, rendered_image.data(), sizeof(uint32_t) * rendered_image.size());
@@ -399,7 +472,7 @@ void PPU::render()
     SDL_BlitSurface(RenderedImage, nullptr, ScreenSurface, nullptr);
     SDL_UpdateWindowSurface(Window);
     SDL_Event e;
-    while (SDL_PollEvent(&e))
+    if (SDL_PollEvent(&e))
     {
         if (e.type == SDL_QUIT)
         {
@@ -408,4 +481,4 @@ void PPU::render()
     }
 }
 
-}
+} // namespace nes

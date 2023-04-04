@@ -96,6 +96,8 @@ protected:
     bool odd_frame;
     bool nmi_occurred;
 
+    std::vector<uint32_t> pal_screen;
+
     NesSystemBus& system_bus;
 
     void fill_latch(uint8_t data);

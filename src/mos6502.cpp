@@ -391,7 +391,7 @@ void MOS6502::step_diagnostics(uint8_t opcode, OpDecode& op_decode)
 
     if (heavy_diagnostics)
     {
-        logger::debug(
+        logger::warn(
             "{:04X}  {} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} CYC:{:>3}",
             pc,
             op_decode.instr_fmt(opcode, x, y, pc),
@@ -400,7 +400,7 @@ void MOS6502::step_diagnostics(uint8_t opcode, OpDecode& op_decode)
             y,
             flags.get(),
             stack_ptr,
-            static_cast<unsigned int>(system_bus.get_cpu_clock() % 1000)//,
+            static_cast<unsigned int>(system_bus.get_cpu_clock() % 1000)
         );
     }
     if (status == 0x80)
@@ -423,6 +423,17 @@ void MOS6502::step_diagnostics(uint8_t opcode, OpDecode& op_decode)
 uint8_t MOS6502::step()
 {
     auto start_clock = system_bus.get_cpu_clock();
+
+    if (system_bus.get_interrupt_signals().nmi)
+    {
+        nmi();
+    }
+
+    if (flags.brk || (system_bus.get_interrupt_signals().irq && !flags.interrupt_inhibit))
+    {
+        irq();
+    }
+
     uint8_t opcode = read(pc);
 
     OpDecode op_decode = decode(opcode);
@@ -1041,16 +1052,6 @@ uint8_t MOS6502::step()
         pc += 1 + op_decode.read_bytes;
     }
 
-
-    if (system_bus.get_interrupt_signals().nmi)
-    {
-        nmi();
-    }
-    else if (flags.brk || (system_bus.get_interrupt_signals().irq && !flags.interrupt_inhibit))
-    {
-        irq();
-    }
-
     auto stop_clock = system_bus.get_cpu_clock();
     uint8_t cycles =  stop_clock - start_clock;
 
@@ -1112,7 +1113,8 @@ void MOS6502::nmi()
 
     pc = make_address(low_addr, high_addr);
 
-    system_bus.get_cpu_clock() += 7;
+    // system_bus.get_cpu_clock() += 7;
+    system_bus.get_cpu_clock() += 8;
     nmi_counter++;
     system_bus.get_interrupt_signals().nmi = false;
 
