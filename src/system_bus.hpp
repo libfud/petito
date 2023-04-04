@@ -12,6 +12,8 @@ class SystemBus {
 public:
     virtual InterruptSignals& get_interrupt_signals() = 0;
 
+    virtual int32_t& get_cpu_clock() = 0;
+
     virtual uint8_t read(uint16_t address) = 0;
 
     virtual void write(uint16_t address, uint8_t data) = 0;
@@ -37,6 +39,8 @@ public:
     int32_t ppu_clock;
 
     InterruptSignals& get_interrupt_signals() override;
+
+    int32_t& get_cpu_clock() override;
 
     uint8_t read(uint16_t address) override;
 

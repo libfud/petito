@@ -25,8 +25,8 @@ void version()
 
 int main(int argc, char** argv)
 {
-    // logger::set_pattern("[%H:%M:%S %z] [%n] [%^---%L---%$] [thread %t] %v");
-    logger::set_pattern("[%H:%M:%S] [%^-%L-%$] %v");
+    // logger::set_pattern("[%H:%M:%S] [%^-%L-%$] %v");
+    logger::set_pattern("%v");
     logger::set_level(LogLevel::Error);
     option_parser::OptionParser opts(argc, argv, "mos6502", "MOS6502 emulator");
 

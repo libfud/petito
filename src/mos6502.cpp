@@ -141,7 +141,7 @@ uint16_t MOS6502::absolute(uint8_t addr_low, uint8_t addr_high) const
 uint16_t MOS6502::absolute_idx(uint8_t addr_low, uint8_t addr_high, uint8_t idx)
 {
     uint16_t new_addr = ((static_cast<uint16_t>(addr_high) << 8) | addr_low) + idx;
-    clock_counter += ((new_addr >> 8) - addr_high) & 0x01;
+    system_bus.get_cpu_clock() += ((new_addr >> 8) - addr_high) & 0x01;
     return new_addr;
 }
 
@@ -171,7 +171,7 @@ uint16_t MOS6502::indirect_y(uint8_t offset)
     uint8_t addr_low = read(offset);
     uint8_t addr_high = read(static_cast<uint8_t>(offset + 1));
     uint16_t new_addr = make_address(addr_low, addr_high) + static_cast<uint16_t>(y);
-    clock_counter += ((new_addr >> 8) - addr_high) & 0x01;
+    system_bus.get_cpu_clock() += ((new_addr >> 8) - addr_high) & 0x01;
     return new_addr;
 }
 
@@ -179,7 +179,7 @@ uint16_t MOS6502::rel_addr(uint8_t offset)
 {
     int8_t relative_address = *reinterpret_cast<int8_t*>(&offset);
     uint16_t effective_address = pc + 2 + relative_address;
-    clock_counter += 1 + (((effective_address - pc) & 0x100) >> 8);
+    system_bus.get_cpu_clock() += 1 + (((effective_address - pc) & 0x100) >> 8);
     return relative_address;
 }
 
@@ -299,7 +299,7 @@ void MOS6502::ror(uint8_t& value)
 
 CpuData MOS6502::save_state()
 {
-    return {flags, pc, acc, x, y, stack_ptr, clock_counter};
+    return {flags, pc, acc, x, y, stack_ptr, system_bus.get_cpu_clock()};
 }
 
 OpDecode MOS6502::decode(uint8_t opcode)
@@ -400,7 +400,7 @@ void MOS6502::step_diagnostics(uint8_t opcode, OpDecode& op_decode)
             y,
             flags.get(),
             stack_ptr,
-            static_cast<unsigned int>(clock_counter % 1000)//,
+            static_cast<unsigned int>(system_bus.get_cpu_clock() % 1000)//,
         );
     }
     if (status == 0x80)
@@ -422,7 +422,7 @@ void MOS6502::step_diagnostics(uint8_t opcode, OpDecode& op_decode)
 
 uint8_t MOS6502::step()
 {
-    auto start_clock = clock_counter;
+    auto start_clock = system_bus.get_cpu_clock();
     uint8_t opcode = read(pc);
 
     OpDecode op_decode = decode(opcode);
@@ -1024,38 +1024,39 @@ uint8_t MOS6502::step()
     case JAM_X05:
     case JAM_X06:
     case JAM_X07:
-        logger::critical("Unimplemented opcode=0x{:02X} encountered at clock {}", opcode, clock_counter);
+        logger::critical("Unimplemented opcode=0x{:02X} encountered at clock {}", opcode, system_bus.get_cpu_clock());
         throw std::runtime_error("unimplemented opcode");
         break;
 
     default:
-        logger::critical("Unimplemented opcode=0x{:02X} encountered at clock {}", opcode, clock_counter);
+        logger::critical("Unimplemented opcode=0x{:02X} encountered at clock {}", opcode, system_bus.get_cpu_clock());
         throw std::runtime_error("unimplemented opcode");
         break;
     }
 
-    clock_counter += op_decode.op_info.min_cycles;
+    system_bus.get_cpu_clock() += op_decode.op_info.min_cycles;
 
     if (update_pc)
     {
         pc += 1 + op_decode.read_bytes;
     }
 
-    if (flags.brk || (system_bus.get_interrupt_signals().irq && !flags.interrupt_inhibit))
-    {
-        irq();
-    }
+
     if (system_bus.get_interrupt_signals().nmi)
     {
         nmi();
     }
+    else if (flags.brk || (system_bus.get_interrupt_signals().irq && !flags.interrupt_inhibit))
+    {
+        irq();
+    }
 
-    auto stop_clock = clock_counter;
+    auto stop_clock = system_bus.get_cpu_clock();
     uint8_t cycles =  stop_clock - start_clock;
 
-    if (clock_counter > static_cast<int32_t>(clock_rate))
+    if (system_bus.get_cpu_clock() > static_cast<int32_t>(clock_rate))
     {
-        clock_counter -= clock_rate;
+        system_bus.get_cpu_clock() -= clock_rate;
     }
 
     return cycles;
@@ -1069,7 +1070,7 @@ void MOS6502::reset()
     pc = make_address(low_addr, high_addr);
     flags.interrupt_inhibit = true;
 
-    clock_counter += 7;
+    system_bus.get_cpu_clock() += 7;
     system_bus.get_interrupt_signals().reset = false;
 }
 
@@ -1088,13 +1089,14 @@ void MOS6502::irq()
     }
     push_pc();
     push(p_flags);
+    flags.interrupt_inhibit = true;
 
     uint8_t low_addr = read(IRQ_VECTOR);
     uint8_t high_addr = read(IRQ_VECTOR + 1);
-    pc = make_address(low_addr, high_addr);
-    flags.interrupt_inhibit = true;
 
-    clock_counter += 7;
+    pc = make_address(low_addr, high_addr);
+
+    system_bus.get_cpu_clock() += 7;
     irq_counter++;
     system_bus.get_interrupt_signals().irq = false;
 }
@@ -1103,17 +1105,18 @@ void MOS6502::nmi()
 {
     push_pc();
     push(flags.get());
+    flags.interrupt_inhibit = true;
 
     uint8_t low_addr = read(NMI_VECTOR);
     uint8_t high_addr = read(NMI_VECTOR + 1);
+
     pc = make_address(low_addr, high_addr);
-    flags.interrupt_inhibit = true;
 
-    clock_counter += 8;
-
-    logger::debug("NMI: PC=0x{:04X} from 0x{:02X} 0x{:02X}", pc, high_addr, low_addr);
+    system_bus.get_cpu_clock() += 7;
     nmi_counter++;
     system_bus.get_interrupt_signals().nmi = false;
+
+    logger::warn("NMI: PC=0x{:04X} from 0x{:02X} 0x{:02X}", pc, high_addr, low_addr);
 }
 
 } // namespace mos6502

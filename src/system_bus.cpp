@@ -25,6 +25,11 @@ InterruptSignals& NesSystemBus::get_interrupt_signals()
     return signals;
 }
 
+int32_t& NesSystemBus::get_cpu_clock()
+{
+    return cpu_clock;
+}
+
 uint8_t NesSystemBus::read(uint16_t address)
 {
     if (address <= INTERNAL_RAM_END)
