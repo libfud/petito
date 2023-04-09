@@ -3,8 +3,6 @@
 
 #include <cstdint>
 
-#include "ppu_register.hpp"
-
 namespace nes {
 
 constexpr uint16_t NAMETABLE_0 = 0x2000;
@@ -21,40 +19,44 @@ constexpr uint16_t SPRITE_TABLE_1 = 0x1000;
 constexpr uint16_t BG_TABLE_0 = 0;
 constexpr uint16_t BG_TABLE_1 = 0x1000;
 
-struct PpuCtrl : public PpuRegister {
+union  PpuCtrl {
     // bits 0, 1
-    /* Base nametable address */
-    uint8_t nametable_base;
+    struct CtrlData {
+        uint8_t nametable_x : 1;
 
-    // bit 2
-    /* VRAM address increment per CPU read/write of PPUDATA */
-    uint8_t vram_increment;
+        uint8_t nametable_y : 1;
 
-    // bit 3
-    /* Sprite pattern table address for 8x8 sprites
-     * (0: $0000; 1: $1000; ignored in 8x16 mode) */
-    uint8_t sprite_pattern_table;
+        // bit 2
+        /* VRAM address increment per CPU read/write of PPUDATA */
+        uint8_t vram_increment : 1;
 
-    // bit 4
-    /* Background pattern table address (0: $0000; 1: $1000) */
-    uint8_t background_pattern_table;
+        // bit 3
+        /* Sprite pattern table address for 8x8 sprites
+         * (0: $0000; 1: $1000; ignored in 8x16 mode) */
+        uint8_t sprite_pattern_table : 1;
 
-    // bit 5
-    /* Sprite size (0: 8x8 pixels; 1: 8x16 pixels – see PPU OAM#Byte 1) */
-    uint8_t sprite_size;
+        // bit 4
+        /* Background pattern table address (0: $0000; 1: $1000) */
+        uint8_t background_pattern_table : 1;
 
-    // bit 6
-    /* PPU master/slave select
-     * (0: read backdrop from EXT pins; 1: output color on EXT pins) */
-    uint8_t master_slave_select;
+        // bit 5
+        /* Sprite size (0: 8x8 pixels; 1: 8x16 pixels – see PPU OAM#Byte 1) */
+        uint8_t sprite_size : 1;
 
-    // bit 7
-    /* Generate an NMI at the start of the
-     * vertical blanking interval (0: off; 1: on) */
-    bool generate_nmi;
+        // bit 6
+        /* PPU master/slave select
+         * (0: read backdrop from EXT pins; 1: output color on EXT pins) */
+        uint8_t master_slave_select : 1;
 
-    void deserialize(uint8_t data) override;
-    uint8_t serialize() const override;
+        // bit 7
+        /* Generate an NMI at the start of the
+         * vertical blanking interval (0: off; 1: on) */
+        bool generate_nmi : 1;
+    } data;
+    uint8_t reg;
+
+    void deserialize(uint8_t value);
+    uint8_t serialize() const;
 
     uint16_t get_base_nametable_address() const;
     uint8_t get_vram_increment() const;

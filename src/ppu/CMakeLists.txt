@@ -5,14 +5,25 @@ find_package(spdlog REQUIRED)
 
 find_package(SDL2 REQUIRED)
 
+set(PPU_SOURCES
+    ppu.cpp
+    ppu_ctrl.cpp
+    ppu_mask.cpp
+    ppu_status.cpp
+    ppu_object.cpp
+    loopy_register.cpp
+    # ppu_jackass.cpp
+)
+
 add_minimal_target(
     ppu_lib
-    SOURCES ppu.cpp ppu_ctrl.cpp ppu_mask.cpp ppu_status.cpp
+    SOURCES ${PPU_SOURCES}
     TEST_SOURCES
     test_ppu.cpp
     test_ppu_ctrl.cpp
     test_ppu_mask.cpp
     test_ppu_status.cpp
+    test_loopy.cpp
 )
 
 target_include_directories(ppu_lib PRIVATE ${SDL2_INCLUDE_DIRS})

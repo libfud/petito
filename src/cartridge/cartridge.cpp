@@ -138,15 +138,24 @@ void Cartridge::init_mapper()
     switch (header.mapper())
     {
     case 0:
-        mapper = std::unique_ptr<Mapper>(new Mapper000(*this));
+        mapper = std::make_unique<Mapper000>(Mapper000(*this));
+        // mapper = new Mapper000(*this);
         break;
     case 1:
-        mapper = std::unique_ptr<Mapper>(new Mapper001(*this));
+        mapper = std::make_unique<Mapper001>(Mapper001(*this));
+        // mapper = new Mapper001(*this);
         break;
+    case 3:
+        logger::error("Mapper number {} partially implemented.", mapper_number);
+        throw std::runtime_error("Unimplemented mapper");
     default:
         logger::error("Mapper number {} unimplemented.", mapper_number);
         throw std::runtime_error("Unimplemented mapper");
     }
+}
+
+const NesHeader& Cartridge::get_header() const {
+    return header;
 }
 
 uint8_t Cartridge::read(uint16_t address) { return mapper->read(address); }
@@ -171,6 +180,10 @@ uint8_t Cartridge::ppu_read(uint16_t address)
 void Cartridge::ppu_write(uint16_t address, uint8_t data)
 {
     return mapper->ppu_write(address, data);
+}
+
+void Cartridge::scanline()
+{
 }
 
 } // namespace nes

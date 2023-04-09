@@ -6,23 +6,26 @@
 #include <cstdint>
 #include <vector>
 
-#include "ppu_register.hpp"
-
 namespace nes {
 
-struct PpuMask : public PpuRegister
+union PpuMask
 {
-    bool greyscale;
-    bool show_bg_left;
-    bool show_sprites_left;
-    bool show_background;
-    bool show_sprites;
-    bool emphasize_red;
-    bool emphasize_green;
-    bool emphasize_blue;
+    struct PpuMaskData
+    {
+        uint8_t greyscale : 1;
+        uint8_t show_bg_left : 1;
+        uint8_t show_sprites_left : 1;
+        uint8_t show_background : 1;
+        uint8_t show_sprites : 1;
+        uint8_t emphasize_red : 1;
+        uint8_t emphasize_green : 1;
+        uint8_t emphasize_blue : 1;
+    } data;
+    uint8_t reg;
 
-    void deserialize(uint8_t data) override;
-    uint8_t serialize() const override;
+    void deserialize(uint8_t value);
+    uint8_t serialize() const;
+    bool is_rendering() const;
 };
 
 } // namespace nes

@@ -4,6 +4,7 @@
 #include "interrupt_signals.hpp"
 #include "cartridge/cartridge.hpp"
 #include "ppu/ppu.hpp"
+#include "ppu/ppu_jackass.hpp"
 #include "apu.hpp"
 
 namespace mos6502 {
@@ -51,6 +52,8 @@ public:
     void ppu_write(uint16_t address, uint8_t data);
 
     void init();
+
+    void scanline();
 
 private:
     std::vector<uint8_t> internal_ram;

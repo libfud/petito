@@ -33,6 +33,9 @@ public:
 
     void init_mapper();
 
+    const NesHeader& get_header() const;
+    void scanline();
+
 protected:
     static constexpr size_t TRAINER_SIZE = 512;
     static constexpr size_t ROM_START = 0x4020;
@@ -40,6 +43,7 @@ protected:
     NesHeader header;
     uint8_t mapper_number;
     std::unique_ptr<Mapper> mapper;
+    // Mapper* mapper;
 
     std::vector<uint8_t> trainer;
 

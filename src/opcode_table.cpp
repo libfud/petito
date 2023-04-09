@@ -41,7 +41,7 @@ std::string OpDecode::instr_fmt(uint8_t opcode, uint8_t x, uint8_t y, uint16_t p
             meminfo = fmt::format("= {:04X}             ", addr_data);
             break;
         case AddressType::X_IND:
-            meminfo = fmt::format("@ {:02X} = {:04X} = {:02X}   ", b1 + x & 0xFF, addr_data, data);
+            meminfo = fmt::format("@ {:02X} = {:04X} = {:02X}   ", (b1 + x) & 0xFF, addr_data, data);
             break;
         case AddressType::IND_Y:
             meminfo = fmt::format(

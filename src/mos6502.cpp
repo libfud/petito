@@ -177,7 +177,9 @@ uint16_t MOS6502::indirect_y(uint8_t offset)
 
 uint16_t MOS6502::rel_addr(uint8_t offset)
 {
-    int8_t relative_address = *reinterpret_cast<int8_t*>(&offset);
+    // int8_t relative_address  = *reinterpret_cast<int8_t*>(&offset);
+    int8_t relative_address = 0;
+    std::memcpy(&relative_address, &offset, sizeof(offset));
     uint16_t effective_address = pc + 2 + relative_address;
     system_bus.get_cpu_clock() += 1 + (((effective_address - pc) & 0x100) >> 8);
     return relative_address;
@@ -405,16 +407,21 @@ void MOS6502::step_diagnostics(uint8_t opcode, OpDecode& op_decode)
     }
     if (status == 0x80)
     {
-        std::string message{reinterpret_cast<const char*>(
-                &(static_cast<nes::NesSystemBus&>(system_bus).cart.prg_ram[4]))};
-        if (message.size() > 6)
+        std::array<char, 100> msg_buf{};
+        memcpy(
+            msg_buf.data(),
+            &(dynamic_cast<nes::NesSystemBus&>(system_bus).cart.prg_ram[4]),
+            sizeof(msg_buf));
+        // std::string message{msg_buf.data()};
+        // (message.size() > 6)
+        if (strnlen(msg_buf.data(), msg_buf.size()) > 6)
         {
             logger::warn(
                 "Test in progress {:02X} {:02X} {:02X}\nmessage={}",
-                static_cast<nes::NesSystemBus&>(system_bus).cart.prg_ram[1],
-                static_cast<nes::NesSystemBus&>(system_bus).cart.prg_ram[2],
-                static_cast<nes::NesSystemBus&>(system_bus).cart.prg_ram[3],
-                message
+                dynamic_cast<nes::NesSystemBus&>(system_bus).cart.prg_ram[1],
+                dynamic_cast<nes::NesSystemBus&>(system_bus).cart.prg_ram[2],
+                dynamic_cast<nes::NesSystemBus&>(system_bus).cart.prg_ram[3],
+                msg_buf.data()
             );
         }
     }
@@ -1077,7 +1084,7 @@ void MOS6502::reset()
 
 void MOS6502::irq()
 {
-    uint8_t p_flags;
+    uint8_t p_flags = 0;
     if (flags.brk)
     {
         pc += 2;

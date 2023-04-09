@@ -8,16 +8,16 @@ static constexpr uint16_t INTERNAL_RAM_MASK = 0x07FF;
 static constexpr uint16_t PPU_REG_END =   0x3FFF;
 static constexpr uint16_t APU_REG_END =   0x401F;
 
-NesSystemBus::NesSystemBus(Cartridge &cart, PPU &ppu, APU &apu)
+NesSystemBus::NesSystemBus(Cartridge &cart, PPU& ppu, APU& apu)
     : cart{cart},
       ppu{ppu},
       apu{apu},
       signals{0},
-      internal_ram(2048),
       clock_rate{21477272},
       master_clock{0},
       cpu_clock{0},
-      ppu_clock{0}
+      ppu_clock{0},
+      internal_ram(2048)
 {
 }
 
@@ -86,6 +86,11 @@ void NesSystemBus::ppu_write(uint16_t address, uint8_t data)
 void NesSystemBus::init()
 {
     cart.init_mapper();
+}
+
+void NesSystemBus::scanline()
+{
+    cart.scanline();
 }
 
 } // namespace nes

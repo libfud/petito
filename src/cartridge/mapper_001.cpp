@@ -160,8 +160,7 @@ uint8_t& Mapper001::ppu_map(uint16_t address, bool& is_rom)
     auto bank = is_8k_bank || address < SIZE_8K ? chr_bank_0 : chr_bank_1;
     auto mask = is_8k_bank ? 0x1E : 0x1F;
 
-    uint32_t mapped_address;
-    mapped_address = ((bank & mask) << PPU_BANK_SHIFT) | address;
+    uint32_t mapped_address = ((bank & mask) << PPU_BANK_SHIFT) | address;
 
     if (cartridge.chr_ram.size() != 0)
     {

@@ -1,35 +1,11 @@
 #include "ppu.hpp"
 #include "../logger/logger.hpp"
 #include "../system_bus.hpp"
-#include <SDL.h>
 
 namespace nes {
 
 using logger::LogLevel;
 using logger::log;
-
-ObjectAttributeMemory::ObjectAttributeMemory(uint8_t &oam_address)
-    :
-    address(oam_address),
-    internal_data(256, 0)
-{
-}
-
-uint8_t ObjectAttributeMemory::read() const
-{
-    auto data = internal_data[address];
-    if ((address % 4) == 2)
-    {
-        data &= 0xE3;
-    }
-    return data;
-}
-
-void ObjectAttributeMemory::write(uint8_t data)
-{
-    internal_data[address] = data;
-    address++;
-}
 
 void AddressLatch::reset()
 {
@@ -48,110 +24,22 @@ uint16_t AddressLatch::get_address() const {
     return address;
 }
 
-void AddressLatch::increment(uint8_t increment)
+void AddressLatch::increment(const PpuCtrl& control)
 {
-    address += increment;
+    address += control.get_vram_increment();
 }
 
 PPU::PPU(NesSystemBus& system_bus) :
-    ctrl{},
-    mask{},
-    status{},
-    oam_address{},
-    scroll_register{},
-    addr_register{},
-    data_register{},
-    oam_dma{},
-    scroll_address{},
-    vram_address{},
-    ppu_data_buffer{0},
-    object_attribute_memory{oam_address},
-    palette_table{PALETTE_RAM_SIZE, 0},
-    latch{},
-    latch_clock{},
     system_bus{system_bus},
-    line_index{0},
-    cycle_index{0},
-    odd_frame{false},
-    nmi_occurred{false},
-    pal_screen(PALETTE_SCREEN_SIZE, 0)
+    object_attribute_memory{oam_address},
+    sprite_screen{std::make_unique<Sprite>(Sprite(256, 240))}
 {
-    auto make_pixel = [](auto r, auto g, auto b)
-    {
-        return r << 16 | g << 8 | b;
-    };
-    pal_screen[0x00] = make_pixel(84, 84, 84);
-	pal_screen[0x01] = make_pixel(0, 30, 116);
-	pal_screen[0x02] = make_pixel(8, 16, 144);
-	pal_screen[0x03] = make_pixel(48, 0, 136);
-	pal_screen[0x04] = make_pixel(68, 0, 100);
-	pal_screen[0x05] = make_pixel(92, 0, 48);
-	pal_screen[0x06] = make_pixel(84, 4, 0);
-	pal_screen[0x07] = make_pixel(60, 24, 0);
-	pal_screen[0x08] = make_pixel(32, 42, 0);
-	pal_screen[0x09] = make_pixel(8, 58, 0);
-	pal_screen[0x0A] = make_pixel(0, 64, 0);
-	pal_screen[0x0B] = make_pixel(0, 60, 0);
-	pal_screen[0x0C] = make_pixel(0, 50, 60);
-	pal_screen[0x0D] = make_pixel(0, 0, 0);
-	pal_screen[0x0E] = make_pixel(0, 0, 0);
-	pal_screen[0x0F] = make_pixel(0, 0, 0);
-
-	pal_screen[0x10] = make_pixel(152, 150, 152);
-	pal_screen[0x11] = make_pixel(8, 76, 196);
-	pal_screen[0x12] = make_pixel(48, 50, 236);
-	pal_screen[0x13] = make_pixel(92, 30, 228);
-	pal_screen[0x14] = make_pixel(136, 20, 176);
-	pal_screen[0x15] = make_pixel(160, 20, 100);
-	pal_screen[0x16] = make_pixel(152, 34, 32);
-	pal_screen[0x17] = make_pixel(120, 60, 0);
-	pal_screen[0x18] = make_pixel(84, 90, 0);
-	pal_screen[0x19] = make_pixel(40, 114, 0);
-	pal_screen[0x1A] = make_pixel(8, 124, 0);
-	pal_screen[0x1B] = make_pixel(0, 118, 40);
-	pal_screen[0x1C] = make_pixel(0, 102, 120);
-	pal_screen[0x1D] = make_pixel(0, 0, 0);
-	pal_screen[0x1E] = make_pixel(0, 0, 0);
-	pal_screen[0x1F] = make_pixel(0, 0, 0);
-
-	pal_screen[0x20] = make_pixel(236, 238, 236);
-	pal_screen[0x21] = make_pixel(76, 154, 236);
-	pal_screen[0x22] = make_pixel(120, 124, 236);
-	pal_screen[0x23] = make_pixel(176, 98, 236);
-	pal_screen[0x24] = make_pixel(228, 84, 236);
-	pal_screen[0x25] = make_pixel(236, 88, 180);
-	pal_screen[0x26] = make_pixel(236, 106, 100);
-	pal_screen[0x27] = make_pixel(212, 136, 32);
-	pal_screen[0x28] = make_pixel(160, 170, 0);
-	pal_screen[0x29] = make_pixel(116, 196, 0);
-	pal_screen[0x2A] = make_pixel(76, 208, 32);
-	pal_screen[0x2B] = make_pixel(56, 204, 108);
-	pal_screen[0x2C] = make_pixel(56, 180, 204);
-	pal_screen[0x2D] = make_pixel(60, 60, 60);
-	pal_screen[0x2E] = make_pixel(0, 0, 0);
-	pal_screen[0x2F] = make_pixel(0, 0, 0);
-
-	pal_screen[0x30] = make_pixel(236, 238, 236);
-	pal_screen[0x31] = make_pixel(168, 204, 236);
-	pal_screen[0x32] = make_pixel(188, 188, 236);
-	pal_screen[0x33] = make_pixel(212, 178, 236);
-	pal_screen[0x34] = make_pixel(236, 174, 236);
-	pal_screen[0x35] = make_pixel(236, 174, 212);
-	pal_screen[0x36] = make_pixel(236, 180, 176);
-	pal_screen[0x37] = make_pixel(228, 196, 144);
-	pal_screen[0x38] = make_pixel(204, 210, 120);
-	pal_screen[0x39] = make_pixel(180, 222, 120);
-	pal_screen[0x3A] = make_pixel(168, 226, 144);
-	pal_screen[0x3B] = make_pixel(152, 226, 180);
-	pal_screen[0x3C] = make_pixel(160, 214, 228);
-	pal_screen[0x3D] = make_pixel(160, 162, 160);
-	pal_screen[0x3E] = make_pixel(0, 0, 0);
-	pal_screen[0x3F] = make_pixel(0, 0, 0);
 }
 
 void PPU::fill_latch(uint8_t data)
 {
-    latch = data;
+    address_latch = data;
+    // ppu_data_buffer = data;
     latch_clock = system_bus.ppu_clock;
 }
 
@@ -168,42 +56,45 @@ uint16_t PPU::cpu_map_address(uint16_t address)
 uint8_t PPU::cpu_read(uint16_t address)
 {
     auto mapped_address = cpu_map_address(address);
-    uint8_t data = 0xFF;
     auto clock_diff = system_bus.ppu_clock - latch_clock;
     if (clock_diff > (PPU_TICKS_PER_SEC / 2))
     {
-        latch = 0x00;
+        address_latch = 0x00;
+        // ppu_data_buffer = 0x00;
     }
+    uint8_t data = address_latch;
+    // uint8_t data = ppu_data_buffer;
 
     switch (mapped_address)
     {
     case PPU_CTRL:
-        data = latch;
         break;
     case PPU_MASK:
-        data = latch;
         break;
     case PPU_STATUS:
-        data = status.serialize() | (latch & 0x1F);
-        status.in_v_blank = false;
-        vram_address.reset();
-        scroll_address.reset();
+        data = status.serialize() | (ppu_data_buffer & 0x1F);
+        status.data.in_v_blank = 0;
+        latch_set = false;
         break;
     case OAM_ADDR:
-        data = latch;
         break;
     case OAM_DATA:
         data = object_attribute_memory.read();
         fill_latch(data);
         break;
     case PPU_SCROLL:
-        data = latch;
         break;
     case PPU_ADDR:
-        data = latch;
         break;
     case PPU_DATA:
-        data = ppu_read();
+        data = ppu_read(vram_addr.get());
+        // data = ppu_data_buffer;
+        // ppu_data_buffer = ppu_read(vram_addr.get());
+        // if (vram_addr.get() >= 0x3F00)
+        // {
+        //     data = ppu_data_buffer;
+        // }
+        // vram_addr.increment(control);
         break;
     case OAM_DMA:
         data = oam_dma;
@@ -221,7 +112,9 @@ void PPU::cpu_write(uint16_t address, uint8_t data)
     switch (mapped_address)
     {
     case PPU_CTRL:
-        ctrl.deserialize(data);
+        control.deserialize(data);
+        tram_addr.data.nametable_x = control.data.nametable_x;
+        tram_addr.data.nametable_y = control.data.nametable_y;
         break;
     case PPU_MASK:
         mask.deserialize(data);
@@ -235,20 +128,44 @@ void PPU::cpu_write(uint16_t address, uint8_t data)
         object_attribute_memory.write(data);
         break;
     case PPU_SCROLL:
-        scroll_register = data;
-        scroll_address.write(data);
+        if (latch_set)
+        {
+            fine_x = data & 0x07;
+            tram_addr.data.coarse_x = data >> 3;
+            latch_set = true;
+        }
+        else
+        {
+            tram_addr.data.fine_y = data & 0x07;
+            tram_addr.data.coarse_y = data >> 3;
+            latch_set = false;
+        }
         break;
     case PPU_ADDR:
-        addr_register = data;
-        vram_address.write(data);
+        if (latch_set)
+        {
+            auto tram_reg = tram_addr.get();
+            auto new_tram_high = static_cast<uint16_t>((data & 0x3F)) << 8;
+            auto new_tram_low = tram_reg & 0xFF;
+            tram_addr.set(new_tram_high | new_tram_low);
+            latch_set = true;
+        }
+        else
+        {
+            auto tram_reg = tram_addr.get();
+            tram_addr.set((tram_reg & 0xFF00) | data);
+            vram_addr = tram_addr;
+            latch_set = false;
+        }
         break;
     case PPU_DATA:
-        data_register = data;
-        ppu_write(data);
+        ppu_data_write(data);
+        ppu_data_buffer = data;
         break;
     case OAM_DMA:
         logger::warn("OAM DMA!");
         oam_dma = data;
+        dma();
         break;
     default:
         logger::critical("Invalid read from PPU {:04X}", address);
@@ -257,31 +174,41 @@ void PPU::cpu_write(uint16_t address, uint8_t data)
     fill_latch(data);
 }
 
-uint8_t PPU::ppu_read()
+uint8_t PPU::ppu_read(uint16_t address)
 {
-    auto address = vram_address.get_address();
-    vram_address.increment(ctrl.vram_increment);
-    uint8_t data = latch;
+    uint8_t data = address_latch;
+    uint16_t anded_address = address & 0x3FFF;
     if (address >= PALETTE_RAM_START)
     {
-        auto mapped_address = (address - PALETTE_RAM_START) % PALETTE_RAM_SIZE;
+        auto mapped_address = (anded_address - PALETTE_RAM_START) % PALETTE_RAM_SIZE;
+        logger::debug(
+            "PALETTE RAM START! 0x{:04X} 0x{:04X} 0x{:04X}",
+            address, anded_address, mapped_address);
         auto new_data = palette_table[mapped_address];
         fill_latch(new_data);
         return new_data;
     }
     else
     {
-        auto new_data = system_bus.ppu_read(address);
+        logger::debug(
+            "SYSTEM BUS READ! 0x{:04X} 0x{:04X}",
+            address, anded_address);
+        auto new_data = system_bus.ppu_read(anded_address);
         fill_latch(new_data);
     }
 
     return data;
 }
 
-void PPU::ppu_write(uint8_t data)
+uint8_t PPU::ppu_data_read()
 {
-    auto address = vram_address.get_address();
-    vram_address.increment(ctrl.vram_increment);
+    auto address = vram_addr.get();
+    vram_addr.increment(control);
+    return ppu_read(address);
+}
+
+void PPU::ppu_write(uint16_t address, uint8_t data)
+{
     if (address >= PALETTE_RAM_START)
     {
         auto mapped_address = (address - PALETTE_RAM_START) % PALETTE_RAM_SIZE;
@@ -293,16 +220,39 @@ void PPU::ppu_write(uint8_t data)
     }
 }
 
-int64_t cpu_clock_nmi = 0;
+void PPU::ppu_data_write(uint8_t data)
+{
+    auto address = vram_addr.get();
+    vram_addr.increment(control);
+    ppu_write(address, data);
+}
+
+void PPU::reset()
+{
+    fine_x = 0x00;
+    address_latch = 0x00;
+    ppu_data_buffer = 0x00;
+    scanline_index = 0;
+    cycle = 0;
+    bg_info = {};
+    status.reg = 0;
+    mask.reg = 0;
+    control.reg = 0;
+    vram_addr.reg = 0x0000;
+    tram_addr.reg = 0x0000;
+    odd_frame = false;
+}
+
+// int64_t cpu_clock_nmi = 0;
 void PPU::nmi()
 {
-    auto cpu_clock_2 = system_bus.cpu_clock;
-    auto clock_diff = cpu_clock_2 - cpu_clock_nmi;
-    logger::warn("NMI {} {} {}", cpu_clock_nmi, cpu_clock_2, clock_diff);
-    cpu_clock_nmi = cpu_clock_2;
+    // auto cpu_clock_2 = system_bus.cpu_clock;
+    // auto clock_diff = cpu_clock_2 - cpu_clock_nmi;
+    // logger::warn("NMI {} {} {}", cpu_clock_nmi, cpu_clock_2, clock_diff);
+    // cpu_clock_nmi = cpu_clock_2;
     logger::warn("NMI!");
     system_bus.signals.nmi = true;
-    ctrl.generate_nmi = false;
+    // control.data.generate_nmi = false;
 }
 
 void PPU::dma()
@@ -316,82 +266,449 @@ void PPU::dma()
         object_attribute_memory.write(system_bus.read(address));
         run(2);
     }
-    // system_bus.cpu_clock += 513;
+    system_bus.cpu_clock += 513;
     // system_bus.ppu_clock += 513 * 3;
 }
 
 void PPU::run(int cpu_cycles)
 {
     int steps = cpu_cycles * PPU_CLOCKS_PER_CPU_CLOCK;
-    for (int idx = 0; idx < steps; ++idx)
+    for (auto idx = 0; idx < steps; ++idx)
     {
         step();
         system_bus.ppu_clock++;
     }
 }
 
-int64_t cpu_clock_1 = 0;
+bool PPU::is_pre_render_scanline() const
+{
+    return scanline_index == PRE_RENDER_SCANLINE;
+}
+
 void PPU::step()
 {
-    auto is_rendering = mask.show_sprites && mask.show_background;
-    if (line_index == VBLANK_LINE_0 && cycle_index == 1)
+    if (scanline_index >= PRE_RENDER_SCANLINE && scanline_index < POST_RENDER_LINE_0)
     {
-        auto cpu_clock_2 = system_bus.cpu_clock;
-        auto clock_diff = cpu_clock_2 - cpu_clock_1;
-        // logger::warn("IN VBLANK {} {} {}", cpu_clock_1, cpu_clock_2, clock_diff);
-        cpu_clock_1 = system_bus.cpu_clock;
-        status.in_v_blank = true;
-        nmi_occurred = true;
+        render_background();
 
-        if (ctrl.generate_nmi && nmi_occurred)
+        render_foreground();
+    }
+
+    if (scanline_index == POST_RENDER_LINE_0)
+    {
+        // do nothing
+    }
+
+    // If end of frame, set vertical blank flag
+    if (scanline_index >= VBLANK_LINE_0 && scanline_index <= POST_RENDER_LINE_F)
+    {
+        if (scanline_index == VBLANK_LINE_0 && cycle == 1)
         {
-            nmi();
+            status.data.in_v_blank = 1;
+            if (control.data.generate_nmi)
+            {
+                nmi();
+            }
         }
     }
-    else if (line_index == PRE_RENDER_SCANLINE && cycle_index == 1)
+
+    PixelComposition pixel_composition;
+    compose_background(pixel_composition);
+    compose_foreground(pixel_composition);
+    composite_pixels(pixel_composition);
+
+    sprite_screen->set_pixel(
+        cycle - 1,
+        scanline_index,
+        get_color_from_palette_ram(pixel_composition));
+
+    cycle++;
+    if (mask.is_rendering())
     {
-        auto cpu_clock_2 = system_bus.cpu_clock;
-        auto clock_diff = cpu_clock_2 - cpu_clock_1;
-        // logger::warn("Out of VBLANK {} {} {}", cpu_clock_1, cpu_clock_2, clock_diff);
-        status.in_v_blank = false;
-        nmi_occurred = false;
-        status.sprite_overflow = false;
-        status.sprite_0_hit = false;
+        if (cycle == 260 && scanline_index < POST_RENDER_LINE_0)
+        {
+            system_bus.scanline();
+        }
     }
 
-    // auto render = true;
-    auto special_dot = line_index == PRE_RENDER_SCANLINE && cycle_index == ODD_SPECIAL_TICK;
-    if (odd_frame && is_rendering && special_dot)
+    if (cycle >= PPU_TICKS_PER_LINE)
     {
-        // line_index = 0;
-        // cycle_index = 0;
-        // odd_frame = !odd_frame;
-        // return;
-        cycle_index++;
-    }
-
-    cycle_index++;
-    if (cycle_index >= PPU_TICKS_PER_LINE)
-    {
-        cycle_index = 0;
-        line_index++;
-    }
-
-    if (line_index >= SCANLINES_PER_FRAME)
-    {
-        line_index = 0;
-        odd_frame = !odd_frame;
+        cycle = 0;
+        scanline_index++;
+        if (scanline_index > POST_RENDER_LINE_F)
+        {
+            scanline_index = PRE_RENDER_SCANLINE;
+            odd_frame = !odd_frame;
+        }
     }
 }
 
-bool is_initialized = false;
-SDL_Window* Window = nullptr;
-SDL_Surface* ScreenSurface = nullptr;
-SDL_Surface* RenderedImage = nullptr;
+void PPU::render_background()
+{
+    auto is_cycle_zero = scanline_index == 0 && cycle == 0;
+    if (is_cycle_zero && odd_frame && mask.is_rendering())
+    {
+        cycle = 1;
+    }
 
-bool init();
+    if (is_pre_render_scanline() && cycle == 1)
+    {
+        start_new_frame();
+    }
 
-bool init()
+    auto is_fetch_tile_cycle = cycle >= CYCLE_TILE_0 && cycle <= CYCLE_TILE_F;
+    auto is_fetch_n_tile_cycle = cycle >= CYCLE_N_TILE_0 && cycle <= CYCLE_N_TILE_F;
+    if (is_fetch_tile_cycle || is_fetch_n_tile_cycle)
+    {
+        work_visible_frame();
+    }
+
+    if (cycle == CYCLE_END_OF_SCANLINE && mask.is_rendering())
+    {
+        vram_addr.increment_scroll_y();
+    }
+
+    if (cycle == CYCLE_END_OF_SCANLINE)
+    {
+        render();
+    }
+
+    if (cycle == CYCLE_TILE_F)
+    {
+        bg_info.load_shifters();
+        if (mask.is_rendering())
+        {
+            vram_addr.transfer_address_x(tram_addr);
+        }
+    }
+
+    // Superfluous reads of tile id at end of scanline
+    if (cycle == CYCLE_UNUSED_NT_FETCH_0 || cycle == CYCLE_UNUSED_NT_FETCH_1)
+    {
+        bg_info.next_tile_id = ppu_read(vram_addr.nametable_address());
+    }
+
+    auto is_cycle_pre_render_v_update =
+        cycle >= CYCLE_PRE_RENDER_V_UPDATE_0 &&
+        cycle <= CYCLE_PRE_RENDER_V_UPDATE_F;
+    if (is_pre_render_scanline() && is_cycle_pre_render_v_update)
+    {
+        if (mask.is_rendering())
+        {
+            vram_addr.transfer_address_y(tram_addr);
+        }
+    }
+}
+
+void PPU::start_new_frame()
+{
+    status.data.in_v_blank = 0;
+
+    status.data.sprite_overflow = 0;
+
+    status.data.sprite_0_hit = 0;
+
+    sprite_shifter_pattern_lo = {0};
+    sprite_shifter_pattern_hi = {0};
+}
+
+void PPU::work_visible_frame()
+{
+    update_shifters();
+
+    switch ((cycle - 1) % 8)
+    {
+    case 0:
+        bg_info.load_shifters();
+
+        bg_info.next_tile_id = ppu_read(NAMETABLE_SPACE_OFFSET | (vram_addr.reg & NAMETABLE_MASK));
+        break;
+
+    case 2:
+        fetch_next_bg_tile_attrib();
+        break;
+
+    case 4:
+        set_next_tile_addr_byte(bg_info.next_tile_lsb, 0);
+        break;
+
+    case 6:
+        set_next_tile_addr_byte(bg_info.next_tile_msb, 8);
+        break;
+
+    case 7:
+        if (mask.is_rendering())
+        {
+            vram_addr.increment_scroll_x();
+        }
+        break;
+    }
+}
+
+void PPU::update_shifters()
+{
+    if (mask.data.show_background)
+    {
+        bg_info.update_shifters();
+    }
+
+    if (mask.data.show_sprites && cycle >= 1 && cycle <= CYCLE_TILE_F)
+    {
+        for (auto idx = 0; idx < sprite_count; idx++)
+        {
+            if (sprite_scanline[idx].x_pos() > 0)
+            {
+                sprite_scanline[idx].x_pos()--;
+            }
+            else
+            {
+                sprite_shifter_pattern_lo[idx] <<= 1;
+                sprite_shifter_pattern_hi[idx] <<= 1;
+            }
+        }
+    }
+}
+
+void PPU::fetch_next_bg_tile_attrib()
+{
+    uint16_t attrib_addr = vram_addr.attribute_address();
+    logger::debug("PPU READ, FETCH NEXT BG TILE ATTRIB {:04X}", attrib_addr);
+    bg_info.next_tile_attrib = ppu_read(attrib_addr);
+
+    if (vram_addr.data.coarse_y & 0x02)
+    {
+        bg_info.next_tile_attrib >>= 4;
+    }
+    if (vram_addr.data.coarse_x & 0x02)
+    {
+        bg_info.next_tile_attrib >>= 2;
+    }
+    bg_info.next_tile_attrib &= 0x03;
+}
+
+void PPU::set_next_tile_addr_byte(uint8_t& next_tile_byte, uint8_t plane_offset)
+{
+    uint16_t tile_addr_byte = control.data.background_pattern_table << 12;
+    tile_addr_byte += static_cast<uint16_t>(bg_info.next_tile_id) << 4;
+    tile_addr_byte += vram_addr.data.fine_y + plane_offset;
+    next_tile_byte = ppu_read(tile_addr_byte);
+}
+
+void PPU::render_foreground()
+{
+    if (cycle == CYCLE_TILE_F && scanline_index >= 0)
+    {
+        // We've reached the end of a visible scanline. It is now time to determine which
+        // sprites are visible on the next scanline, and preload this info into buffers that we
+        // can work with while the scanline scans the row.
+
+        // Firstly, clear out the sprite memory. This memory is used to store the sprites to be
+        // rendered. It is not the OAM.
+        std::memset(sprite_scanline.data(), 0xFF, sizeof(sprite_scanline));
+
+        // The NES supports a maximum number of sprites per scanline. Nominally this is 8 or
+        // fewer sprites. This is why in some games you see sprites flicker or disappear when
+        // the scene gets busy.
+        sprite_count = 0;
+
+        // Secondly, clear out any residual information in sprite pattern shifters
+        sprite_shifter_pattern_lo = {0};
+        sprite_shifter_pattern_hi = {0};
+
+        evaluate_visible_sprites();
+    }
+    if (cycle == 340)
+    {
+        prepare_visible_sprites();
+    }
+}
+
+void PPU::evaluate_visible_sprites()
+{
+    uint8_t oam_entry_idx = 0;
+
+    sprite_0_hit_possible = false;
+
+    while (oam_entry_idx < OAM_ENTRY_COUNT && sprite_count <= SPRITE_MAX_COUNT)
+    {
+        auto& oam_entry = object_attribute_memory.entry(oam_entry_idx);
+        // N.B. conversion to signed
+        int16_t diff = static_cast<int16_t>(scanline_index - static_cast<int16_t>(oam_entry.y_pos()));
+
+        auto sprite_size = control.data.sprite_size ? 16 : 8;
+        auto diff_in_range = diff >= 0 && diff < sprite_size;
+        if (diff_in_range && sprite_count < 8)
+        {
+            if (sprite_count < 8)
+            {
+                auto zero_idx = oam_entry_idx == 0;
+                sprite_0_hit_possible = zero_idx || sprite_0_hit_possible;
+
+                std::memcpy(&sprite_scanline[sprite_count], &oam_entry, sizeof(oam_entry));
+            }
+            sprite_count++;
+        }
+        oam_entry_idx++;
+    }
+
+    status.data.sprite_overflow = sprite_count >= 8;
+}
+
+auto flipbyte(uint8_t b)
+{
+    b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;
+    b = (b & 0xCC) >> 2 | (b & 0x33) << 2;
+    b = (b & 0xAA) >> 1 | (b & 0x55) << 1;
+    return b;
+};
+
+void PPU::prepare_visible_sprites()
+{
+    for (uint8_t idx = 0; idx < sprite_count; idx++)
+    {
+        uint8_t sprite_pattern_bits_lo{};
+        uint8_t sprite_pattern_bits_hi{};
+        uint16_t sprite_pattern_addr_lo{};
+        uint16_t sprite_pattern_addr_hi{};
+
+        auto unflipped = sprite_scanline[idx].attributes() & 0x80;
+        auto size_8x8 = !control.data.sprite_size;
+        if (size_8x8)
+        {
+            auto row_x = scanline_index - sprite_scanline[idx].y_pos();
+            auto row = !unflipped ? row_x : 7 - row_x;
+            sprite_pattern_addr_lo = control.data.sprite_pattern_table << 12;
+            sprite_pattern_addr_lo |= sprite_scanline[idx].id() << 4;
+            sprite_pattern_addr_lo |= row;
+        }
+        else
+        {
+            auto cell = (scanline_index - sprite_scanline[idx].y_pos() < 8) ? 0 : 1;
+            auto row = (scanline_index - sprite_scanline[idx].y_pos()) & 0x07;
+            auto flipped_8x16 = unflipped;
+            if (flipped_8x16)
+            {
+                row = (7 - (scanline_index - sprite_scanline[idx].y_pos())) & 0x07;
+                cell = scanline_index - sprite_scanline[idx].y_pos() < 8 ? 1 : 0;
+            }
+            sprite_pattern_addr_lo = (sprite_scanline[idx].id() & 0x01) << 12;
+            sprite_pattern_addr_lo |= ((sprite_scanline[idx].id() & 0xFE) + cell) << 4;
+            sprite_pattern_addr_lo |= row;
+        }
+
+        sprite_pattern_addr_hi = sprite_pattern_addr_lo + 8;
+
+        sprite_pattern_bits_lo = ppu_read(sprite_pattern_addr_lo);
+        sprite_pattern_bits_hi = ppu_read(sprite_pattern_addr_hi);
+
+        if (sprite_scanline[idx].flip_h())
+        {
+            sprite_pattern_bits_lo = flipbyte(sprite_pattern_bits_lo);
+            sprite_pattern_bits_hi = flipbyte(sprite_pattern_bits_hi);
+        }
+
+        sprite_shifter_pattern_lo[idx] = sprite_pattern_bits_lo;
+        sprite_shifter_pattern_hi[idx] = sprite_pattern_bits_hi;
+    }
+}
+
+void PPU::compose_background(PixelComposition& pixel_composition)
+{
+    pixel_composition.bg_pixel = 0x00;
+    pixel_composition.bg_palette = 0x00;
+
+    if (mask.data.show_background)
+    {
+        if (mask.data.show_bg_left || (cycle >= 9))
+        {
+            uint16_t bit_mux = 0x8000 >> fine_x;
+
+            uint8_t p0_pixel = (bg_info.shifter_pattern_lo & bit_mux) > 0;
+            uint8_t p1_pixel = (bg_info.shifter_pattern_hi & bit_mux) > 0;
+
+            pixel_composition.bg_pixel = (p1_pixel << 1) | p0_pixel;
+
+            uint8_t bg_pal0 = (bg_info.shifter_attrib_lo & bit_mux) > 0;
+            uint8_t bg_pal1 = (bg_info.shifter_attrib_hi & bit_mux) > 0;
+            pixel_composition.bg_palette = (bg_pal1 << 1) | bg_pal0;
+        }
+    }
+}
+
+void PPU::compose_foreground(PixelComposition& pixel_composition)
+{
+    if (!mask.data.show_sprites)
+    {
+        return;
+    }
+
+    if (!(mask.data.show_sprites_left || (cycle >= 9)))
+    {
+        return;
+    }
+
+    sprite_0_being_rendered = false;
+
+    for (uint8_t idx = 0; idx < sprite_count; idx++)
+    {
+        if (sprite_scanline[idx].x_pos() != 0)
+        {
+            continue;
+        }
+
+        uint8_t fg_pixel_lo = (sprite_shifter_pattern_lo[idx] & 0x80) > 0;
+        uint8_t fg_pixel_hi = (sprite_shifter_pattern_hi[idx] & 0x80) > 0;
+        pixel_composition.fg_pixel = (fg_pixel_hi << 1) | fg_pixel_lo;
+
+        pixel_composition.fg_palette = (sprite_scanline[idx].attributes() & 0x03) + 0x04;
+        pixel_composition.fg_priority = (sprite_scanline[idx].attributes() & 0x20) == 0;
+
+        if (pixel_composition.fg_pixel != 0)
+        {
+            sprite_0_being_rendered = sprite_0_being_rendered || (idx == 0);
+            break;
+        }
+    }
+}
+
+void PPU::composite_pixels(PixelComposition& pixel_composition)
+{
+    const auto& bg_pix_gt_zero = pixel_composition.bg_pixel > 0;
+    const auto& fg_pix_gt_zero = pixel_composition.fg_pixel > 0;
+    const auto& fg_pixel = pixel_composition.fg_pixel;
+    const auto& bg_pixel = pixel_composition.bg_pixel;
+    const auto& fg_pal = pixel_composition.fg_palette;
+    const auto& bg_pal = pixel_composition.bg_palette;
+
+    pixel_composition.pixel = bg_pix_gt_zero * bg_pixel + fg_pix_gt_zero * fg_pixel;
+    pixel_composition.palette = bg_pix_gt_zero * bg_pal + fg_pix_gt_zero * fg_pal;
+
+    auto maybe_collision = bg_pix_gt_zero && fg_pix_gt_zero;
+    if (!maybe_collision)
+    {
+        return;
+    }
+
+    auto fg_pri = pixel_composition.fg_priority;
+    pixel_composition.pixel = fg_pri * fg_pixel + !fg_pri * bg_pixel;
+    pixel_composition.palette = fg_pri * fg_pal + !fg_pri * bg_pal;
+
+    auto maybe_zero_hit = sprite_0_hit_possible && sprite_0_being_rendered;
+    if (maybe_zero_hit && mask.is_rendering())
+    {
+        // The left edge of the screen has specific switches to control
+        // its appearance. This is used to smooth inconsistencies when
+        // scrolling (since sprites x coord must be >= 0)
+        auto show_left = mask.data.show_bg_left || mask.data.show_sprites_left;
+        auto is_hit_x = !show_left && cycle >= 9 && cycle < 258;
+        if (is_hit_x || (cycle >= 1 && cycle < 258))
+        {
+            status.data.sprite_0_hit = 1;
+        }
+    }
+}
+
+bool PPU::init_sdl()
 {
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
     {
@@ -418,21 +735,25 @@ bool init()
     return true;
 }
 
+const Sprite& PPU::get_sprite_screen() const {
+    return *sprite_screen;
+}
+
 void PPU::render()
 {
     if (!is_initialized)
     {
-        init();
+        init_sdl();
         auto depth = 32;
         RenderedImage = SDL_CreateRGBSurface(
             0,
             NTSC_WIDTH,
             NTSC_HEIGHT,
             depth,
+            0xFF000000,
             0x00FF0000,
             0x0000FF00,
-            0x000000FF,
-            0);
+            0x000000FF);
         if (RenderedImage == nullptr)
         {
             logger::critical("Could not get create surface {}", SDL_GetError());
@@ -444,30 +765,14 @@ void PPU::render()
             logger::critical("Could not get correct format");
             return;
         }
-        rendered_image.resize(NTSC_WIDTH * NTSC_HEIGHT);
-        for (auto& val : rendered_image)
-        {
-            val = 0;
-        }
-    }
-
-    // (* 240 256) 61440
-    for (auto row = 0; row < NTSC_HEIGHT; ++row)
-    {
-        for (auto col = 0; col < NTSC_WIDTH; ++col)
-        {
-            auto index = row * NTSC_WIDTH + col;
-            uint32_t& pixel = rendered_image[index];
-            pixel = system_bus.ppu_read(0x0000 + index % 0x1000);
-            pixel |= system_bus.ppu_read(0x1000 + index % 0x1000 + 1) << 8;
-            pixel |= system_bus.ppu_read(0x0000 + index % 0x1000 + 2) << 16;
-            pixel |= system_bus.ppu_read(0x1000 + index % 0x1000 + 3) << 24;
-        }
     }
 
     // SDL_LockSurface(RenderedImage);
     auto pixel_ptr = static_cast<uint32_t*>(RenderedImage->pixels);
-    std::memcpy(pixel_ptr, rendered_image.data(), sizeof(uint32_t) * rendered_image.size());
+    std::memcpy(
+        pixel_ptr,
+        sprite_screen->col_data.data(),
+        sizeof(uint32_t) * sprite_screen->width * sprite_screen->height);
     // SDL_UnlockSurface(RenderedImage);
     SDL_BlitSurface(RenderedImage, nullptr, ScreenSurface, nullptr);
     SDL_UpdateWindowSurface(Window);
@@ -479,6 +784,18 @@ void PPU::render()
             std::exit(0);
         }
     }
+}
+
+Pixel& PPU::get_color_from_palette_ram(const PixelComposition& pixel_composition)
+{
+    // This is a convenience function that takes a specified palette and pixel
+    // index and returns the appropriate screen color.
+    // "0x3F00"       - Offset into PPU addressable range where palettes are stored
+    // "palette << 2" - Each palette is 4 bytes in size
+    // "pixel"        - Each pixel index is either 0, 1, 2 or 3
+    // "& 0x3F"       - Stops us reading beyond the bounds of the palScreen array
+    auto read_address = 0x3F00 + (pixel_composition.palette << 2) + pixel_composition.pixel;
+    return palette_screen[ppu_read(read_address) & 0x3F];
 }
 
 } // namespace nes

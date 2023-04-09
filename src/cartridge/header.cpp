@@ -4,7 +4,7 @@ namespace nes {
 
 std::optional<NesHeader> NesHeader::from_bytes(const std::array<uint8_t, 16>& header_bytes)
 {
-    NesHeader header;
+    NesHeader header{};
 
     if (header_bytes[0] != LETTER_N ||
         header_bytes[1] != LETTER_E ||

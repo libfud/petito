@@ -40,14 +40,28 @@ void Mapper000::write(uint16_t address, uint8_t data)
 
 uint8_t& Mapper000::ppu_map(uint16_t address)
 {
+    logger::debug("mapper000 accessing 0x{:04X}", address);
     if (address >= SIZE_8K)
     {
-        return cartridge.ppu_ram[(address - SIZE_8K) % PPU_RAM_SIZE];
+        auto mapped_address = (address - SIZE_8K) % PPU_RAM_SIZE;
+        logger::debug(
+            "mapper000 accessing 0x{:04X}, ppu_ram sized 0x{:04X}",
+            mapped_address,
+            cartridge.ppu_ram.size());
+        return cartridge.ppu_ram[mapped_address];
     }
     if (cartridge.chr_ram.size() > 0)
     {
+        logger::debug(
+        "mapper000 accessing from chr_ram 0x{:04X}, size 0x{:04x}",
+            address,
+            cartridge.chr_ram.size());
         return cartridge.chr_ram[address];
     }
+    logger::debug(
+        "mapper000 accessing from chr_rom 0x{:04X}, size 0x{:04x}",
+        address,
+        cartridge.chr_rom.size());
     return cartridge.chr_rom[address];
 }
 
