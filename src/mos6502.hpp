@@ -3,7 +3,6 @@
 
 #include <cstdint>
 
-#include "interrupt_signals.hpp"
 #include "opcode_table.hpp"
 
 namespace mos6502 {
@@ -16,6 +15,9 @@ constexpr uint16_t NMI_VECTOR = 0xFFFA;
 constexpr uint16_t RESET_VECTOR = 0xFFFC;
 constexpr uint16_t IRQ_VECTOR = 0xFFFE;
 
+constexpr uint8_t BRK_MASK = 0x20;
+constexpr uint8_t PHP_MASK = 0x30;
+
 struct Flags
 {
     bool carry;
@@ -23,13 +25,12 @@ struct Flags
     bool interrupt_inhibit;
     bool bcd_arithmetic;
     bool brk;
+    // bool unused = true;
     bool overflow;
     bool negative;
 
     uint8_t get();
-    uint8_t get_fmt();
     uint8_t get_php();
-    uint16_t get_carry();
 
     void set(uint8_t data);
     void set_n_and_z(uint8_t data);
@@ -43,6 +44,8 @@ struct CpuData
     uint8_t x;
     uint8_t y;
     uint8_t stack_ptr;
+    uint8_t opcode;
+    OpDecode op_decode;
 
     int clock_counter;
 };
@@ -71,9 +74,11 @@ public:
     /** Nonmaskable interupt signal */
     void nmi();
 
-    CpuData save_state();
+    CpuData save_state(uint8_t opcode, const OpDecode& op_decode);
 
-public:
+    uint8_t debug_read(uint16_t address) const;
+
+protected:
     Flags flags;
     uint16_t pc;
     uint8_t acc;

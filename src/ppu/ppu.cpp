@@ -7,240 +7,64 @@ namespace nes {
 using logger::LogLevel;
 using logger::log;
 
-void AddressLatch::reset()
+auto flipbyte(uint8_t b)
 {
-    address = 0;
-    count = 0;
-}
+    b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;
+    b = (b & 0xCC) >> 2 | (b & 0x33) << 2;
+    b = (b & 0xAA) >> 1 | (b & 0x55) << 1;
+    return b;
+};
 
-void AddressLatch::write(uint8_t data)
-{
-    auto shift = 8 * static_cast<uint8_t>(count % 2 == 1);
-    address |= (data << shift);
-    count++;
-}
-
-uint16_t AddressLatch::get_address() const {
-    return address;
-}
-
-void AddressLatch::increment(const PpuCtrl& control)
-{
-    address += control.get_vram_increment();
-}
-
-PPU::PPU(NesSystemBus& system_bus) :
+PPU::PPU(NesSystemBus& system_bus, VirtualScreen& virtual_screen) :
     system_bus{system_bus},
-    object_attribute_memory{oam_address},
-    sprite_screen{std::make_unique<Sprite>(Sprite(256, 240))}
+    virtual_screen{virtual_screen},
+    sprite_memory(64 * 4),
+    scanline_sprites(8),
+    pipeline_state{PpuState::VerticalBlank},
+    picture_buffer(
+        SCANLINE_VISIBLE_DOTS,
+        std::vector<sf::Color>(VISIBLE_SCANLINES, sf::Color::Magenta))
 {
-}
-
-void PPU::fill_latch(uint8_t data)
-{
-    address_latch = data;
-    // ppu_data_buffer = data;
-    latch_clock = system_bus.ppu_clock;
-}
-
-uint16_t PPU::cpu_map_address(uint16_t address)
-{
-    if (address == OAM_DMA)
-    {
-        return address;
-    }
-    auto mapped_address = (address - PPU_REG_HIGH) & PPU_ADDR_MASK;
-    return mapped_address;
-}
-
-uint8_t PPU::cpu_read(uint16_t address)
-{
-    auto mapped_address = cpu_map_address(address);
-    auto clock_diff = system_bus.ppu_clock - latch_clock;
-    if (clock_diff > (PPU_TICKS_PER_SEC / 2))
-    {
-        address_latch = 0x00;
-        // ppu_data_buffer = 0x00;
-    }
-    uint8_t data = address_latch;
-    // uint8_t data = ppu_data_buffer;
-
-    switch (mapped_address)
-    {
-    case PPU_CTRL:
-        break;
-    case PPU_MASK:
-        break;
-    case PPU_STATUS:
-        data = status.serialize() | (ppu_data_buffer & 0x1F);
-        status.data.in_v_blank = 0;
-        latch_set = false;
-        break;
-    case OAM_ADDR:
-        break;
-    case OAM_DATA:
-        data = object_attribute_memory.read();
-        fill_latch(data);
-        break;
-    case PPU_SCROLL:
-        break;
-    case PPU_ADDR:
-        break;
-    case PPU_DATA:
-        data = ppu_read(vram_addr.get());
-        // data = ppu_data_buffer;
-        // ppu_data_buffer = ppu_read(vram_addr.get());
-        // if (vram_addr.get() >= 0x3F00)
-        // {
-        //     data = ppu_data_buffer;
-        // }
-        // vram_addr.increment(control);
-        break;
-    case OAM_DMA:
-        data = oam_dma;
-        break;
-    default:
-        log(LogLevel::Critical, "Invalid write to PPU {:04X}", address);
-        break;
-    }
-    return data;
-}
-
-void PPU::cpu_write(uint16_t address, uint8_t data)
-{
-    auto mapped_address = cpu_map_address(address);
-    switch (mapped_address)
-    {
-    case PPU_CTRL:
-        control.deserialize(data);
-        tram_addr.data.nametable_x = control.data.nametable_x;
-        tram_addr.data.nametable_y = control.data.nametable_y;
-        break;
-    case PPU_MASK:
-        mask.deserialize(data);
-        break;
-    case PPU_STATUS:
-        break;
-    case OAM_ADDR:
-        oam_address = data;
-        break;
-    case OAM_DATA:
-        object_attribute_memory.write(data);
-        break;
-    case PPU_SCROLL:
-        if (latch_set)
-        {
-            fine_x = data & 0x07;
-            tram_addr.data.coarse_x = data >> 3;
-            latch_set = true;
-        }
-        else
-        {
-            tram_addr.data.fine_y = data & 0x07;
-            tram_addr.data.coarse_y = data >> 3;
-            latch_set = false;
-        }
-        break;
-    case PPU_ADDR:
-        if (latch_set)
-        {
-            auto tram_reg = tram_addr.get();
-            auto new_tram_high = static_cast<uint16_t>((data & 0x3F)) << 8;
-            auto new_tram_low = tram_reg & 0xFF;
-            tram_addr.set(new_tram_high | new_tram_low);
-            latch_set = true;
-        }
-        else
-        {
-            auto tram_reg = tram_addr.get();
-            tram_addr.set((tram_reg & 0xFF00) | data);
-            vram_addr = tram_addr;
-            latch_set = false;
-        }
-        break;
-    case PPU_DATA:
-        ppu_data_write(data);
-        ppu_data_buffer = data;
-        break;
-    case OAM_DMA:
-        logger::warn("OAM DMA!");
-        oam_dma = data;
-        dma();
-        break;
-    default:
-        logger::critical("Invalid read from PPU {:04X}", address);
-        break;
-    }
-    fill_latch(data);
-}
-
-uint8_t PPU::ppu_read(uint16_t address)
-{
-    uint8_t data = address_latch;
-    uint16_t anded_address = address & 0x3FFF;
-    if (address >= PALETTE_RAM_START)
-    {
-        auto mapped_address = (anded_address - PALETTE_RAM_START) % PALETTE_RAM_SIZE;
-        logger::debug(
-            "PALETTE RAM START! 0x{:04X} 0x{:04X} 0x{:04X}",
-            address, anded_address, mapped_address);
-        auto new_data = palette_table[mapped_address];
-        fill_latch(new_data);
-        return new_data;
-    }
-    else
-    {
-        logger::debug(
-            "SYSTEM BUS READ! 0x{:04X} 0x{:04X}",
-            address, anded_address);
-        auto new_data = system_bus.ppu_read(anded_address);
-        fill_latch(new_data);
-    }
-
-    return data;
-}
-
-uint8_t PPU::ppu_data_read()
-{
-    auto address = vram_addr.get();
-    vram_addr.increment(control);
-    return ppu_read(address);
-}
-
-void PPU::ppu_write(uint16_t address, uint8_t data)
-{
-    if (address >= PALETTE_RAM_START)
-    {
-        auto mapped_address = (address - PALETTE_RAM_START) % PALETTE_RAM_SIZE;
-        palette_table[mapped_address] = data;
-    }
-    else
-    {
-        system_bus.ppu_write(address, data);
-    }
-}
-
-void PPU::ppu_data_write(uint8_t data)
-{
-    auto address = vram_addr.get();
-    vram_addr.increment(control);
-    ppu_write(address, data);
+    scanline_sprites.reserve(8);
+    scanline_sprites.resize(0);
 }
 
 void PPU::reset()
 {
-    fine_x = 0x00;
-    address_latch = 0x00;
-    ppu_data_buffer = 0x00;
-    scanline_index = 0;
+    long_sprites = false;
+    generate_interrupt = false;
+    greyscale_mode = false;
+    vblank = false;
+    sprite_overflow = false;
+    show_background = true;
+    show_sprites = true;
+    even_frame = true;
+    first_write = true;
+
+    bg_page = CharacterPage::Low;
+    sprite_page = CharacterPage::Low;
+
+    data_address = 0;
     cycle = 0;
-    bg_info = {};
-    status.reg = 0;
-    mask.reg = 0;
-    control.reg = 0;
-    vram_addr.reg = 0x0000;
-    tram_addr.reg = 0x0000;
-    odd_frame = false;
+    scanline = 0;
+    sprite_data_address = 0;
+    fine_x_scroll = 0;
+    temp_address = 0;
+
+    data_address_increment = 1;
+    pipeline_state = PpuState::PreRender;
+    scanline_sprites.reserve(8);
+    scanline_sprites.resize(0);
+}
+
+uint8_t PPU::read_palette(uint8_t palette_address)
+{
+    auto mapped_address = palette_address;
+    if (palette_address >= 0x10 && palette_address % 4 == 0)
+    {
+        mapped_address = palette_address & 0x0F;
+    }
+    return palette[mapped_address];
 }
 
 // int64_t cpu_clock_nmi = 0;
@@ -255,8 +79,391 @@ void PPU::nmi()
     // control.data.generate_nmi = false;
 }
 
+void PPU::run(int cpu_cycles)
+{
+    int steps = cpu_cycles * PPU_CLOCKS_PER_CPU_CLOCK;
+    for (auto idx = 0; idx < steps; ++idx)
+    {
+        step();
+        system_bus.ppu_clock++;
+    }
+}
+
+void PPU::step()
+{
+    switch (pipeline_state)
+    {
+    case PpuState::PreRender:
+        prerender();
+        break;
+    case PpuState::Render:
+        render();
+        break;
+    case PpuState::PostRender:
+        post_render();
+        break;
+    case PpuState::VerticalBlank:
+        render_vblank();
+        break;
+    default:
+        logger::critical("Invalid ppu pipeline state");
+    }
+
+    ++cycle;
+}
+
+void PPU::prerender()
+{
+    if (cycle == 1)
+    {
+        vblank = false;
+        sprite_0_hit = false;
+    }
+    else if (cycle == SCANLINE_VISIBLE_DOTS + 2 && show_background && show_sprites)
+    {
+        //Set bits related to horizontal position
+        data_address &= ~0x41f; //Unset horizontal bits
+        data_address |= temp_address & 0x41f; //Copy
+    }
+    else if (cycle > 280 && cycle <= 304 && show_background && show_sprites)
+    {
+        //Set vertical bits
+        data_address &= ~0x7be0; //Unset bits related to horizontal
+        data_address |= temp_address & 0x7be0; //Copy
+    }
+
+    //if rendering is on, every other frame is one cycle shorter
+    if (cycle >= SCANLINE_END_CYCLE - (!even_frame && show_background && show_sprites))
+    {
+        logger::warn("Transition to render");
+        pipeline_state = PpuState::Render;
+        cycle = 0;
+        scanline = 0;
+    }
+
+    // add IRQ support for MMC3
+    if (cycle == 260 && show_background && show_sprites)
+    {
+        system_bus.scanline();
+    }
+}
+
+void PPU::render()
+{
+    if (cycle > 0 && cycle <= SCANLINE_VISIBLE_DOTS)
+    {
+        uint8_t bg_color = 0;
+        uint8_t sprite_color = 0;
+        bool bg_opaque = false;
+        bool sprite_opaque = true;
+        bool sprite_foreground = false;
+
+        const int x = cycle - 1;
+        const int y = scanline;
+
+        if (show_background)
+        {
+            render_background(bg_color, bg_opaque);
+        }
+
+        if (show_sprites && (!hide_edge_sprites || x >= 8))
+        {
+            render_sprites(sprite_color, sprite_opaque, sprite_foreground, bg_opaque);
+        }
+
+        uint8_t palette_address = bg_color;
+
+        if ((!bg_opaque && sprite_opaque) || (bg_opaque && sprite_opaque && sprite_foreground))
+        {
+            palette_address = sprite_color;
+        }
+        else if (!bg_opaque && !sprite_opaque)
+        {
+            palette_address = 0;
+        }
+        //else bg_color
+
+        picture_buffer[x][y] = sf::Color(COLORS[read_palette(palette_address)]);
+    }
+    else if (cycle == SCANLINE_VISIBLE_DOTS + 1 && show_background)
+    {
+        //Shamelessly copied from nesdev wiki
+        if ((data_address & 0x7000) != 0x7000)  // if fine Y < 7
+        {
+            data_address += 0x1000;              // increment fine Y
+        }
+        else
+        {
+            data_address &= ~0x7000;             // fine Y = 0
+            int y = (data_address & 0x03E0) >> 5;    // let y = coarse Y
+            if (y == 29)
+            {
+                // coarse Y = 0
+                y = 0;
+                // switch vertical nametable
+                data_address ^= 0x0800;
+            }
+            else if (y == 31)
+            {
+                // coarse Y = 0, nametable not switched
+                y = 0;
+            }
+            else
+            {
+                // increment coarse Y
+                y += 1;
+            }
+            data_address = (data_address & ~0x03E0) | (y << 5);
+            // put coarse Y back into data_address
+        }
+    }
+    else if (cycle == SCANLINE_VISIBLE_DOTS + 2 && show_background && show_sprites)
+    {
+        //Copy bits related to horizontal position
+        data_address &= ~0x41f;
+        data_address |= temp_address & 0x41f;
+    }
+
+    // if (cycle > 257 && cycle < 320) {
+    //     sprite_data_address = 0;
+    // }
+
+    // add IRQ support for MMC3
+    if (cycle==260 && show_background && show_sprites)
+    {
+        system_bus.scanline();
+    }
+
+    if (cycle >= SCANLINE_END_CYCLE)
+    {
+        //Find and index sprites that are on the next Scanline
+        //This isn't where/when this indexing, actually copying in 2C02 is done
+        //but (I think) it shouldn't hurt any games if this is done here
+
+        scanline_sprites.resize(0);
+
+        int range = 8;
+        if (long_sprites)
+        {
+            range = 16;
+        }
+
+        std::size_t j = 0;
+        for (std::size_t i = sprite_data_address / 4; i < 64; ++i)
+        {
+            auto diff = (scanline - sprite_memory[i * 4]);
+            if (0 <= diff && diff < range)
+            {
+                if (j >= 8)
+                {
+                    sprite_overflow = true;
+                    break;
+                }
+                scanline_sprites.push_back(i);
+                ++j;
+            }
+        }
+
+        ++scanline;
+        cycle = 0;
+    }
+
+    if (scanline >= VISIBLE_SCANLINES)
+    {
+        logger::warn("Transition to post render");
+        pipeline_state = PpuState::PostRender;
+    }
+}
+
+void PPU::render_background(uint8_t& bg_color, bool& bg_opaque)
+{
+    const int x = cycle - 1;
+
+    auto x_fine = (fine_x_scroll + x) % 8;
+    if (!hide_edge_background || x >= 8)
+    {
+        //fetch tile
+        auto addr = 0x2000 | (data_address & 0x0FFF); //mask off fine y
+        //auto addr = 0x2000 + x / 8 + (y / 8) * (ScanlineVisibleDots / 8);
+        uint8_t tile = system_bus.read(addr);
+
+        //fetch pattern
+        //Each pattern occupies 16 bytes, so multiply by 16
+        addr = (tile * 16) + ((data_address >> 12/*y % 8*/) & 0x7); //Add fine y
+        //set whether the pattern is in the high or low page
+        addr |= static_cast<int>(bg_page) << 12;
+        //Get the corresponding bit determined by (8 - x_fine) from the right
+        bg_color = (system_bus.read(addr) >> (7 ^ x_fine)) & 1; //bit 0 of palette entry
+        bg_color |= ((system_bus.read(addr + 8) >> (7 ^ x_fine)) & 1) << 1; //bit 1
+
+        bg_opaque = bg_color; //flag used to calculate final pixel with the sprite pixel
+
+        //fetch attribute and calculate higher two bits of palette
+        addr = 0x23C0
+            | (data_address & 0x0C00)
+            | ((data_address >> 4) & 0x38)
+            | ((data_address >> 2) & 0x07);
+        auto attribute = system_bus.read(addr);
+        int shift = ((data_address >> 4) & 4) | (data_address & 2);
+        //Extract and set the upper two bits for the color
+        bg_color |= ((attribute >> shift) & 0x3) << 2;
+    }
+    //Increment/wrap coarse X
+    if (x_fine == 7)
+    {
+        if ((data_address & 0x001F) == 31) // if coarse X == 31
+        {
+            data_address &= ~0x001F;          // coarse X = 0
+            data_address ^= 0x0400;           // switch horizontal nametable
+        }
+        else
+        {
+            data_address += 1;                // increment coarse X
+        }
+    }
+}
+
+void PPU::render_sprites(
+    uint8_t& sprite_color,
+    bool& sprite_opaque,
+    bool& sprite_foreground,
+    const bool& bg_opaque)
+{
+    const int x = cycle - 1;
+    const int y = scanline;
+
+    for (auto i : scanline_sprites)
+    {
+        uint8_t spr_x = sprite_memory[i * 4 + 3];
+
+        if (0 > x - spr_x || x - spr_x >= 8)
+        {
+            continue;
+        }
+
+        uint8_t spr_y = sprite_memory[i * 4 + 0] + 1;
+        uint8_t tile = sprite_memory[i * 4 + 1];
+        uint8_t attribute = sprite_memory[i * 4 + 2];
+
+        int length = (long_sprites) ? 16 : 8;
+
+        int x_shift = (x - spr_x) % 8;
+        int y_offset = (y - spr_y) % length;
+
+        if ((attribute & 0x40) == 0) //If NOT flipping horizontally
+        {
+            x_shift ^= 7;
+        }
+        if ((attribute & 0x80) != 0) //IF flipping vertically
+        {
+            y_offset ^= (length - 1);
+        }
+
+        uint16_t addr = 0;
+
+        if (!long_sprites)
+        {
+            addr = tile * 16 + y_offset;
+            if (sprite_page == CharacterPage::High) addr += 0x1000;
+        }
+        else //8x16 sprites
+        {
+            //bit-3 is one if it is the bottom tile of the sprite,
+            //multiply by two to get the next pattern
+            y_offset = (y_offset & 7) | ((y_offset & 8) << 1);
+            addr = (tile >> 1) * 32 + y_offset;
+            addr |= (tile & 1) << 12; //Bank 0x1000 if bit-0 is high
+        }
+
+        sprite_color |= (system_bus.read(addr) >> (x_shift)) & 1; //bit 0 of palette entry
+        sprite_color |= ((system_bus.read(addr + 8) >> (x_shift)) & 1) << 1; //bit 1
+
+        sprite_opaque = sprite_color;
+        if (!sprite_opaque)
+        {
+            sprite_color = 0;
+            continue;
+        }
+
+        sprite_color |= 0x10; //Select sprite palette
+        sprite_color |= (attribute & 0x3) << 2; //bits 2-3
+
+        sprite_foreground = !(attribute & 0x20);
+
+        //Sprite-0 hit detection
+        if (!sprite_0_hit && show_background && i == 0 && sprite_opaque && bg_opaque)
+        {
+            sprite_0_hit = true;
+        }
+
+        break; //Exit the loop now since we've found the highest priority sprite
+    }
+}
+
+void PPU::post_render()
+{
+    if (cycle >= SCANLINE_END_CYCLE)
+    {
+        ++scanline;
+        cycle = 0;
+        pipeline_state = PpuState::VerticalBlank;
+        logger::warn("Transition to vblank");
+        for (std::size_t x = 0; x < picture_buffer.size(); ++x)
+        {
+            for (std::size_t y = 0; y < picture_buffer[0].size(); ++y)
+            {
+                virtual_screen.setPixel(x, y, picture_buffer[x][y]);
+            }
+        }
+    }
+}
+
+void PPU::render_vblank()
+{
+    // logger::warn("Render vblank");
+    if (cycle == 1 && scanline == VISIBLE_SCANLINES + 1)
+    {
+        // logger::warn("Render vblank cycle 1, scanline = {}, cycle = {}", scanline, cycle);
+        vblank = true;
+        if (generate_interrupt)
+        {
+            // vblankCallback();
+            nmi();
+        }
+    }
+
+    if (cycle >= SCANLINE_END_CYCLE)
+    {
+        ++scanline;
+        cycle = 0;
+        // logger::warn(
+        //     "Render vblank, reset cycle, increment scanline = {}, cycle = {}",
+        //     scanline,
+        //     cycle);
+    }
+
+    if (scanline >= FRAME_END_SCANLINE)
+    {
+        logger::warn("Transition to prerender");
+        pipeline_state = PpuState::PreRender;
+        scanline = 0;
+        even_frame = !even_frame;
+    }
+}
+
+uint8_t PPU::read_oam(uint8_t addr)
+{
+    return sprite_memory[addr];
+}
+
+void PPU::write_oam(uint8_t addr, uint8_t value)
+{
+    sprite_memory[addr] = value;
+}
+
 void PPU::dma()
 {
+#if 0
     logger::warn("DMA!");
     uint16_t base_address = oam_dma << 8;
     run(1);
@@ -268,534 +475,127 @@ void PPU::dma()
     }
     system_bus.cpu_clock += 513;
     // system_bus.ppu_clock += 513 * 3;
+#endif
 }
 
-void PPU::run(int cpu_cycles)
+#if 0
+uint16_t PPU::cpu_map_address(uint16_t address)
 {
-    int steps = cpu_cycles * PPU_CLOCKS_PER_CPU_CLOCK;
-    for (auto idx = 0; idx < steps; ++idx)
+    if (address == OAM_DMA)
     {
-        step();
-        system_bus.ppu_clock++;
+        return address;
     }
+    auto mapped_address = (address - PPU_REG_HIGH) & PPU_ADDR_MASK;
+    return mapped_address;
 }
+#endif
 
-bool PPU::is_pre_render_scanline() const
+uint8_t PPU::cpu_read(uint16_t unmapped_address)
 {
-    return scanline_index == PRE_RENDER_SCANLINE;
-}
-
-void PPU::step()
-{
-    if (scanline_index >= PRE_RENDER_SCANLINE && scanline_index < POST_RENDER_LINE_0)
+    /*
+    auto clock_diff = system_bus.ppu_clock - latch_clock;
+    if (clock_diff > (PPU_TICKS_PER_SEC / 2))
     {
-        render_background();
-
-        render_foreground();
+        address_latch = 0x00;
+        // ppu_data_buffer = 0x00;
     }
-
-    if (scanline_index == POST_RENDER_LINE_0)
+    */
+    // uint8_t data = address_latch;
+    // uint8_t data = ppu_data_buffer;
+    uint16_t address = unmapped_address;
+    if (unmapped_address >= 0x2000 && unmapped_address <= 0x3FFF)
     {
-        // do nothing
+        address = unmapped_address & 0x2003;
     }
-
-    // If end of frame, set vertical blank flag
-    if (scanline_index >= VBLANK_LINE_0 && scanline_index <= POST_RENDER_LINE_F)
+    uint8_t data = 0;
+    switch (address)
     {
-        if (scanline_index == VBLANK_LINE_0 && cycle == 1)
-        {
-            status.data.in_v_blank = 1;
-            if (control.data.generate_nmi)
-            {
-                nmi();
-            }
-        }
-    }
-
-    PixelComposition pixel_composition;
-    compose_background(pixel_composition);
-    compose_foreground(pixel_composition);
-    composite_pixels(pixel_composition);
-
-    sprite_screen->set_pixel(
-        cycle - 1,
-        scanline_index,
-        get_color_from_palette_ram(pixel_composition));
-
-    cycle++;
-    if (mask.is_rendering())
-    {
-        if (cycle == 260 && scanline_index < POST_RENDER_LINE_0)
-        {
-            system_bus.scanline();
-        }
-    }
-
-    if (cycle >= PPU_TICKS_PER_LINE)
-    {
-        cycle = 0;
-        scanline_index++;
-        if (scanline_index > POST_RENDER_LINE_F)
-        {
-            scanline_index = PRE_RENDER_SCANLINE;
-            odd_frame = !odd_frame;
-        }
-    }
-}
-
-void PPU::render_background()
-{
-    auto is_cycle_zero = scanline_index == 0 && cycle == 0;
-    if (is_cycle_zero && odd_frame && mask.is_rendering())
-    {
-        cycle = 1;
-    }
-
-    if (is_pre_render_scanline() && cycle == 1)
-    {
-        start_new_frame();
-    }
-
-    auto is_fetch_tile_cycle = cycle >= CYCLE_TILE_0 && cycle <= CYCLE_TILE_F;
-    auto is_fetch_n_tile_cycle = cycle >= CYCLE_N_TILE_0 && cycle <= CYCLE_N_TILE_F;
-    if (is_fetch_tile_cycle || is_fetch_n_tile_cycle)
-    {
-        work_visible_frame();
-    }
-
-    if (cycle == CYCLE_END_OF_SCANLINE && mask.is_rendering())
-    {
-        vram_addr.increment_scroll_y();
-    }
-
-    if (cycle == CYCLE_END_OF_SCANLINE)
-    {
-        render();
-    }
-
-    if (cycle == CYCLE_TILE_F)
-    {
-        bg_info.load_shifters();
-        if (mask.is_rendering())
-        {
-            vram_addr.transfer_address_x(tram_addr);
-        }
-    }
-
-    // Superfluous reads of tile id at end of scanline
-    if (cycle == CYCLE_UNUSED_NT_FETCH_0 || cycle == CYCLE_UNUSED_NT_FETCH_1)
-    {
-        bg_info.next_tile_id = ppu_read(vram_addr.nametable_address());
-    }
-
-    auto is_cycle_pre_render_v_update =
-        cycle >= CYCLE_PRE_RENDER_V_UPDATE_0 &&
-        cycle <= CYCLE_PRE_RENDER_V_UPDATE_F;
-    if (is_pre_render_scanline() && is_cycle_pre_render_v_update)
-    {
-        if (mask.is_rendering())
-        {
-            vram_addr.transfer_address_y(tram_addr);
-        }
-    }
-}
-
-void PPU::start_new_frame()
-{
-    status.data.in_v_blank = 0;
-
-    status.data.sprite_overflow = 0;
-
-    status.data.sprite_0_hit = 0;
-
-    sprite_shifter_pattern_lo = {0};
-    sprite_shifter_pattern_hi = {0};
-}
-
-void PPU::work_visible_frame()
-{
-    update_shifters();
-
-    switch ((cycle - 1) % 8)
-    {
-    case 0:
-        bg_info.load_shifters();
-
-        bg_info.next_tile_id = ppu_read(NAMETABLE_SPACE_OFFSET | (vram_addr.reg & NAMETABLE_MASK));
+    case PPU_CTRL:
         break;
-
-    case 2:
-        fetch_next_bg_tile_attrib();
+    case PPU_MASK:
         break;
-
-    case 4:
-        set_next_tile_addr_byte(bg_info.next_tile_lsb, 0);
+    case PPU_STATUS:
+        data = sprite_overflow << 5 | sprite_0_hit << 6 << vblank << 7;
+        vblank = false;
+        first_write = true;
         break;
-
-    case 6:
-        set_next_tile_addr_byte(bg_info.next_tile_msb, 8);
+    case OAM_ADDR:
         break;
-
-    case 7:
-        if (mask.is_rendering())
+    case OAM_DATA:
+        if (first_write)
         {
-            vram_addr.increment_scroll_x();
-        }
-        break;
-    }
-}
-
-void PPU::update_shifters()
-{
-    if (mask.data.show_background)
-    {
-        bg_info.update_shifters();
-    }
-
-    if (mask.data.show_sprites && cycle >= 1 && cycle <= CYCLE_TILE_F)
-    {
-        for (auto idx = 0; idx < sprite_count; idx++)
-        {
-            if (sprite_scanline[idx].x_pos() > 0)
-            {
-                sprite_scanline[idx].x_pos()--;
-            }
-            else
-            {
-                sprite_shifter_pattern_lo[idx] <<= 1;
-                sprite_shifter_pattern_hi[idx] <<= 1;
-            }
-        }
-    }
-}
-
-void PPU::fetch_next_bg_tile_attrib()
-{
-    uint16_t attrib_addr = vram_addr.attribute_address();
-    logger::debug("PPU READ, FETCH NEXT BG TILE ATTRIB {:04X}", attrib_addr);
-    bg_info.next_tile_attrib = ppu_read(attrib_addr);
-
-    if (vram_addr.data.coarse_y & 0x02)
-    {
-        bg_info.next_tile_attrib >>= 4;
-    }
-    if (vram_addr.data.coarse_x & 0x02)
-    {
-        bg_info.next_tile_attrib >>= 2;
-    }
-    bg_info.next_tile_attrib &= 0x03;
-}
-
-void PPU::set_next_tile_addr_byte(uint8_t& next_tile_byte, uint8_t plane_offset)
-{
-    uint16_t tile_addr_byte = control.data.background_pattern_table << 12;
-    tile_addr_byte += static_cast<uint16_t>(bg_info.next_tile_id) << 4;
-    tile_addr_byte += vram_addr.data.fine_y + plane_offset;
-    next_tile_byte = ppu_read(tile_addr_byte);
-}
-
-void PPU::render_foreground()
-{
-    if (cycle == CYCLE_TILE_F && scanline_index >= 0)
-    {
-        // We've reached the end of a visible scanline. It is now time to determine which
-        // sprites are visible on the next scanline, and preload this info into buffers that we
-        // can work with while the scanline scans the row.
-
-        // Firstly, clear out the sprite memory. This memory is used to store the sprites to be
-        // rendered. It is not the OAM.
-        std::memset(sprite_scanline.data(), 0xFF, sizeof(sprite_scanline));
-
-        // The NES supports a maximum number of sprites per scanline. Nominally this is 8 or
-        // fewer sprites. This is why in some games you see sprites flicker or disappear when
-        // the scene gets busy.
-        sprite_count = 0;
-
-        // Secondly, clear out any residual information in sprite pattern shifters
-        sprite_shifter_pattern_lo = {0};
-        sprite_shifter_pattern_hi = {0};
-
-        evaluate_visible_sprites();
-    }
-    if (cycle == 340)
-    {
-        prepare_visible_sprites();
-    }
-}
-
-void PPU::evaluate_visible_sprites()
-{
-    uint8_t oam_entry_idx = 0;
-
-    sprite_0_hit_possible = false;
-
-    while (oam_entry_idx < OAM_ENTRY_COUNT && sprite_count <= SPRITE_MAX_COUNT)
-    {
-        auto& oam_entry = object_attribute_memory.entry(oam_entry_idx);
-        // N.B. conversion to signed
-        int16_t diff = static_cast<int16_t>(scanline_index - static_cast<int16_t>(oam_entry.y_pos()));
-
-        auto sprite_size = control.data.sprite_size ? 16 : 8;
-        auto diff_in_range = diff >= 0 && diff < sprite_size;
-        if (diff_in_range && sprite_count < 8)
-        {
-            if (sprite_count < 8)
-            {
-                auto zero_idx = oam_entry_idx == 0;
-                sprite_0_hit_possible = zero_idx || sprite_0_hit_possible;
-
-                std::memcpy(&sprite_scanline[sprite_count], &oam_entry, sizeof(oam_entry));
-            }
-            sprite_count++;
-        }
-        oam_entry_idx++;
-    }
-
-    status.data.sprite_overflow = sprite_count >= 8;
-}
-
-auto flipbyte(uint8_t b)
-{
-    b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;
-    b = (b & 0xCC) >> 2 | (b & 0x33) << 2;
-    b = (b & 0xAA) >> 1 | (b & 0x55) << 1;
-    return b;
-};
-
-void PPU::prepare_visible_sprites()
-{
-    for (uint8_t idx = 0; idx < sprite_count; idx++)
-    {
-        uint8_t sprite_pattern_bits_lo{};
-        uint8_t sprite_pattern_bits_hi{};
-        uint16_t sprite_pattern_addr_lo{};
-        uint16_t sprite_pattern_addr_hi{};
-
-        auto unflipped = sprite_scanline[idx].attributes() & 0x80;
-        auto size_8x8 = !control.data.sprite_size;
-        if (size_8x8)
-        {
-            auto row_x = scanline_index - sprite_scanline[idx].y_pos();
-            auto row = !unflipped ? row_x : 7 - row_x;
-            sprite_pattern_addr_lo = control.data.sprite_pattern_table << 12;
-            sprite_pattern_addr_lo |= sprite_scanline[idx].id() << 4;
-            sprite_pattern_addr_lo |= row;
+            temp_address &= ~0xff00; //Unset the upper byte
+            temp_address |= (address & 0x3f) << 8;
+            first_write = false;
         }
         else
         {
-            auto cell = (scanline_index - sprite_scanline[idx].y_pos() < 8) ? 0 : 1;
-            auto row = (scanline_index - sprite_scanline[idx].y_pos()) & 0x07;
-            auto flipped_8x16 = unflipped;
-            if (flipped_8x16)
-            {
-                row = (7 - (scanline_index - sprite_scanline[idx].y_pos())) & 0x07;
-                cell = scanline_index - sprite_scanline[idx].y_pos() < 8 ? 1 : 0;
-            }
-            sprite_pattern_addr_lo = (sprite_scanline[idx].id() & 0x01) << 12;
-            sprite_pattern_addr_lo |= ((sprite_scanline[idx].id() & 0xFE) + cell) << 4;
-            sprite_pattern_addr_lo |= row;
+            temp_address &= ~0xff; //Unset the lower byte;
+            temp_address |= address;
+            data_address = temp_address;
+            first_write = true;
         }
-
-        sprite_pattern_addr_hi = sprite_pattern_addr_lo + 8;
-
-        sprite_pattern_bits_lo = ppu_read(sprite_pattern_addr_lo);
-        sprite_pattern_bits_hi = ppu_read(sprite_pattern_addr_hi);
-
-        if (sprite_scanline[idx].flip_h())
-        {
-            sprite_pattern_bits_lo = flipbyte(sprite_pattern_bits_lo);
-            sprite_pattern_bits_hi = flipbyte(sprite_pattern_bits_hi);
-        }
-
-        sprite_shifter_pattern_lo[idx] = sprite_pattern_bits_lo;
-        sprite_shifter_pattern_hi[idx] = sprite_pattern_bits_hi;
+        break;
+    case PPU_SCROLL:
+        break;
+    case PPU_ADDR:
+        break;
+    case PPU_DATA:
+        system_bus.read(data_address);
+        break;
+    case OAM_DMA:
+        data = sprite_memory[address];
+        break;
+    default:
+        log(LogLevel::Critical, "Invalid write to PPU {:04X}", address);
+        break;
     }
+    return data;
 }
 
-void PPU::compose_background(PixelComposition& pixel_composition)
+void PPU::cpu_write(uint16_t unmapped_address, uint8_t data)
 {
-    pixel_composition.bg_pixel = 0x00;
-    pixel_composition.bg_palette = 0x00;
-
-    if (mask.data.show_background)
+    uint16_t address = unmapped_address;
+    if (unmapped_address >= 0x2000 && unmapped_address <= 0x3FFF)
     {
-        if (mask.data.show_bg_left || (cycle >= 9))
-        {
-            uint16_t bit_mux = 0x8000 >> fine_x;
-
-            uint8_t p0_pixel = (bg_info.shifter_pattern_lo & bit_mux) > 0;
-            uint8_t p1_pixel = (bg_info.shifter_pattern_hi & bit_mux) > 0;
-
-            pixel_composition.bg_pixel = (p1_pixel << 1) | p0_pixel;
-
-            uint8_t bg_pal0 = (bg_info.shifter_attrib_lo & bit_mux) > 0;
-            uint8_t bg_pal1 = (bg_info.shifter_attrib_hi & bit_mux) > 0;
-            pixel_composition.bg_palette = (bg_pal1 << 1) | bg_pal0;
-        }
+        address = unmapped_address & 0x2003;
     }
-}
-
-void PPU::compose_foreground(PixelComposition& pixel_composition)
-{
-    if (!mask.data.show_sprites)
+    switch (address)
     {
-        return;
+    case PPU_CTRL:
+        generate_interrupt = data & 0x80;
+        long_sprites = data & 0x20;
+        bg_page = static_cast<CharacterPage>(!!(data & 0x10));
+        sprite_page = static_cast<CharacterPage>(!!(data & 0x08));
+        break;
+    case PPU_MASK:
+        greyscale_mode = data & 0x01;
+        hide_edge_background = !(data & 0x02);
+        hide_edge_sprites = !(data & 0x04);
+        show_background = data & 0x08;
+        show_sprites = data & 0x10;
+        break;
+    case PPU_STATUS:
+        break;
+    case OAM_ADDR:
+        // oam_address = data;
+        break;
+    case OAM_DATA:
+        // object_attribute_memory.write(data);
+        break;
+    case PPU_SCROLL:
+        break;
+    case PPU_ADDR:
+        break;
+    case PPU_DATA:
+        break;
+    case OAM_DMA:
+        dma();
+        break;
+    default:
+        logger::critical("Invalid read from PPU {:04X}", address);
+        break;
     }
-
-    if (!(mask.data.show_sprites_left || (cycle >= 9)))
-    {
-        return;
-    }
-
-    sprite_0_being_rendered = false;
-
-    for (uint8_t idx = 0; idx < sprite_count; idx++)
-    {
-        if (sprite_scanline[idx].x_pos() != 0)
-        {
-            continue;
-        }
-
-        uint8_t fg_pixel_lo = (sprite_shifter_pattern_lo[idx] & 0x80) > 0;
-        uint8_t fg_pixel_hi = (sprite_shifter_pattern_hi[idx] & 0x80) > 0;
-        pixel_composition.fg_pixel = (fg_pixel_hi << 1) | fg_pixel_lo;
-
-        pixel_composition.fg_palette = (sprite_scanline[idx].attributes() & 0x03) + 0x04;
-        pixel_composition.fg_priority = (sprite_scanline[idx].attributes() & 0x20) == 0;
-
-        if (pixel_composition.fg_pixel != 0)
-        {
-            sprite_0_being_rendered = sprite_0_being_rendered || (idx == 0);
-            break;
-        }
-    }
-}
-
-void PPU::composite_pixels(PixelComposition& pixel_composition)
-{
-    const auto& bg_pix_gt_zero = pixel_composition.bg_pixel > 0;
-    const auto& fg_pix_gt_zero = pixel_composition.fg_pixel > 0;
-    const auto& fg_pixel = pixel_composition.fg_pixel;
-    const auto& bg_pixel = pixel_composition.bg_pixel;
-    const auto& fg_pal = pixel_composition.fg_palette;
-    const auto& bg_pal = pixel_composition.bg_palette;
-
-    pixel_composition.pixel = bg_pix_gt_zero * bg_pixel + fg_pix_gt_zero * fg_pixel;
-    pixel_composition.palette = bg_pix_gt_zero * bg_pal + fg_pix_gt_zero * fg_pal;
-
-    auto maybe_collision = bg_pix_gt_zero && fg_pix_gt_zero;
-    if (!maybe_collision)
-    {
-        return;
-    }
-
-    auto fg_pri = pixel_composition.fg_priority;
-    pixel_composition.pixel = fg_pri * fg_pixel + !fg_pri * bg_pixel;
-    pixel_composition.palette = fg_pri * fg_pal + !fg_pri * bg_pal;
-
-    auto maybe_zero_hit = sprite_0_hit_possible && sprite_0_being_rendered;
-    if (maybe_zero_hit && mask.is_rendering())
-    {
-        // The left edge of the screen has specific switches to control
-        // its appearance. This is used to smooth inconsistencies when
-        // scrolling (since sprites x coord must be >= 0)
-        auto show_left = mask.data.show_bg_left || mask.data.show_sprites_left;
-        auto is_hit_x = !show_left && cycle >= 9 && cycle < 258;
-        if (is_hit_x || (cycle >= 1 && cycle < 258))
-        {
-            status.data.sprite_0_hit = 1;
-        }
-    }
-}
-
-bool PPU::init_sdl()
-{
-    if (SDL_Init(SDL_INIT_VIDEO) < 0)
-    {
-        logger::critical("Could not initialize vidoe: {}", SDL_GetError());
-        return false;
-    }
-
-    Window = SDL_CreateWindow(
-        "Petito NES",
-        SDL_WINDOWPOS_UNDEFINED,
-        SDL_WINDOWPOS_UNDEFINED,
-        NTSC_WIDTH,
-        NTSC_HEIGHT,
-        SDL_WINDOW_SHOWN);
-    if (Window == nullptr)
-    {
-        logger::critical("Could not initialize Window: {}", SDL_GetError());
-        return false;
-    }
-
-    ScreenSurface = SDL_GetWindowSurface(Window);
-
-    is_initialized = true;
-    return true;
-}
-
-const Sprite& PPU::get_sprite_screen() const {
-    return *sprite_screen;
-}
-
-void PPU::render()
-{
-    if (!is_initialized)
-    {
-        init_sdl();
-        auto depth = 32;
-        RenderedImage = SDL_CreateRGBSurface(
-            0,
-            NTSC_WIDTH,
-            NTSC_HEIGHT,
-            depth,
-            0xFF000000,
-            0x00FF0000,
-            0x0000FF00,
-            0x000000FF);
-        if (RenderedImage == nullptr)
-        {
-            logger::critical("Could not get create surface {}", SDL_GetError());
-            return;
-        }
-        auto fmt = RenderedImage->format;
-        if (fmt->BitsPerPixel != depth)
-        {
-            logger::critical("Could not get correct format");
-            return;
-        }
-    }
-
-    // SDL_LockSurface(RenderedImage);
-    auto pixel_ptr = static_cast<uint32_t*>(RenderedImage->pixels);
-    std::memcpy(
-        pixel_ptr,
-        sprite_screen->col_data.data(),
-        sizeof(uint32_t) * sprite_screen->width * sprite_screen->height);
-    // SDL_UnlockSurface(RenderedImage);
-    SDL_BlitSurface(RenderedImage, nullptr, ScreenSurface, nullptr);
-    SDL_UpdateWindowSurface(Window);
-    SDL_Event e;
-    if (SDL_PollEvent(&e))
-    {
-        if (e.type == SDL_QUIT)
-        {
-            std::exit(0);
-        }
-    }
-}
-
-Pixel& PPU::get_color_from_palette_ram(const PixelComposition& pixel_composition)
-{
-    // This is a convenience function that takes a specified palette and pixel
-    // index and returns the appropriate screen color.
-    // "0x3F00"       - Offset into PPU addressable range where palettes are stored
-    // "palette << 2" - Each palette is 4 bytes in size
-    // "pixel"        - Each pixel index is either 0, 1, 2 or 3
-    // "& 0x3F"       - Stops us reading beyond the bounds of the palScreen array
-    auto read_address = 0x3F00 + (pixel_composition.palette << 2) + pixel_composition.pixel;
-    return palette_screen[ppu_read(read_address) & 0x3F];
 }
 
 } // namespace nes

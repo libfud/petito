@@ -2,7 +2,6 @@ if(NOT DEFINED ENV{NO_CLANG_CHECK})
     set(CMAKE_CXX_CLANG_TIDY clang-tidy -extra-arg=-std=c++20 -checks=cppcore*,-readability-magic-numbers,-cppcoreguidelines-pro-bounds-constant-array-index,-cppcoreguidelines-avoid-magic-numbers,-cppcoreguidelines-pro-bounds-pointer-arithmetic,-cppcoreguidelines-pro-type-const-cast,-cppcoreguidelines-pro-type-union-access,cplusplus*)
 endif()
 
-
 SET(CMAKE_CXX_FLAGS_COVERAGE
     "-g --coverage -fprofile-arcs -ftest-coverage"
     CACHE STRING "Flags used by the C++ compiler during coverage builds."
@@ -53,6 +52,18 @@ target_link_libraries(test_mos6502
 
 gtest_add_tests(
     TARGET test_mos6502
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    EXTRA_ARGS --gtest_output=xml:${CMAKE_BINARY_DIR}/Test${ModuleName}.xml)
+
+add_executable(test_nes test_nes.cpp)
+target_link_libraries(test_nes
+    PRIVATE
+    mos6502_lib
+    nes_lib
+    gtest gtest_main gmock)
+
+gtest_add_tests(
+    TARGET test_nes
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     EXTRA_ARGS --gtest_output=xml:${CMAKE_BINARY_DIR}/Test${ModuleName}.xml)
 

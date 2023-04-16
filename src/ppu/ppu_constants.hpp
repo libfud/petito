@@ -19,6 +19,11 @@ static constexpr int PRE_RENDER_SCANLINE = -1;
 static constexpr int ODD_SPECIAL_TICK = 339;
 static constexpr int PPU_TICKS_PER_LINE = 341;
 
+static constexpr int VISIBLE_SCANLINES = 240;
+static constexpr int FRAME_END_SCANLINE = 261;
+
+static constexpr int SCANLINE_END_CYCLE = 340;
+
 static constexpr int CYCLE_TILE_0 = 2;
 static constexpr int CYCLE_TILE_F = 257;
 
@@ -26,6 +31,7 @@ static constexpr int CYCLE_N_TILE_0 = 321;
 static constexpr int CYCLE_N_TILE_F = 337;
 
 static constexpr int CYCLE_END_OF_SCANLINE = 256;
+static constexpr int SCANLINE_VISIBLE_DOTS = 256;
 
 static constexpr int CYCLE_UNUSED_NT_FETCH_0 = 338;
 static constexpr int CYCLE_UNUSED_NT_FETCH_1 = 340;

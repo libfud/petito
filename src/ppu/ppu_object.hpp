@@ -6,7 +6,6 @@
 #include <cstdlib>
 #include <memory>
 #include <vector>
-
 #include "ppu_constants.hpp"
 
 namespace nes {

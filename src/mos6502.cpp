@@ -24,32 +24,11 @@ uint8_t Flags::get()
         static_cast<uint8_t>(carry);
 }
 
-uint8_t Flags::get_fmt()
-{
-    return
-        (static_cast<uint8_t>(negative) << 7) |
-        (static_cast<uint8_t>(overflow) << 6) |
-        (static_cast<uint8_t>(bcd_arithmetic) << 3) |
-        (static_cast<uint8_t>(interrupt_inhibit) << 2) |
-        (static_cast<uint8_t>(zero) << 1) |
-        static_cast<uint8_t>(carry);
-}
-
 uint8_t Flags::get_php()
 {
     uint8_t flags = get();
     flags |= (1 << 5) | (1 << 4);
     return flags;
-}
-
-uint16_t Flags::get_carry()
-{
-    uint16_t c = 0;
-    if (carry)
-    {
-        c = 0x0100;
-    }
-    return c;
 }
 
 void Flags::set(uint8_t data)
@@ -89,6 +68,11 @@ MOS6502::MOS6502(SystemBus& system_bus, int32_t cpu_clock_rate) :
 uint8_t MOS6502::read(uint16_t address)
 {
     return system_bus.read(address);
+}
+
+uint8_t MOS6502::debug_read(uint16_t address) const
+{
+    return system_bus.const_read(address);
 }
 
 void MOS6502::write(uint16_t address, uint8_t data)
@@ -256,7 +240,8 @@ void MOS6502::asl(uint8_t& value)
 
 void MOS6502::bit_test(uint8_t value)
 {
-    flags.negative = value >> 7 == 0x01;
+    flags.negative = value > 127;
+    // flags.negative = value >> 7 == 0x01;
     flags.overflow = (value >> 6) & 0x01;
     value &= acc;
     flags.zero = value == 0;
@@ -299,9 +284,9 @@ void MOS6502::ror(uint8_t& value)
     flags.set_n_and_z(compound_value);
 }
 
-CpuData MOS6502::save_state()
+CpuData MOS6502::save_state(uint8_t opcode, const OpDecode& op_decode)
 {
-    return {flags, pc, acc, x, y, stack_ptr, system_bus.get_cpu_clock()};
+    return {flags, pc, acc, x, y, stack_ptr, opcode, op_decode, system_bus.get_cpu_clock()};
 }
 
 OpDecode MOS6502::decode(uint8_t opcode)
@@ -389,8 +374,6 @@ OpDecode MOS6502::decode(uint8_t opcode)
 
 void MOS6502::step_diagnostics(uint8_t opcode, OpDecode& op_decode)
 {
-    uint8_t status = read(0x6000);
-
     if (heavy_diagnostics)
     {
         logger::warn(
@@ -405,41 +388,11 @@ void MOS6502::step_diagnostics(uint8_t opcode, OpDecode& op_decode)
             static_cast<unsigned int>(system_bus.get_cpu_clock() % 1000)
         );
     }
-    if (status == 0x80)
-    {
-        std::array<char, 100> msg_buf{};
-        memcpy(
-            msg_buf.data(),
-            &(dynamic_cast<nes::NesSystemBus&>(system_bus).cart.prg_ram[4]),
-            sizeof(msg_buf));
-        // std::string message{msg_buf.data()};
-        // (message.size() > 6)
-        if (strnlen(msg_buf.data(), msg_buf.size()) > 6)
-        {
-            logger::warn(
-                "Test in progress {:02X} {:02X} {:02X}\nmessage={}",
-                dynamic_cast<nes::NesSystemBus&>(system_bus).cart.prg_ram[1],
-                dynamic_cast<nes::NesSystemBus&>(system_bus).cart.prg_ram[2],
-                dynamic_cast<nes::NesSystemBus&>(system_bus).cart.prg_ram[3],
-                msg_buf.data()
-            );
-        }
-    }
 }
 
 uint8_t MOS6502::step()
 {
     auto start_clock = system_bus.get_cpu_clock();
-
-    if (system_bus.get_interrupt_signals().nmi)
-    {
-        nmi();
-    }
-
-    if (flags.brk || (system_bus.get_interrupt_signals().irq && !flags.interrupt_inhibit))
-    {
-        irq();
-    }
 
     uint8_t opcode = read(pc);
 
@@ -1059,6 +1012,19 @@ uint8_t MOS6502::step()
         pc += 1 + op_decode.read_bytes;
     }
 
+    if (system_bus.get_interrupt_signals().nmi)
+    {
+        // nmi();
+    }
+
+    auto brk_flag = flags.brk;
+    auto irq_signal = system_bus.get_interrupt_signals().irq;
+    auto irq_inhibit = flags.interrupt_inhibit;
+    if (brk_flag || (irq_signal && !irq_inhibit))
+    {
+        irq();
+    }
+
     auto stop_clock = system_bus.get_cpu_clock();
     uint8_t cycles =  stop_clock - start_clock;
 
@@ -1120,8 +1086,8 @@ void MOS6502::nmi()
 
     pc = make_address(low_addr, high_addr);
 
-    // system_bus.get_cpu_clock() += 7;
-    system_bus.get_cpu_clock() += 8;
+    system_bus.get_cpu_clock() += 7;
+    // system_bus.get_cpu_clock() += 8;
     nmi_counter++;
     system_bus.get_interrupt_signals().nmi = false;
 

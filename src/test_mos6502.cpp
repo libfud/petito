@@ -7,7 +7,6 @@
 
 #include "mos6502.hpp"
 #include "memory.hpp"
-#include "nes.hpp"
 #include "cartridge/cartridge.hpp"
 #include "logger/logger.hpp"
 
@@ -16,14 +15,7 @@ namespace mos = mos6502;
 TEST(TestFlags, get)
 {
     mos::Flags flags{};
-    flags.carry = false;
-    flags.zero = false;
-    flags.interrupt_inhibit = false;
-    flags.bcd_arithmetic = false;
-    flags.brk = false;
-    flags.overflow = false;
-    flags.negative = false;
-
+    EXPECT_EQ(flags.get(), mos::BRK_MASK);
     EXPECT_EQ(flags.get(), (1 << 5) | (0 << 4));
     EXPECT_EQ(flags.get_php(), (1 << 5) | (1 << 4));
 

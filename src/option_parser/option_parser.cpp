@@ -200,6 +200,12 @@ OptCallback OptionParser::create_help_callback(OptCallback pre_actions) const
     };
 }
 
+bool OptionParser::has_flag(std::string&& flag)
+{
+    const auto has_value = parsed_options.has_value();
+    return has_value && parsed_options.value().count(flag) > 0;
+}
+
 bool OptionParser::handle_flag(std::string&& flag)
 {
     const auto has_value = parsed_options.has_value();

@@ -6,41 +6,24 @@
 #include <cstdint>
 #include <type_traits>
 #include <vector>
-#include <SDL2/SDL.h>
 
-#include "ppu_ctrl.hpp"
-#include "ppu_mask.hpp"
-#include "ppu_status.hpp"
+#include "virtual_screen.hpp"
 #include "ppu_constants.hpp"
-#include "loopy_register.hpp"
-#include "ppu_object.hpp"
 
 namespace nes {
 
 class NesSystemBus;
 
-static constexpr uint8_t PPU_CTRL = 0;
-static constexpr uint8_t PPU_MASK = 1;
-static constexpr uint8_t PPU_STATUS = 2;
-static constexpr uint8_t OAM_ADDR = 3;
-static constexpr uint8_t OAM_DATA = 4;
-static constexpr uint8_t PPU_SCROLL = 5;
-static constexpr uint8_t PPU_ADDR = 6;
-static constexpr uint8_t PPU_DATA = 7;
-static constexpr uint8_t PPU_ADDR_MASK = 0x0007;
+static constexpr uint16_t PPU_CTRL = PPU_REG_HIGH + 0;
+static constexpr uint16_t PPU_MASK = PPU_REG_HIGH + 1;
+static constexpr uint16_t PPU_STATUS = PPU_REG_HIGH + 2;
+static constexpr uint16_t OAM_ADDR = PPU_REG_HIGH + 3;
+static constexpr uint16_t OAM_DATA = PPU_REG_HIGH + 4;
+static constexpr uint16_t PPU_SCROLL = PPU_REG_HIGH + 5;
+static constexpr uint16_t PPU_ADDR = PPU_REG_HIGH + 6;
+static constexpr uint16_t PPU_DATA = PPU_REG_HIGH + 7;
+static constexpr uint16_t PPU_ADDR_MASK = 0x0007;
 static constexpr uint16_t OAM_DMA = 0x4014;
-
-class AddressLatch
-{
-public:
-    void reset();
-    void write(uint8_t data);
-    uint16_t get_address() const;
-    void increment(const PpuCtrl& ctrl);
-private:
-    uint16_t address;
-    uint8_t count;
-};
 
 enum class PpuState {
     PreRender,
@@ -49,138 +32,135 @@ enum class PpuState {
     VerticalBlank
 };
 
+enum class CharacterPage
+{
+    Low,
+    High
+};
+
 class PPU
 {
 public:
-    explicit PPU(NesSystemBus& system_bus);
+    PPU(NesSystemBus& system_bus, VirtualScreen & virtual_screen);
+
+    void reset();
+
+    uint8_t read_palette(uint8_t palette_address);
+
+    void run(int cpu_cycles);
+
+    void step();
+
+    void prerender();
+
+    void render();
+
+    void render_background(uint8_t& bg_color, bool& bg_opaque);
+
+    void render_sprites(
+        uint8_t& sprite_color,
+        bool& sprite_opaque,
+        bool& sprite_foreground,
+        const bool& bg_opaque);
+
+    void post_render();
+
+    void render_vblank();
+
+    void dma();
+
+    void nmi();
 
     uint8_t cpu_read(uint16_t address);
 
     void cpu_write(uint16_t address, uint8_t data);
 
-    uint8_t ppu_read(uint16_t address);
+    void control(uint8_t ctrl);
 
-    void ppu_write(uint16_t address, uint8_t data);
+    void set_mask(uint8_t mask);
 
-    void reset();
+    void set_oam_address(uint8_t addr);
 
-    void run(int cpu_cycles);
+    void set_data_address(uint8_t addr);
 
-    void old_step();
+    void set_scroll(uint8_t scroll);
 
-    void step();
+    void set_data(uint8_t data);
 
-    void render();
+    uint8_t get_status();
 
-    const Sprite& get_sprite_screen() const;
+    uint8_t get_data();
+
+    uint8_t get_oam_data();
+
+    void setOAMData(uint8_t value);
+
+private:
+
+    uint8_t read_oam(uint8_t addr);
+
+    void write_oam(uint8_t addr, uint8_t value);
+
+    uint8_t read(uint16_t address);
 
 protected:
     NesSystemBus& system_bus;
 
-    PpuCtrl control = {};
+    VirtualScreen& virtual_screen;
 
-    PpuMask mask = {};
+    std::array<uint8_t, 32> palette = std::array<uint8_t, 32>{};
 
-    PpuStatus status = {};
+    std::vector<uint8_t> sprite_memory;
 
-    uint8_t oam_address = {};
+    std::vector<uint8_t> scanline_sprites;
 
-    uint8_t addr_register = 0;
+    PpuState pipeline_state = PpuState::PreRender;
 
-    uint8_t oam_dma = 0;
+    int cycle = 0;
 
-    uint8_t fine_x = 0;
+    int scanline = 0;
 
-    bool latch_set = false;
+    bool even_frame = true;
 
-    ObjectAttributeMemory object_attribute_memory;
+    bool vblank = false;
 
-    std::array<uint8_t, PALETTE_RAM_SIZE> palette_table = {};
+    bool sprite_0_hit = false;
 
-    PaletteScreen palette_screen = {};
+    bool sprite_overflow = false;
 
-    std::unique_ptr<Sprite> sprite_screen;
+    uint16_t data_address = 0;
 
-    std::array<ObjectAttributeEntry, 8> sprite_scanline = {};
+    uint16_t temp_address = 0;
 
-    std::array<uint8_t, 8> sprite_shifter_pattern_lo = {};
+    uint8_t fine_x_scroll = 0;
 
-    std::array<uint8_t, 8> sprite_shifter_pattern_hi = {};
+    bool first_write = true;
 
-    int latch_clock = 0;
+    uint8_t data_buffer = 0;
 
-    int16_t scanline_index = 0;
+    uint8_t sprite_data_address = 0;
 
-    int16_t cycle = 0;
+    bool long_sprites = false;
 
-    BackgroundInfo bg_info = {};
+    bool generate_interrupt = false;
 
-    LoopyRegister tram_addr = {};
+    bool greyscale_mode = false;
 
-    LoopyRegister vram_addr = {};
+    bool show_sprites = true;
 
-    uint8_t address_latch = 0;
+    bool show_background = true;
 
-    uint8_t ppu_data_buffer = 0;
+    bool hide_edge_sprites = false;
 
-    uint8_t sprite_count = 0;
+    bool hide_edge_background = false;
 
-    bool odd_frame = false;
+    CharacterPage bg_page = CharacterPage::Low;
 
-    bool nmi_occurred = false;
+    CharacterPage sprite_page = CharacterPage::Low;
 
-    bool frame_complete = false;
+    uint16_t data_address_increment = 1;
 
-    bool sprite_0_hit_possible = false;
-
-    bool sprite_0_being_rendered = false;
-
-    bool is_pre_render_scanline() const;
-
-    uint8_t ppu_data_read();
-
-    void ppu_data_write(uint8_t data);
-
-    void fill_latch(uint8_t data);
-
-    uint16_t cpu_map_address(uint16_t address);
-
-    void nmi();
-
-    void dma();
-
-    void render_background();
-
-    void start_new_frame();
-
-    void work_visible_frame();
-
-    void update_shifters();
-
-    void set_next_tile_addr_byte(uint8_t& next_tile_byte, uint8_t plane_offset);
-
-    void fetch_next_bg_tile_attrib();
-
-    void render_foreground();
-
-    void evaluate_visible_sprites();
-
-    void prepare_visible_sprites();
-
-    void compose_background(PixelComposition& pixel_composition);
-
-    void compose_foreground(PixelComposition& pixel_composition);
-
-    void composite_pixels(PixelComposition& pixel_composition);
-
-    Pixel& get_color_from_palette_ram(const PixelComposition& pixel_composition);
-
-    bool is_initialized = false;
-    SDL_Window* Window = nullptr;
-    SDL_Surface* ScreenSurface = nullptr;
-    SDL_Surface* RenderedImage = nullptr;
-
-    bool init_sdl();
+    std::vector<std::vector<sf::Color>> picture_buffer;
 };
 
 }

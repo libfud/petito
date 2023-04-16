@@ -3,16 +3,19 @@
 
 #include <array>
 #include <cstdint>
+#include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 
-#include <optional>
+#include <SFML/Graphics.hpp>
 
 #include "mos6502.hpp"
 #include "apu.hpp"
 #include "ppu/ppu.hpp"
 #include "cartridge/cartridge.hpp"
 #include "system_bus.hpp"
+#include "ppu/virtual_screen.hpp"
 
 namespace nes {
 
@@ -23,14 +26,25 @@ class NES
 public:
     NES(Cartridge&& cart, int32_t cpu_clock_rate = DEFAULT_CPU_CLOCK_RATE);
     ~NES();
-    void run(bool reset = true);
+    void reset();
+    void run(bool perform_reset = true);
+    void run_until(const std::function<bool(const NES& nes)>& predicate);
+    void run_diag();
+    void step();
+    void set_diagnostics(std::string diag_msg);
+    std::string diagnostics() const;
 
-// private:
+private:
     mos6502::MOS6502 cpu;
     Cartridge cart;
     APU apu;
     PPU ppu;
     NesSystemBus system_bus;
+    VirtualScreen virtual_screen;
+
+    sf::RenderWindow window;
+    float screen_scale;
+    std::string diagnostic_msg;
 };
 
 }

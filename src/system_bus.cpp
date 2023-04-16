@@ -52,6 +52,27 @@ uint8_t NesSystemBus::read(uint16_t address)
     }
 }
 
+uint8_t NesSystemBus::const_read(uint16_t address) const
+{
+    if (address <= INTERNAL_RAM_END)
+    {
+        uint16_t mapped_address = address & INTERNAL_RAM_MASK;
+        return internal_ram[mapped_address];
+    }
+    else if (address <= PPU_REG_END)
+    {
+        return ppu.cpu_read(address);
+    }
+    else if (address <= APU_REG_END)
+    {
+        return apu.read(address);
+    }
+    else
+    {
+        return cart.read(address);
+    }
+}
+
 void NesSystemBus::write(uint16_t address, uint8_t data)
 {
     if (address <= INTERNAL_RAM_END)

@@ -4,7 +4,6 @@
 #include "interrupt_signals.hpp"
 #include "cartridge/cartridge.hpp"
 #include "ppu/ppu.hpp"
-#include "ppu/ppu_jackass.hpp"
 #include "apu.hpp"
 
 namespace mos6502 {
@@ -16,6 +15,8 @@ public:
     virtual int32_t& get_cpu_clock() = 0;
 
     virtual uint8_t read(uint16_t address) = 0;
+
+    virtual uint8_t const_read(uint16_t address) const = 0;
 
     virtual void write(uint16_t address, uint8_t data) = 0;
 };
@@ -44,6 +45,8 @@ public:
     int32_t& get_cpu_clock() override;
 
     uint8_t read(uint16_t address) override;
+
+    uint8_t const_read(uint16_t address) const override;
 
     void write(uint16_t address, uint8_t data) override;
 

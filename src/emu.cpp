@@ -4,12 +4,15 @@
 #include "cartridge/cartridge.hpp"
 
 #include "mos6502_config.hpp"
+#include "emu.hpp"
 
 using logger::LogLevel;
 
+using option_parser::OptionParser;
+
 std::optional<nes::Cartridge> load_rom(const std::string& filename)
 {
-    fmt::print("using rom {}\n", filename);
+    logger::debug("Using rom {}\n", filename);
     nes::Cartridge cart{};
     if (cart.load(filename))
     {
@@ -18,21 +21,13 @@ std::optional<nes::Cartridge> load_rom(const std::string& filename)
     return {};
 }
 
-void version()
-{
-    fmt::print(stdout, "{} {}\n", PROJECT_NAME, PROJECT_VER);
-}
+void version() { fmt::print(stdout, "{} {}\n", PROJECT_NAME, PROJECT_VER); }
 
-int main(int argc, char** argv)
+bool create_flags(OptionParser& opts)
 {
-    // logger::set_pattern("[%H:%M:%S] [%^-%L-%$] %v");
-    logger::set_pattern("%v");
-    logger::set_level(LogLevel::Error);
-    option_parser::OptionParser opts(argc, argv, "mos6502", "MOS6502 emulator");
-
     auto flags_added = opts.add_flag_set({
         {"v", "version", "Param version", version},
-        {"h", "help", "Print usage", opts.create_help_callback(version)}
+        {"h", "help", "Print usage", opts.create_help_callback(version)},
     });
 
     if (flags_added.is_ok())
@@ -42,12 +37,12 @@ int main(int argc, char** argv)
 
     if (flags_added.is_ok())
     {
-        flags_added = opts.add_argument<uint16_t>("i", "init-addr", "Initial address");
+        flags_added = opts.add_argument<std::string>("l", "log-level", "Log level");
     }
 
     if (flags_added.is_ok())
     {
-        flags_added = opts.add_argument<std::string>("l", "log-level", "Log level");
+        flags_added = opts.add_argument<std::string>("d", "diagnostic", "Diagnostic mode");
     }
 
     if (flags_added.is_err())
@@ -55,16 +50,30 @@ int main(int argc, char** argv)
         auto err = flags_added.get_err().format();
         fmt::print(stderr, "Failed to add flags {}\n", err);
         logger::log(LogLevel::Critical, "Failed to add flags: {}", err);
-        std::exit(1);
+        return false;
     }
 
     auto parsed_res = opts.parse();
-
     if (parsed_res.is_err())
     {
         auto err = parsed_res.get_err().format();
         fmt::print(stderr, "Failed to parse arguments: {}\n", err);
         logger::log(LogLevel::Critical, "Failed to parse arguments: {}", err);
+        return false;
+    }
+
+    return true;
+}
+
+int main(int argc, char** argv)
+{
+    // logger::set_pattern("[%H:%M:%S] [%^-%L-%$] %v");
+    logger::set_pattern("%v");
+    logger::set_level(LogLevel::Error);
+
+    OptionParser opts(argc, argv, "mos6502", "MOS6502 emulator");
+    if (!create_flags(opts))
+    {
         std::exit(1);
     }
 
@@ -92,17 +101,11 @@ int main(int argc, char** argv)
             std::exit(1);
         }
         nes::NES nes(std::move(*cart));
-
-        if (auto init_addr = opts.flag_value<uint16_t>("init-addr"))
+        if (opts.has_flag("diagnostic"))
         {
-            nes.cpu.reset();
-            nes.cpu.pc = *init_addr;
-            nes.cpu.heavy_diagnostics = true;
-            logger::log(LogLevel::Debug, "Using init address {:04X}", nes.cpu.pc);
-            while (true)
-            {
-                nes.cpu.step();
-            }
+            auto diag_msg = opts.flag_value<std::string>("diagnostic").value();
+            nes.set_diagnostics(diag_msg);
+            nes.run_diag();
         }
         else
         {

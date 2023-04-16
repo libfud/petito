@@ -16,6 +16,7 @@ enable_testing()
 include(CTest)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules/;${CMAKE_MODULE_PATH};${CMAKE_SOURCE_DIR}")
 
 set(CXX_CPPCHECK "project=target/debug/compile_commands.json;enable=information;force")
 
@@ -27,6 +28,10 @@ find_package(GTest REQUIRED)
 find_package(Doxygen
              REQUIRED dot
              OPTIONAL_COMPONENTS mscgen dia)
+
+find_package(SFML 2 COMPONENTS audio graphics window system REQUIRED)
+
+include_directories(${SFML_INCLUDE_DIR})
 
 option(COVERAGE "Add coverage compilation and link options." OFF)
 if (${COVERAGE})

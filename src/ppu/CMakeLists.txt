@@ -12,6 +12,7 @@ set(PPU_SOURCES
     ppu_status.cpp
     ppu_object.cpp
     loopy_register.cpp
+    virtual_screen.cpp
     # ppu_jackass.cpp
 )
 
@@ -24,9 +25,11 @@ add_minimal_target(
     test_ppu_mask.cpp
     test_ppu_status.cpp
     test_loopy.cpp
+    test_ppu_object.cpp
 )
 
 target_include_directories(ppu_lib PRIVATE ${SDL2_INCLUDE_DIRS})
-target_link_libraries(ppu_lib PRIVATE cartridge_lib nes_lib ${SDL2_LIBRARIES})
+target_link_libraries(ppu_lib PRIVATE cartridge_lib nes_lib ${SDL2_LIBRARIES}
+ ${SFML_LIBRARIES} ${SFML_DEPENDENCIES})
 
 add_common_dependency(ppu_lib Logger)

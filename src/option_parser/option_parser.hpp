@@ -144,6 +144,8 @@ public:
 
     OptCallback create_help_callback(OptCallback pre_actions = {}) const;
 
+    bool has_flag(std::string&& flag);
+
     bool handle_flag(std::string&& flag);
 
     template <typename T>

@@ -67,3 +67,7 @@ external/chibi-scheme-prefix
 **/ltximg
 analysis/cppcheck/**
 analysis/scan-build/**
+
+# coverage artifacts
+*.gcda
+*.gcno
