@@ -29,8 +29,8 @@ struct Flags
     bool overflow;
     bool negative;
 
-    uint8_t get();
-    uint8_t get_php();
+    uint8_t get() const;
+    uint8_t get_php() const;
 
     void set(uint8_t data);
     void set_n_and_z(uint8_t data);
@@ -60,7 +60,9 @@ public:
 
     OpDecode decode(uint8_t opcode);
 
-    void step_diagnostics(uint8_t opcode, OpDecode& op_decode);
+    void step_diagnostics(uint8_t opcode, const OpDecode& op_decode) const;
+
+    uint32_t run(uint16_t steps);
 
     /** Driving clock */
     uint8_t step();
@@ -74,11 +76,14 @@ public:
     /** Nonmaskable interupt signal */
     void nmi();
 
-    CpuData save_state(uint8_t opcode, const OpDecode& op_decode);
+    // CpuData save_state(uint8_t opcode, const OpDecode& op_decode) const;
+    CpuData save_state() const;
 
     uint8_t debug_read(uint16_t address) const;
 
-protected:
+    void set_diagnostics(bool enable);
+
+private:
     Flags flags;
     uint16_t pc;
     uint8_t acc;
@@ -87,13 +92,14 @@ protected:
     uint8_t stack_ptr;
 
     int32_t clock_rate;
-
     int clock_counter;
+
+    uint8_t opcode = BRK_IMPL;
+    OpDecode op_decode = {};
 
     SystemBus& system_bus;
 
     bool diagnostics;
-    bool heavy_diagnostics;
     uint64_t irq_counter;
     uint64_t nmi_counter;
 

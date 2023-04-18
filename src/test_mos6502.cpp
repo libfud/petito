@@ -1,231 +1,198 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+
 #include <algorithm>
 #include <iterator>
+#include <stdexcept>
 #include <vector>
 #include <string>
 
 #include "mos6502.hpp"
-#include "memory.hpp"
-#include "cartridge/cartridge.hpp"
+#include "system_bus.hpp"
 #include "logger/logger.hpp"
 
-namespace mos = mos6502;
+namespace mos6502 {
 
-TEST(TestFlags, get)
-{
-    mos::Flags flags{};
-    EXPECT_EQ(flags.get(), mos::BRK_MASK);
-    EXPECT_EQ(flags.get(), (1 << 5) | (0 << 4));
-    EXPECT_EQ(flags.get_php(), (1 << 5) | (1 << 4));
+using CpuType = MOS6502;
+using logger::LogLevel;
 
-    flags.brk = true;
-    EXPECT_EQ(flags.get(), (1 << 5) | (1 << 4));
-    EXPECT_EQ(flags.get_php(), (1 << 5) | (1 << 4));
+constexpr int32_t TEST_CLOCK_RATE_HZ = 1000000;
 
-    flags.carry = true;
+constexpr uint16_t TEST_RAM_SIZE = 0x400;
+constexpr uint8_t ZERO_PAGE = 0x00;
+// constexpr uint8_t STACK_PAGE = 0x01;
+constexpr uint16_t INFO_PAGE_ADDRESS = 0x0200;
+constexpr uint8_t INFO_PAGE = INFO_PAGE_ADDRESS >> 8;
+constexpr uint8_t SCRATCH_PAGE = 0x03;
 
-    EXPECT_EQ(flags.get(), (1 << 5) | (1 << 4) | 1);
-    EXPECT_EQ(flags.get_php(), (1 << 5) | (1 << 4) | 1);
+constexpr uint16_t TEST_ROM_SIZE = 0x300;
 
-    flags.zero = true;
+constexpr uint16_t VECTOR_START = NMI_VECTOR;
 
-    EXPECT_EQ(flags.get(), (1 << 5) | (1 << 4) | (1 << 1) | 1);
-    EXPECT_EQ(flags.get_php(), (1 << 5) | (1 << 4) | (1 << 1) | 1);
+constexpr uint16_t NMI_ADDRESS = TEST_RAM_SIZE;
+constexpr uint8_t NMI_ADDRESS_LOW = NMI_ADDRESS & 0xFF;
+constexpr uint8_t NMI_ADDRESS_HIGH = (NMI_ADDRESS >> 8) & 0xFF;
 
-    flags.interrupt_inhibit = true;
-    flags.bcd_arithmetic = true;
-    flags.brk = true;
-    flags.overflow = true;
-    flags.negative = true;
+constexpr uint16_t IRQ_ADDRESS = TEST_RAM_SIZE;
+constexpr uint8_t IRQ_ADDRESS_LOW = IRQ_ADDRESS & 0xFF;
+constexpr uint8_t IRQ_ADDRESS_HIGH = (IRQ_ADDRESS >> 8) & 0xFF;
 
-    EXPECT_EQ(flags.get(), 0xFF);
-    EXPECT_EQ(flags.get_php(), 0xFF);
+constexpr uint16_t RESET_ADDRESS = TEST_RAM_SIZE;
+constexpr uint8_t RESET_ADDRESS_LOW = RESET_ADDRESS & 0xFF;
+constexpr uint8_t RESET_ADDRESS_HIGH = (RESET_ADDRESS >> 8) & 0xFF;
 
-    flags.brk = false;
-    EXPECT_EQ(flags.get(), 0xFF - (1 << 4));
-    EXPECT_EQ(flags.get_php(), 0xFF);
-}
+constexpr uint8_t RESET_BYTE_ADDR = 0x00;
 
-class TestMemory : public Memory
+constexpr std::array<uint8_t, 4> RESET_PATTERN = {0xBE, 0xEF, 0xCA, 0xFE};
+
+class TestSystemBus : public SystemBus
 {
 public:
-    std::vector<uint8_t> data;
+    TestSystemBus();
+    TestSystemBus(TestSystemBus&) = delete;
+    TestSystemBus(TestSystemBus&&) = delete;
+    TestSystemBus& operator=(TestSystemBus&) = delete;
+    TestSystemBus&& operator=(TestSystemBus&&) = delete;
+    virtual ~TestSystemBus() = default;
+
+    InterruptSignals& get_interrupt_signals() override {
+        return interrupt_signals;
+    }
+
+    int32_t& get_cpu_clock() override {
+        return cpu_clock;
+    };
 
     uint8_t read(uint16_t address) override
     {
-        return data[address];
+        if (address < TEST_RAM_SIZE)
+        {
+            return memory[address];
+        }
+
+        if (address < (TEST_RAM_SIZE + TEST_ROM_SIZE))
+        {
+            uint16_t mapped_address = address - TEST_RAM_SIZE;
+            return program[mapped_address];
+        }
+
+        if (address >= VECTOR_START)
+        {
+            uint16_t mapped_address = address - VECTOR_START;
+            return vectors[mapped_address];
+        }
+
+        throw std::runtime_error("Invalid address read");
     }
 
-    void write(uint16_t address, uint8_t value) override
-    {
-        data[address] = value;
+    void write(uint16_t address, uint8_t data) override {
+        if (address < TEST_RAM_SIZE)
+        {
+            memory[address] = data;
+        }
+        else
+        {
+            throw std::runtime_error("Invalid address write");
+        }
     }
 
+    uint8_t const_read(uint16_t address) const override {
+        return address % 256;
+    }
+
+    std::vector<uint8_t> memory;
+    std::vector<uint8_t> program;
+    std::array<uint8_t, 6> vectors;
+    InterruptSignals interrupt_signals = {};
+    int32_t cpu_clock = 0;
 };
 
-class TestNes : public ::testing::Test {
-public:
-    nes::Cartridge cart;
-protected:
-    TestNes() : cart{} {}
-
-private:
-
-
-};
-
-#if 0
-TEST_F(TestNes, Reset)
+size_t add_reset_procedure(std::vector<uint8_t>& program)
 {
-    std::string filename = "data/roms/instr_test_v5/official_only.nes";
-    cart.load(filename);
-    nes::NES nes(std::move(cart));
-    nes.memory.init();
-    nes.cpu.reset();
-
-    EXPECT_EQ(nes.cpu.pc, 0xEBFA);
-    EXPECT_TRUE(nes.cpu.flags.interrupt_inhibit);
+    std::array<uint8_t, 45> reset_procedure = {
+        // set X to 0xFF and A to 0
+        LDX_IMM, 0xFF,
+        LDA_IMM, 0x00,
+        // zero out 0x00 to 0xFF, 0x200-0x2FF and 0x300-0x3FF
+        STA_ABS_X, 0x00, ZERO_PAGE,
+        STA_ABS_X, 0x00, INFO_PAGE,
+        STA_ABS_X, 0x00, SCRATCH_PAGE,
+        // decrement X
+        DEX_IMPL,
+        // repeat until X reaches zero
+        BNE_REL, static_cast<uint8_t>(-(3 * 3 + 1 + 2)),
+        // I'm too tired to think of an elegant solution so enjoy brute force
+        STA_ABS_X, 0x00, ZERO_PAGE,
+        STA_ABS_X, 0x00, INFO_PAGE,
+        STA_ABS_X, 0x00, SCRATCH_PAGE,
+        LDA_IMM, RESET_PATTERN[0],
+        LDY_IMM, RESET_PATTERN[1],
+        STA_ABS, 0x00, INFO_PAGE,
+        STY_ABS, 0x01, INFO_PAGE,
+        LDA_IMM, RESET_PATTERN[2],
+        LDY_IMM, RESET_PATTERN[3],
+        STA_ABS, 0x02, INFO_PAGE,
+        STY_ABS, 0x03, INFO_PAGE,
+    };
+    std::memcpy(&program[RESET_BYTE_ADDR], reset_procedure.data(), sizeof(reset_procedure));
+    return sizeof(reset_procedure);
 }
 
-TEST_F(TestNes, NesTestRom)
+TestSystemBus::TestSystemBus() :
+    memory(TEST_RAM_SIZE),
+    program(TEST_ROM_SIZE),
+    vectors{
+        NMI_ADDRESS_LOW, NMI_ADDRESS_HIGH,
+        RESET_ADDRESS_LOW, RESET_ADDRESS_HIGH,
+        IRQ_ADDRESS_LOW, IRQ_ADDRESS_HIGH,
+    }
 {
-    std::string filename = "data/roms/nestest.nes";
-    cart.load(filename);
-    nes::NES nes(std::move(cart));
-    nes.memory.init();
-    nes.cpu.reset();
-    nes.cpu.heavy_diagnostics = true;
-    nes.cpu.pc = 0xC000;
+    memory.reserve(TEST_RAM_SIZE);
+    memory.resize(TEST_RAM_SIZE);
+    program.reserve(TEST_ROM_SIZE);
+    program.resize(TEST_ROM_SIZE);
 
+    auto reset_proc_size = add_reset_procedure(program);
+    logger::debug("Added reset procedure of size {}", reset_proc_size);
+    std::array<uint8_t, 3> irq_procedure = {
+        INC_ABS, 0x10, INFO_PAGE,
+    };
+    std::memcpy(&program[0x100], &irq_procedure[0], sizeof(irq_procedure));
+
+    std::array<uint8_t, 3> nmi_procedure = {
+        INC_ABS, 0x20, INFO_PAGE,
+    };
+    std::memcpy(&program[0x200], &nmi_procedure[0], sizeof(nmi_procedure));
+}
+
+TEST(TestCpu, Reset)
+{
+    TestSystemBus system_bus{};
+    CpuType cpu{system_bus, TEST_CLOCK_RATE_HZ};
     logger::set_pattern("%v");
-    logger::set_level(logger::LogLevel::Debug);
-    nes.run(false);
-    // EXPECT_EQ(nes.cpu.pc, 0xEBFC);
-    // for (auto idx = 0; idx < 8991; ++idx)
-    // {
-    //     nes.cpu.step();
-    // }
-    // logger::set_level(logger::LogLevel::Critical);
-    // EXPECT_EQ(nes.cpu.read(2), 0);
-    // EXPECT_EQ(nes.cpu.read(3), 0);
-}
-
-TEST_F(TestNes, FirstStep)
-{
-    std::string filename = "data/roms/instr_test_v5/official_only.nes";
-    cart.load(filename);
-    nes::NES nes(std::move(cart));
-    nes.memory.init();
-    nes.cpu.reset();
-
-    nes.cpu.step();
-    EXPECT_EQ(nes.cpu.pc, 0xEBFC);
-}
-
-TEST_F(TestNes, Stack)
-{
-    std::string filename = "data/roms/instr_test_v5/official_only.nes";
-    cart.load(filename);
-
-    TestMemory test_memory{};
-    test_memory.data.reserve(0x6000 + cart.prg_rom.size() + cart.chr_rom.size());
-    test_memory.data.resize(0x6000);
-    std::copy_n(cart.prg_rom.begin(), cart.prg_rom.size(), std::back_inserter(test_memory.data));
-    std::copy_n(cart.chr_rom.begin(), cart.chr_rom.size(), std::back_inserter(test_memory.data));
-
-    mos::MOS6502 cpu{nes::DEFAULT_CPU_CLOCK_RATE};
-    cpu.set_memory(&test_memory);
+    logger::set_level(LogLevel::Warn);
 
     cpu.reset();
-    /*
-    EXPECT_EQ(cpu.pc, 0xEBFA);
-    EXPECT_EQ(cpu.pc & 0xFF, cart.prg_rom[0x7FFC]);
-    EXPECT_EQ(cpu.pc >> 8, cart.prg_rom[0x7FFD]);
-    */
-    EXPECT_TRUE(cpu.flags.interrupt_inhibit);
-    cpu.stack_ptr = 0xFF;
-    // auto old_pc = cpu.pc;
+    cpu.set_diagnostics(true);
+    auto state = cpu.save_state();
+    ASSERT_EQ(state.pc, RESET_ADDRESS);
+    ASSERT_TRUE(state.flags.interrupt_inhibit);
 
-    auto data = 0xAB;
-    cpu.push(data);
-    EXPECT_EQ(cpu.stack_ptr, 0xFE);
-    EXPECT_EQ(test_memory.data[0x100 | cpu.stack_ptr + 1], data);
-    auto comp_data = cpu.pull();
-    EXPECT_EQ(data, comp_data);
+    logger::debug("Loading registers");
+    cpu.run(2);
+    logger::debug("Clearing memory");
+    cpu.run(5 * 255 + 3);
+    logger::debug("Storing pattern");
+    cpu.run(8);
+    logger::debug("Reset procedure complete");
+
+    EXPECT_EQ(
+        std::memcmp(&system_bus.memory[INFO_PAGE_ADDRESS],
+                    &RESET_PATTERN[0],
+                    sizeof(RESET_PATTERN)),
+        0);
+
+    logger::set_level(LogLevel::Warn);
 }
 
-TEST_F(TestNes, Addressing)
-{
-    std::string filename = "data/roms/instr_test_v5/official_only.nes";
-    cart.load(filename);
-
-    TestMemory test_memory{};
-    test_memory.data.reserve(0x6000 + cart.prg_rom.size() + cart.chr_rom.size());
-    test_memory.data.resize(0x6000);
-    std::copy_n(cart.prg_rom.begin(), cart.prg_rom.size(), std::back_inserter(test_memory.data));
-    std::copy_n(cart.chr_rom.begin(), cart.chr_rom.size(), std::back_inserter(test_memory.data));
-
-    mos::MOS6502 cpu{nes::DEFAULT_CPU_CLOCK_RATE};
-    cpu.set_memory(&test_memory);
-
-    cpu.reset();
-    EXPECT_TRUE(cpu.flags.interrupt_inhibit);
-    cpu.stack_ptr = 0xFF;
-
-    test_memory.data[0x200] = 0xAD;
-    test_memory.data[0x201] = 0xDE;
-    test_memory.data[0x202] = 0xFE;
-    test_memory.data[0x203] = 0xBE;
-
-    uint8_t b1;
-    uint8_t b2;
-
-    cpu.pc = 0x200;
-    b1 = cpu.read(cpu.pc);
-    b2 = cpu.read(cpu.pc + 1);
-
-    auto addr = cpu.absolute(b1, b2);
-    EXPECT_EQ(addr, 0xDEAD);
-
-    cpu.pc = 0x200;
-    cpu.x = 0x02;
-    cpu.y = 0x44;
-    b1 = cpu.read(cpu.pc);
-    b2 = cpu.read(cpu.pc + 1);
-    addr = cpu.absolute_idx(b1, b2, cpu.x);
-    EXPECT_EQ(addr, 0xDEAF);
-
-    cpu.pc = 0x200;
-    cpu.x = 0x02;
-    cpu.y = 0x44;
-    b1 = cpu.read(cpu.pc);
-    b2 = cpu.read(cpu.pc + 1);
-    addr = cpu.absolute_idx(b1, b2, cpu.y);
-    EXPECT_EQ(addr, 0xDEF1);
-
-    cpu.x = 0x02;
-    cpu.y = 0x44;
-    cpu.pc = 0x8000;
-    b1 = cpu.read(cpu.pc);
-    addr = cpu.zero_page_x(b1);
-    EXPECT_EQ(addr, 0x01);
-
-    cpu.x = 0x02;
-    cpu.y = 0x44;
-    cpu.pc = 0x8000;
-    b1 = cpu.read(cpu.pc);
-    addr = cpu.zero_page_y(b1);
-    EXPECT_EQ(addr, 0x43);
-
-    test_memory.data[0xDEAD] = 0xEF;
-    test_memory.data[0xDEAE] = 0xBE;
-    test_memory.data[0xCAFE] = 0xAD;
-    test_memory.data[0xCAFF] = 0xDE;
-    cpu.pc = 0xCAFE;
-    b1 = cpu.read(cpu.pc);
-    b2 = cpu.read(cpu.pc + 1);
-    addr = cpu.indirect(b1, b2);
-    EXPECT_EQ(addr, 0xBEEF);
-}
-#endif
+} // namespace mos6502

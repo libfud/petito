@@ -89,13 +89,13 @@ void NES::run_diag()
             [](unsigned char c){ return std::tolower(c); });
         if (diag_msg.find(diagnostic_msg) != std::string::npos)
         {
-            fmt::print("Step {}, diag={}", cycles, diag_msg);
+            fmt::print("Passed: Step {}, diag={}\n", cycles, diag_msg);
             state = NesState::Passed;
             return false;
         }
         else if (diag_msg.find("failed") != std::string::npos)
         {
-            fmt::print("Step {}, diag={}", cycles, diag_msg);
+            fmt::print("Failed: Step {}, diag={}\n", cycles, diag_msg);
             state = NesState::Failed;
             return false;
         }
@@ -105,7 +105,7 @@ void NES::run_diag()
         }
 
         cycles++;
-        if (cycles % 10000000 == 0)
+        if (cycles % 100000 == 0)
         {
             logger::debug("Step {}, diag={}", cycles, diag_msg);
         }

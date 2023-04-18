@@ -2,9 +2,10 @@
 #define OPCODE_TABLE
 
 #include <array>
+#include <fmt/core.h>
 #include <cstdint>
 #include <string>
-#include <fmt/core.h>
+#include <type_traits>
 
 namespace mos6502 {
 
@@ -280,6 +281,8 @@ static constexpr uint8_t SBC_ABS_X = 0xFD;
 static constexpr uint8_t INC_ABS_X = 0xFE;
 static constexpr uint8_t ISB_ABS_X = 0xFF;
 
+static constexpr std::array<char, 4> FUG{"BRK"};
+
 enum class AddressType : uint8_t
 {
     NI,
@@ -300,108 +303,113 @@ enum class AddressType : uint8_t
 
 struct OpcodeInfo
 {
-    const char name[4];
+    std::array<char, 4> name;
     AddressType address_type;
     uint8_t min_cycles;
 };
 
+static_assert(std::is_trivial<OpcodeInfo>::value);
+
 static const std::array<OpcodeInfo, 256> OPCODE_INFO_TABLE = {
     /* 00 */
-    OpcodeInfo{"BRK", AddressType::IMPL,  7}, OpcodeInfo{"ORA", AddressType::X_IND, 6}, OpcodeInfo{"JAM", AddressType::NI,    0}, OpcodeInfo{"SLO", AddressType::X_IND, 8},
-    OpcodeInfo{"NOP", AddressType::ZPG,   3}, OpcodeInfo{"ORA", AddressType::ZPG,   3}, OpcodeInfo{"ASL", AddressType::ZPG,   5}, OpcodeInfo{"SLO", AddressType::ZPG,   5},
-    OpcodeInfo{"PHP", AddressType::IMPL,  3}, OpcodeInfo{"ORA", AddressType::IMM,   2}, OpcodeInfo{"ASL", AddressType::A,     2}, OpcodeInfo{"ANC", AddressType::IMM,   2},
-    OpcodeInfo{"NOP", AddressType::ABS,   4}, OpcodeInfo{"ORA", AddressType::ABS,   4}, OpcodeInfo{"ASL", AddressType::ABS,   6}, OpcodeInfo{"SLO", AddressType::ABS,   6},
+    OpcodeInfo{{"BRK"}, AddressType::IMPL,  7}, OpcodeInfo{{"ORA"}, AddressType::X_IND, 6}, OpcodeInfo{{"JAM"}, AddressType::NI,    0}, OpcodeInfo{{"SLO"}, AddressType::X_IND, 8},
+    OpcodeInfo{{"NOP"}, AddressType::ZPG,   3}, OpcodeInfo{{"ORA"}, AddressType::ZPG,   3}, OpcodeInfo{{"ASL"}, AddressType::ZPG,   5}, OpcodeInfo{{"SLO"}, AddressType::ZPG,   5},
+    OpcodeInfo{{"PHP"}, AddressType::IMPL,  3}, OpcodeInfo{{"ORA"}, AddressType::IMM,   2}, OpcodeInfo{{"ASL"}, AddressType::A,     2}, OpcodeInfo{{"ANC"}, AddressType::IMM,   2},
+    OpcodeInfo{{"NOP"}, AddressType::ABS,   4}, OpcodeInfo{{"ORA"}, AddressType::ABS,   4}, OpcodeInfo{{"ASL"}, AddressType::ABS,   6}, OpcodeInfo{{"SLO"}, AddressType::ABS,   6},
 
     /* 10 */
-    OpcodeInfo{"BPL", AddressType::REL,   2}, OpcodeInfo{"ORA", AddressType::IND_Y, 5}, OpcodeInfo{"JAM", AddressType::NI,    0}, OpcodeInfo{"SLO", AddressType::IND_Y, 8},
-    OpcodeInfo{"NOP", AddressType::ZPG_X, 4}, OpcodeInfo{"ORA", AddressType::ZPG_X, 4}, OpcodeInfo{"ASL", AddressType::ZPG_X, 6}, OpcodeInfo{"SLO", AddressType::ZPG_X, 8},
-    OpcodeInfo{"CLC", AddressType::IMPL,  2}, OpcodeInfo{"ORA", AddressType::ABS_Y, 4}, OpcodeInfo{"NOP", AddressType::IMPL,  2}, OpcodeInfo{"SLO", AddressType::ABS_Y, 7},
-    OpcodeInfo{"NOP", AddressType::ABS_X, 4}, OpcodeInfo{"ORA", AddressType::ABS_X, 4}, OpcodeInfo{"ASL", AddressType::ABS_X, 7}, OpcodeInfo{"SLO", AddressType::ABS_X, 7},
+    OpcodeInfo{{"BPL"}, AddressType::REL,   2}, OpcodeInfo{{"ORA"}, AddressType::IND_Y, 5}, OpcodeInfo{{"JAM"}, AddressType::NI,    0}, OpcodeInfo{{"SLO"}, AddressType::IND_Y, 8},
+    OpcodeInfo{{"NOP"}, AddressType::ZPG_X, 4}, OpcodeInfo{{"ORA"}, AddressType::ZPG_X, 4}, OpcodeInfo{{"ASL"}, AddressType::ZPG_X, 6}, OpcodeInfo{{"SLO"}, AddressType::ZPG_X, 8},
+    OpcodeInfo{{"CLC"}, AddressType::IMPL,  2}, OpcodeInfo{{"ORA"}, AddressType::ABS_Y, 4}, OpcodeInfo{{"NOP"}, AddressType::IMPL,  2}, OpcodeInfo{{"SLO"}, AddressType::ABS_Y, 7},
+    OpcodeInfo{{"NOP"}, AddressType::ABS_X, 4}, OpcodeInfo{{"ORA"}, AddressType::ABS_X, 4}, OpcodeInfo{{"ASL"}, AddressType::ABS_X, 7}, OpcodeInfo{{"SLO"}, AddressType::ABS_X, 7},
 
     /* 20 */
-    OpcodeInfo{"JSR", AddressType::ABS,   6}, OpcodeInfo{"AND", AddressType::X_IND, 6}, OpcodeInfo{"JAM", AddressType::NI,    0}, OpcodeInfo{"RLA", AddressType::X_IND, 8},
-    OpcodeInfo{"BIT", AddressType::ZPG,   3}, OpcodeInfo{"AND", AddressType::ZPG,   3}, OpcodeInfo{"ROL", AddressType::ZPG,   5}, OpcodeInfo{"RLA", AddressType::ZPG,   5},
-    OpcodeInfo{"PLP", AddressType::IMPL,  4}, OpcodeInfo{"AND", AddressType::IMM,   2}, OpcodeInfo{"ROL", AddressType::A,     2}, OpcodeInfo{"ANC", AddressType::IMM,   2},
-    OpcodeInfo{"BIT", AddressType::ABS,   4}, OpcodeInfo{"AND", AddressType::ABS,   4}, OpcodeInfo{"ROL", AddressType::ABS,   6}, OpcodeInfo{"RLA", AddressType::ABS,   6},
+    OpcodeInfo{{"JSR"}, AddressType::ABS,   6}, OpcodeInfo{{"AND"}, AddressType::X_IND, 6}, OpcodeInfo{{"JAM"}, AddressType::NI,    0}, OpcodeInfo{{"RLA"}, AddressType::X_IND, 8},
+    OpcodeInfo{{"BIT"}, AddressType::ZPG,   3}, OpcodeInfo{{"AND"}, AddressType::ZPG,   3}, OpcodeInfo{{"ROL"}, AddressType::ZPG,   5}, OpcodeInfo{{"RLA"}, AddressType::ZPG,   5},
+    OpcodeInfo{{"PLP"}, AddressType::IMPL,  4}, OpcodeInfo{{"AND"}, AddressType::IMM,   2}, OpcodeInfo{{"ROL"}, AddressType::A,     2}, OpcodeInfo{{"ANC"}, AddressType::IMM,   2},
+    OpcodeInfo{{"BIT"}, AddressType::ABS,   4}, OpcodeInfo{{"AND"}, AddressType::ABS,   4}, OpcodeInfo{{"ROL"}, AddressType::ABS,   6}, OpcodeInfo{{"RLA"}, AddressType::ABS,   6},
 
     /* 30 */
-    OpcodeInfo{"BMI", AddressType::REL,   2}, OpcodeInfo{"AND", AddressType::IND_Y, 5}, OpcodeInfo{"JAM", AddressType::NI,    0}, OpcodeInfo{"RLA", AddressType::IND_Y, 8},
-    OpcodeInfo{"NOP", AddressType::ZPG_X, 4}, OpcodeInfo{"AND", AddressType::ZPG_X, 4}, OpcodeInfo{"ROL", AddressType::ZPG_X, 6}, OpcodeInfo{"RLA", AddressType::ZPG_X, 6},
-    OpcodeInfo{"SEC", AddressType::IMPL,  2}, OpcodeInfo{"AND", AddressType::ABS_Y, 4}, OpcodeInfo{"NOP", AddressType::IMPL,  2}, OpcodeInfo{"RLA", AddressType::ABS_Y, 7},
-    OpcodeInfo{"NOP", AddressType::ABS_X, 4}, OpcodeInfo{"AND", AddressType::ABS_X, 4}, OpcodeInfo{"ROL", AddressType::ABS_X, 7}, OpcodeInfo{"RLA", AddressType::ABS_X, 7},
+    OpcodeInfo{{"BMI"}, AddressType::REL,   2}, OpcodeInfo{{"AND"}, AddressType::IND_Y, 5}, OpcodeInfo{{"JAM"}, AddressType::NI,    0}, OpcodeInfo{{"RLA"}, AddressType::IND_Y, 8},
+    OpcodeInfo{{"NOP"}, AddressType::ZPG_X, 4}, OpcodeInfo{{"AND"}, AddressType::ZPG_X, 4}, OpcodeInfo{{"ROL"}, AddressType::ZPG_X, 6}, OpcodeInfo{{"RLA"}, AddressType::ZPG_X, 6},
+    OpcodeInfo{{"SEC"}, AddressType::IMPL,  2}, OpcodeInfo{{"AND"}, AddressType::ABS_Y, 4}, OpcodeInfo{{"NOP"}, AddressType::IMPL,  2}, OpcodeInfo{{"RLA"}, AddressType::ABS_Y, 7},
+    OpcodeInfo{{"NOP"}, AddressType::ABS_X, 4}, OpcodeInfo{{"AND"}, AddressType::ABS_X, 4}, OpcodeInfo{{"ROL"}, AddressType::ABS_X, 7}, OpcodeInfo{{"RLA"}, AddressType::ABS_X, 7},
 
     /* 40 */
-    OpcodeInfo{"RTI", AddressType::IMPL,  6}, OpcodeInfo{"EOR", AddressType::X_IND, 6}, OpcodeInfo{"JAM", AddressType::NI,    0}, OpcodeInfo{"SRE", AddressType::X_IND, 8},
-    OpcodeInfo{"NOP", AddressType::ZPG,   3}, OpcodeInfo{"EOR", AddressType::ZPG,   3}, OpcodeInfo{"LSR", AddressType::ZPG,   5}, OpcodeInfo{"SRE", AddressType::ZPG,   5},
-    OpcodeInfo{"PHA", AddressType::IMPL,  3}, OpcodeInfo{"EOR", AddressType::IMM,   2}, OpcodeInfo{"LSR", AddressType::A,     2}, OpcodeInfo{"ALR", AddressType::IMM,   2},
-    OpcodeInfo{"JMP", AddressType::ABS,   3}, OpcodeInfo{"EOR", AddressType::ABS,   4}, OpcodeInfo{"LSR", AddressType::ABS,   6}, OpcodeInfo{"SRE", AddressType::ABS,   6},
+    OpcodeInfo{{"RTI"}, AddressType::IMPL,  6}, OpcodeInfo{{"EOR"}, AddressType::X_IND, 6}, OpcodeInfo{{"JAM"}, AddressType::NI,    0}, OpcodeInfo{{"SRE"}, AddressType::X_IND, 8},
+    OpcodeInfo{{"NOP"}, AddressType::ZPG,   3}, OpcodeInfo{{"EOR"}, AddressType::ZPG,   3}, OpcodeInfo{{"LSR"}, AddressType::ZPG,   5}, OpcodeInfo{{"SRE"}, AddressType::ZPG,   5},
+    OpcodeInfo{{"PHA"}, AddressType::IMPL,  3}, OpcodeInfo{{"EOR"}, AddressType::IMM,   2}, OpcodeInfo{{"LSR"}, AddressType::A,     2}, OpcodeInfo{{"ALR"}, AddressType::IMM,   2},
+    OpcodeInfo{{"JMP"}, AddressType::ABS,   3}, OpcodeInfo{{"EOR"}, AddressType::ABS,   4}, OpcodeInfo{{"LSR"}, AddressType::ABS,   6}, OpcodeInfo{{"SRE"}, AddressType::ABS,   6},
 
     /* 50 */
-    OpcodeInfo{"BVC", AddressType::REL,   2}, OpcodeInfo{"EOR", AddressType::IND_Y, 5}, OpcodeInfo{"JAM", AddressType::NI,    0}, OpcodeInfo{"SRE", AddressType::IND_Y, 8},
-    OpcodeInfo{"NOP", AddressType::ZPG_X, 4}, OpcodeInfo{"EOR", AddressType::ZPG_X, 6}, OpcodeInfo{"LSR", AddressType::ZPG_X, 6}, OpcodeInfo{"SRE", AddressType::ZPG_X, 6},
-    OpcodeInfo{"CLI", AddressType::IMPL,  2}, OpcodeInfo{"EOR", AddressType::ABS_Y, 4}, OpcodeInfo{"NOP", AddressType::IMPL,  2}, OpcodeInfo{"SRE", AddressType::ABS_Y, 7},
-    OpcodeInfo{"NOP", AddressType::ABS_X, 4}, OpcodeInfo{"EOR", AddressType::ABS_X, 4}, OpcodeInfo{"LSR", AddressType::ABS_X, 7}, OpcodeInfo{"SRE", AddressType::ABS_X, 7},
+    OpcodeInfo{{"BVC"}, AddressType::REL,   2}, OpcodeInfo{{"EOR"}, AddressType::IND_Y, 5}, OpcodeInfo{{"JAM"}, AddressType::NI,    0}, OpcodeInfo{{"SRE"}, AddressType::IND_Y, 8},
+    OpcodeInfo{{"NOP"}, AddressType::ZPG_X, 4}, OpcodeInfo{{"EOR"}, AddressType::ZPG_X, 6}, OpcodeInfo{{"LSR"}, AddressType::ZPG_X, 6}, OpcodeInfo{{"SRE"}, AddressType::ZPG_X, 6},
+    OpcodeInfo{{"CLI"}, AddressType::IMPL,  2}, OpcodeInfo{{"EOR"}, AddressType::ABS_Y, 4}, OpcodeInfo{{"NOP"}, AddressType::IMPL,  2}, OpcodeInfo{{"SRE"}, AddressType::ABS_Y, 7},
+    OpcodeInfo{{"NOP"}, AddressType::ABS_X, 4}, OpcodeInfo{{"EOR"}, AddressType::ABS_X, 4}, OpcodeInfo{{"LSR"}, AddressType::ABS_X, 7}, OpcodeInfo{{"SRE"}, AddressType::ABS_X, 7},
 
     /* 60 */
-    OpcodeInfo{"RTS", AddressType::IMPL,  6}, OpcodeInfo{"ADC", AddressType::X_IND, 6}, OpcodeInfo{"JAM", AddressType::NI,    0}, OpcodeInfo{"RRA", AddressType::X_IND, 8},
-    OpcodeInfo{"NOP", AddressType::ZPG,   3}, OpcodeInfo{"ADC", AddressType::ZPG,   3}, OpcodeInfo{"ROR", AddressType::ZPG,   5}, OpcodeInfo{"RRA", AddressType::ZPG,   5},
-    OpcodeInfo{"PLA", AddressType::IMPL,  4}, OpcodeInfo{"ADC", AddressType::IMM,   2}, OpcodeInfo{"ROR", AddressType::A,     2}, OpcodeInfo{"ARR", AddressType::IMM,   2},
-    OpcodeInfo{"JMP", AddressType::IND,   5}, OpcodeInfo{"ADC", AddressType::ABS,   4}, OpcodeInfo{"ROR", AddressType::ABS,   6}, OpcodeInfo{"RRA", AddressType::ABS,   6},
+    OpcodeInfo{{"RTS"}, AddressType::IMPL,  6}, OpcodeInfo{{"ADC"}, AddressType::X_IND, 6}, OpcodeInfo{{"JAM"}, AddressType::NI,    0}, OpcodeInfo{{"RRA"}, AddressType::X_IND, 8},
+    OpcodeInfo{{"NOP"}, AddressType::ZPG,   3}, OpcodeInfo{{"ADC"}, AddressType::ZPG,   3}, OpcodeInfo{{"ROR"}, AddressType::ZPG,   5}, OpcodeInfo{{"RRA"}, AddressType::ZPG,   5},
+    OpcodeInfo{{"PLA"}, AddressType::IMPL,  4}, OpcodeInfo{{"ADC"}, AddressType::IMM,   2}, OpcodeInfo{{"ROR"}, AddressType::A,     2}, OpcodeInfo{{"ARR"}, AddressType::IMM,   2},
+    OpcodeInfo{{"JMP"}, AddressType::IND,   5}, OpcodeInfo{{"ADC"}, AddressType::ABS,   4}, OpcodeInfo{{"ROR"}, AddressType::ABS,   6}, OpcodeInfo{{"RRA"}, AddressType::ABS,   6},
 
     /* 70 */
-    OpcodeInfo{"BVS", AddressType::REL,   2}, OpcodeInfo{"ADC", AddressType::IND_Y, 5}, OpcodeInfo{"JAM", AddressType::NI,    0}, OpcodeInfo{"RRA", AddressType::IND_Y, 8},
-    OpcodeInfo{"NOP", AddressType::ZPG_X, 4}, OpcodeInfo{"ADC", AddressType::ZPG_X, 4}, OpcodeInfo{"ROR", AddressType::ZPG_X, 6}, OpcodeInfo{"RRA", AddressType::ZPG_X, 6},
-    OpcodeInfo{"SEI", AddressType::IMPL,  2}, OpcodeInfo{"ADC", AddressType::ABS_Y, 4}, OpcodeInfo{"NOP", AddressType::IMPL,  2}, OpcodeInfo{"RRA", AddressType::ABS_Y, 7},
-    OpcodeInfo{"NOP", AddressType::ABS_X, 4}, OpcodeInfo{"ADC", AddressType::ABS_X, 4}, OpcodeInfo{"ROR", AddressType::ABS_X, 7}, OpcodeInfo{"RRA", AddressType::ABS_X, 7},
+    OpcodeInfo{{"BVS"}, AddressType::REL,   2}, OpcodeInfo{{"ADC"}, AddressType::IND_Y, 5}, OpcodeInfo{{"JAM"}, AddressType::NI,    0}, OpcodeInfo{{"RRA"}, AddressType::IND_Y, 8},
+    OpcodeInfo{{"NOP"}, AddressType::ZPG_X, 4}, OpcodeInfo{{"ADC"}, AddressType::ZPG_X, 4}, OpcodeInfo{{"ROR"}, AddressType::ZPG_X, 6}, OpcodeInfo{{"RRA"}, AddressType::ZPG_X, 6},
+    OpcodeInfo{{"SEI"}, AddressType::IMPL,  2}, OpcodeInfo{{"ADC"}, AddressType::ABS_Y, 4}, OpcodeInfo{{"NOP"}, AddressType::IMPL,  2}, OpcodeInfo{{"RRA"}, AddressType::ABS_Y, 7},
+    OpcodeInfo{{"NOP"}, AddressType::ABS_X, 4}, OpcodeInfo{{"ADC"}, AddressType::ABS_X, 4}, OpcodeInfo{{"ROR"}, AddressType::ABS_X, 7}, OpcodeInfo{{"RRA"}, AddressType::ABS_X, 7},
 
     /* 80 */
-    OpcodeInfo{"NOP", AddressType::IMM,   2}, OpcodeInfo{"STA", AddressType::X_IND, 6}, OpcodeInfo{"NOP", AddressType::IMM,   2}, OpcodeInfo{"SAX", AddressType::X_IND, 6},
-    OpcodeInfo{"STY", AddressType::ZPG,   3}, OpcodeInfo{"STA", AddressType::ZPG,   3}, OpcodeInfo{"STX", AddressType::ZPG,   3}, OpcodeInfo{"SAX", AddressType::ZPG,   3},
-    OpcodeInfo{"DEY", AddressType::IMPL,  2}, OpcodeInfo{"NOP", AddressType::IMM,   2}, OpcodeInfo{"TXA", AddressType::IMPL,  2}, OpcodeInfo{"ANE", AddressType::IMM,   2},
-    OpcodeInfo{"STY", AddressType::ABS,   4}, OpcodeInfo{"STA", AddressType::ABS,   4}, OpcodeInfo{"STX", AddressType::ABS,   4}, OpcodeInfo{"SAX", AddressType::ABS,   4},
+    OpcodeInfo{{"NOP"}, AddressType::IMM,   2}, OpcodeInfo{{"STA"}, AddressType::X_IND, 6}, OpcodeInfo{{"NOP"}, AddressType::IMM,   2}, OpcodeInfo{{"SAX"}, AddressType::X_IND, 6},
+    OpcodeInfo{{"STY"}, AddressType::ZPG,   3}, OpcodeInfo{{"STA"}, AddressType::ZPG,   3}, OpcodeInfo{{"STX"}, AddressType::ZPG,   3}, OpcodeInfo{{"SAX"}, AddressType::ZPG,   3},
+    OpcodeInfo{{"DEY"}, AddressType::IMPL,  2}, OpcodeInfo{{"NOP"}, AddressType::IMM,   2}, OpcodeInfo{{"TXA"}, AddressType::IMPL,  2}, OpcodeInfo{{"ANE"}, AddressType::IMM,   2},
+    OpcodeInfo{{"STY"}, AddressType::ABS,   4}, OpcodeInfo{{"STA"}, AddressType::ABS,   4}, OpcodeInfo{{"STX"}, AddressType::ABS,   4}, OpcodeInfo{{"SAX"}, AddressType::ABS,   4},
 
     /* 90 */
-    OpcodeInfo{"BCC", AddressType::REL,   2}, OpcodeInfo{"STA", AddressType::IND_Y, 6}, OpcodeInfo{"JAM", AddressType::NI,    0}, OpcodeInfo{"SHA", AddressType::IND_Y, 6},
-    OpcodeInfo{"STY", AddressType::ZPG_X, 4}, OpcodeInfo{"STA", AddressType::ZPG_X, 4}, OpcodeInfo{"STX", AddressType::ZPG_Y, 4}, OpcodeInfo{"SAX", AddressType::ZPG_Y, 4},
-    OpcodeInfo{"TYA", AddressType::IMPL,  2}, OpcodeInfo{"STA", AddressType::ABS_Y, 5}, OpcodeInfo{"TXS", AddressType::IMPL,  2}, OpcodeInfo{"TAS", AddressType::ABS_Y, 5},
-    OpcodeInfo{"SHY", AddressType::ABS_X, 5}, OpcodeInfo{"STA", AddressType::ABS_X, 5}, OpcodeInfo{"SHX", AddressType::ABS_Y, 5}, OpcodeInfo{"SHA", AddressType::ABS_Y, 5},
+    OpcodeInfo{{"BCC"}, AddressType::REL,   2}, OpcodeInfo{{"STA"}, AddressType::IND_Y, 6}, OpcodeInfo{{"JAM"}, AddressType::NI,    0}, OpcodeInfo{{"SHA"}, AddressType::IND_Y, 6},
+    OpcodeInfo{{"STY"}, AddressType::ZPG_X, 4}, OpcodeInfo{{"STA"}, AddressType::ZPG_X, 4}, OpcodeInfo{{"STX"}, AddressType::ZPG_Y, 4}, OpcodeInfo{{"SAX"}, AddressType::ZPG_Y, 4},
+    OpcodeInfo{{"TYA"}, AddressType::IMPL,  2}, OpcodeInfo{{"STA"}, AddressType::ABS_Y, 5}, OpcodeInfo{{"TXS"}, AddressType::IMPL,  2}, OpcodeInfo{{"TAS"}, AddressType::ABS_Y, 5},
+    OpcodeInfo{{"SHY"}, AddressType::ABS_X, 5}, OpcodeInfo{{"STA"}, AddressType::ABS_X, 5}, OpcodeInfo{{"SHX"}, AddressType::ABS_Y, 5}, OpcodeInfo{{"SHA"}, AddressType::ABS_Y, 5},
 
     /* A0 */
-    OpcodeInfo{"LDY", AddressType::IMM,   2}, OpcodeInfo{"LDA", AddressType::X_IND, 6}, OpcodeInfo{"LDX", AddressType::IMM,   2}, OpcodeInfo{"LAX", AddressType::X_IND, 6},
-    OpcodeInfo{"LDY", AddressType::ZPG,   3}, OpcodeInfo{"LDA", AddressType::ZPG,   3}, OpcodeInfo{"LDX", AddressType::ZPG,   3}, OpcodeInfo{"LAX", AddressType::ZPG,   3},
-    OpcodeInfo{"TAY", AddressType::IMPL,  2}, OpcodeInfo{"LDA", AddressType::IMM,   2}, OpcodeInfo{"TAX", AddressType::IMPL,  2}, OpcodeInfo{"LXA", AddressType::IMM,   2},
-    OpcodeInfo{"LDY", AddressType::ABS,   4}, OpcodeInfo{"LDA", AddressType::ABS,   4}, OpcodeInfo{"LDX", AddressType::ABS,   4}, OpcodeInfo{"LAX", AddressType::ABS,   4},
+    OpcodeInfo{{"LDY"}, AddressType::IMM,   2}, OpcodeInfo{{"LDA"}, AddressType::X_IND, 6}, OpcodeInfo{{"LDX"}, AddressType::IMM,   2}, OpcodeInfo{{"LAX"}, AddressType::X_IND, 6},
+    OpcodeInfo{{"LDY"}, AddressType::ZPG,   3}, OpcodeInfo{{"LDA"}, AddressType::ZPG,   3}, OpcodeInfo{{"LDX"}, AddressType::ZPG,   3}, OpcodeInfo{{"LAX"}, AddressType::ZPG,   3},
+    OpcodeInfo{{"TAY"}, AddressType::IMPL,  2}, OpcodeInfo{{"LDA"}, AddressType::IMM,   2}, OpcodeInfo{{"TAX"}, AddressType::IMPL,  2}, OpcodeInfo{{"LXA"}, AddressType::IMM,   2},
+    OpcodeInfo{{"LDY"}, AddressType::ABS,   4}, OpcodeInfo{{"LDA"}, AddressType::ABS,   4}, OpcodeInfo{{"LDX"}, AddressType::ABS,   4}, OpcodeInfo{{"LAX"}, AddressType::ABS,   4},
 
     /* B0 */
-    OpcodeInfo{"BCS", AddressType::REL,   2}, OpcodeInfo{"LDA", AddressType::IND_Y, 5}, OpcodeInfo{"JAM", AddressType::NI,    0}, OpcodeInfo{"LAX", AddressType::IND_Y, 5},
-    OpcodeInfo{"LDY", AddressType::ZPG_X, 4}, OpcodeInfo{"LDA", AddressType::ZPG_X, 4}, OpcodeInfo{"LDX", AddressType::ZPG_Y, 4}, OpcodeInfo{"LAX", AddressType::ZPG_Y, 4},
-    OpcodeInfo{"CLV", AddressType::IMPL,  2}, OpcodeInfo{"LDA", AddressType::ABS_Y, 4}, OpcodeInfo{"TSX", AddressType::IMPL,  2}, OpcodeInfo{"LAS", AddressType::ABS_Y, 4},
-    OpcodeInfo{"LDY", AddressType::ABS_X, 4}, OpcodeInfo{"LDA", AddressType::ABS_X, 4}, OpcodeInfo{"LDX", AddressType::ABS_Y, 4}, OpcodeInfo{"LAX", AddressType::ABS_Y, 4},
+    OpcodeInfo{{"BCS"}, AddressType::REL,   2}, OpcodeInfo{{"LDA"}, AddressType::IND_Y, 5}, OpcodeInfo{{"JAM"}, AddressType::NI,    0}, OpcodeInfo{{"LAX"}, AddressType::IND_Y, 5},
+    OpcodeInfo{{"LDY"}, AddressType::ZPG_X, 4}, OpcodeInfo{{"LDA"}, AddressType::ZPG_X, 4}, OpcodeInfo{{"LDX"}, AddressType::ZPG_Y, 4}, OpcodeInfo{{"LAX"}, AddressType::ZPG_Y, 4},
+    OpcodeInfo{{"CLV"}, AddressType::IMPL,  2}, OpcodeInfo{{"LDA"}, AddressType::ABS_Y, 4}, OpcodeInfo{{"TSX"}, AddressType::IMPL,  2}, OpcodeInfo{{"LAS"}, AddressType::ABS_Y, 4},
+    OpcodeInfo{{"LDY"}, AddressType::ABS_X, 4}, OpcodeInfo{{"LDA"}, AddressType::ABS_X, 4}, OpcodeInfo{{"LDX"}, AddressType::ABS_Y, 4}, OpcodeInfo{{"LAX"}, AddressType::ABS_Y, 4},
 
     /* C0 */
-    OpcodeInfo{"CPY", AddressType::IMM,   2}, OpcodeInfo{"CMP", AddressType::X_IND, 6}, OpcodeInfo{"NOP", AddressType::IMM,   2}, OpcodeInfo{"DCP", AddressType::X_IND, 8},
-    OpcodeInfo{"CPY", AddressType::ZPG,   3}, OpcodeInfo{"CMP", AddressType::ZPG,   3}, OpcodeInfo{"DEC", AddressType::ZPG,   5}, OpcodeInfo{"DCP", AddressType::ZPG,   5},
-    OpcodeInfo{"INY", AddressType::IMPL,  2}, OpcodeInfo{"CMP", AddressType::IMM,   2}, OpcodeInfo{"DEX", AddressType::IMPL,  2}, OpcodeInfo{"SBX", AddressType::IMM,   2},
-    OpcodeInfo{"CPY", AddressType::ABS,   4}, OpcodeInfo{"CMP", AddressType::ABS,   4}, OpcodeInfo{"DEC", AddressType::ABS,   6}, OpcodeInfo{"DCP", AddressType::ABS,   6},
+    OpcodeInfo{{"CPY"}, AddressType::IMM,   2}, OpcodeInfo{{"CMP"}, AddressType::X_IND, 6}, OpcodeInfo{{"NOP"}, AddressType::IMM,   2}, OpcodeInfo{{"DCP"}, AddressType::X_IND, 8},
+    OpcodeInfo{{"CPY"}, AddressType::ZPG,   3}, OpcodeInfo{{"CMP"}, AddressType::ZPG,   3}, OpcodeInfo{{"DEC"}, AddressType::ZPG,   5}, OpcodeInfo{{"DCP"}, AddressType::ZPG,   5},
+    OpcodeInfo{{"INY"}, AddressType::IMPL,  2}, OpcodeInfo{{"CMP"}, AddressType::IMM,   2}, OpcodeInfo{{"DEX"}, AddressType::IMPL,  2}, OpcodeInfo{{"SBX"}, AddressType::IMM,   2},
+    OpcodeInfo{{"CPY"}, AddressType::ABS,   4}, OpcodeInfo{{"CMP"}, AddressType::ABS,   4}, OpcodeInfo{{"DEC"}, AddressType::ABS,   6}, OpcodeInfo{{"DCP"}, AddressType::ABS,   6},
 
     /* D0 */
-    OpcodeInfo{"BNE", AddressType::REL,   2}, OpcodeInfo{"CMP", AddressType::IND_Y, 5}, OpcodeInfo{"JAM", AddressType::NI,    0}, OpcodeInfo{"DCP", AddressType::IND_Y, 8},
-    OpcodeInfo{"NOP", AddressType::ZPG_X, 4}, OpcodeInfo{"CMP", AddressType::ZPG_X, 4}, OpcodeInfo{"DEC", AddressType::ZPG_X, 6}, OpcodeInfo{"DCP", AddressType::ZPG_X, 6},
-    OpcodeInfo{"CLD", AddressType::IMPL,  2}, OpcodeInfo{"CMP", AddressType::ABS_Y, 4}, OpcodeInfo{"NOP", AddressType::IMPL,  2}, OpcodeInfo{"DCP", AddressType::ABS_Y, 7},
-    OpcodeInfo{"NOP", AddressType::ABS_X, 4}, OpcodeInfo{"CMP", AddressType::ABS_X, 4}, OpcodeInfo{"DEC", AddressType::ABS_X, 7}, OpcodeInfo{"DCP", AddressType::ABS_X, 7},
+    OpcodeInfo{{"BNE"}, AddressType::REL,   2}, OpcodeInfo{{"CMP"}, AddressType::IND_Y, 5}, OpcodeInfo{{"JAM"}, AddressType::NI,    0}, OpcodeInfo{{"DCP"}, AddressType::IND_Y, 8},
+    OpcodeInfo{{"NOP"}, AddressType::ZPG_X, 4}, OpcodeInfo{{"CMP"}, AddressType::ZPG_X, 4}, OpcodeInfo{{"DEC"}, AddressType::ZPG_X, 6}, OpcodeInfo{{"DCP"}, AddressType::ZPG_X, 6},
+    OpcodeInfo{{"CLD"}, AddressType::IMPL,  2}, OpcodeInfo{{"CMP"}, AddressType::ABS_Y, 4}, OpcodeInfo{{"NOP"}, AddressType::IMPL,  2}, OpcodeInfo{{"DCP"}, AddressType::ABS_Y, 7},
+    OpcodeInfo{{"NOP"}, AddressType::ABS_X, 4}, OpcodeInfo{{"CMP"}, AddressType::ABS_X, 4}, OpcodeInfo{{"DEC"}, AddressType::ABS_X, 7}, OpcodeInfo{{"DCP"}, AddressType::ABS_X, 7},
 
     /* E0 */
-    OpcodeInfo{"CPX", AddressType::IMM,   2}, OpcodeInfo{"SBC", AddressType::X_IND, 6}, OpcodeInfo{"NOP", AddressType::IMM,   2}, OpcodeInfo{"ISB", AddressType::X_IND, 7},
-    OpcodeInfo{"CPX", AddressType::ZPG,   3}, OpcodeInfo{"SBC", AddressType::ZPG,   3}, OpcodeInfo{"INC", AddressType::ZPG,   5}, OpcodeInfo{"ISB", AddressType::ZPG,   5},
-    OpcodeInfo{"INX", AddressType::IMPL,  2}, OpcodeInfo{"SBC", AddressType::IMM,   2}, OpcodeInfo{"NOP", AddressType::IMPL,  2}, OpcodeInfo{"SBC", AddressType::IMM,   2},
-    OpcodeInfo{"CPX", AddressType::ABS,   4}, OpcodeInfo{"SBC", AddressType::ABS,   4}, OpcodeInfo{"INC", AddressType::ABS,   6}, OpcodeInfo{"ISB", AddressType::ABS,   6},
+    OpcodeInfo{{"CPX"}, AddressType::IMM,   2}, OpcodeInfo{{"SBC"}, AddressType::X_IND, 6}, OpcodeInfo{{"NOP"}, AddressType::IMM,   2}, OpcodeInfo{{"ISB"}, AddressType::X_IND, 7},
+    OpcodeInfo{{"CPX"}, AddressType::ZPG,   3}, OpcodeInfo{{"SBC"}, AddressType::ZPG,   3}, OpcodeInfo{{"INC"}, AddressType::ZPG,   5}, OpcodeInfo{{"ISB"}, AddressType::ZPG,   5},
+    OpcodeInfo{{"INX"}, AddressType::IMPL,  2}, OpcodeInfo{{"SBC"}, AddressType::IMM,   2}, OpcodeInfo{{"NOP"}, AddressType::IMPL,  2}, OpcodeInfo{{"SBC"}, AddressType::IMM,   2},
+    OpcodeInfo{{"CPX"}, AddressType::ABS,   4}, OpcodeInfo{{"SBC"}, AddressType::ABS,   4}, OpcodeInfo{{"INC"}, AddressType::ABS,   6}, OpcodeInfo{{"ISB"}, AddressType::ABS,   6},
 
     /* F0 */
-    OpcodeInfo{"BEQ", AddressType::REL,   2}, OpcodeInfo{"SBC", AddressType::IND_Y, 5}, OpcodeInfo{"JAM", AddressType::NI,    0}, OpcodeInfo{"ISB", AddressType::IND_Y, 7},
-    OpcodeInfo{"NOP", AddressType::ZPG_X, 4}, OpcodeInfo{"SBC", AddressType::ZPG_X, 4}, OpcodeInfo{"INC", AddressType::ZPG_X, 6}, OpcodeInfo{"ISB", AddressType::ZPG_X, 6},
-    OpcodeInfo{"SED", AddressType::IMPL,  2}, OpcodeInfo{"SBC", AddressType::ABS_Y, 4}, OpcodeInfo{"NOP", AddressType::IMPL,  2}, OpcodeInfo{"ISB", AddressType::ABS_Y, 7},
-    OpcodeInfo{"NOP", AddressType::ABS_X, 4}, OpcodeInfo{"SBC", AddressType::ABS_X, 4}, OpcodeInfo{"INC", AddressType::ABS_X, 7}, OpcodeInfo{"ISB", AddressType::ABS_X, 7},
+    OpcodeInfo{{"BEQ"}, AddressType::REL,   2}, OpcodeInfo{{"SBC"}, AddressType::IND_Y, 5}, OpcodeInfo{{"JAM"}, AddressType::NI,    0}, OpcodeInfo{{"ISB"}, AddressType::IND_Y, 7},
+    OpcodeInfo{{"NOP"}, AddressType::ZPG_X, 4}, OpcodeInfo{{"SBC"}, AddressType::ZPG_X, 4}, OpcodeInfo{{"INC"}, AddressType::ZPG_X, 6}, OpcodeInfo{{"ISB"}, AddressType::ZPG_X, 6},
+    OpcodeInfo{{"SED"}, AddressType::IMPL,  2}, OpcodeInfo{{"SBC"}, AddressType::ABS_Y, 4}, OpcodeInfo{{"NOP"}, AddressType::IMPL,  2}, OpcodeInfo{{"ISB"}, AddressType::ABS_Y, 7},
+    OpcodeInfo{{"NOP"}, AddressType::ABS_X, 4}, OpcodeInfo{{"SBC"}, AddressType::ABS_X, 4}, OpcodeInfo{{"INC"}, AddressType::ABS_X, 7}, OpcodeInfo{{"ISB"}, AddressType::ABS_X, 7},
 };
+
+// clang warns OPCODE_INFO_TABLE is unused but that is very wrong.
+static_assert(OPCODE_INFO_TABLE.size() == 256);
 
 uint8_t address_mode_num_bytes(AddressType address_type);
 
@@ -413,8 +421,10 @@ struct OpDecode
     uint8_t b1;
     uint8_t b2;
     uint8_t read_bytes;
-    std::string instr_fmt(uint8_t opcode, uint8_t x, uint8_t y, uint16_t pc);
+    std::string instr_fmt(uint8_t opcode, uint8_t x, uint8_t y, uint16_t pc) const;
 };
+
+static_assert(std::is_trivial<OpDecode>::value);
 
 constexpr size_t foo_size = sizeof(OPCODE_INFO_TABLE);
 

@@ -67,7 +67,6 @@ bool create_flags(OptionParser& opts)
 
 int main(int argc, char** argv)
 {
-    // logger::set_pattern("[%H:%M:%S] [%^-%L-%$] %v");
     logger::set_pattern("%v");
     logger::set_level(LogLevel::Error);
 
@@ -97,12 +96,13 @@ int main(int argc, char** argv)
         auto cart = load_rom(*rom_name);
         if (!cart)
         {
-            logger::log(LogLevel::Error, "Failed to load {}", *rom_name);
+            logger::error("Failed to load {}", *rom_name);
             std::exit(1);
         }
         nes::NES nes(std::move(*cart));
         if (opts.has_flag("diagnostic"))
         {
+            logger::debug("Using diagnostics");
             auto diag_msg = opts.flag_value<std::string>("diagnostic").value();
             nes.set_diagnostics(diag_msg);
             nes.run_diag();

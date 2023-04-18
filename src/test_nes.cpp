@@ -12,9 +12,18 @@ enum class NesState {
     Failed
 };
 
-TEST(TestNes, basic)
+class TestNes : public ::testing::Test {
+public:
+    nes::Cartridge cart;
+protected:
+    TestNes() : cart{} {}
+
+private:
+};
+
+TEST_F(TestNes, basic)
 {
-    Cartridge cart{};
+    // Cartridge cart{};
     auto res = cart.load("data/roms/instr_test_v5/01-basics.nes");
     ASSERT_TRUE(res);
     if (!res)

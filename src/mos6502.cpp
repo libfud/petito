@@ -11,7 +11,7 @@
 
 namespace mos6502 {
 
-uint8_t Flags::get()
+uint8_t Flags::get() const
 {
     return
         (static_cast<uint8_t>(negative) << 7) |
@@ -24,7 +24,7 @@ uint8_t Flags::get()
         static_cast<uint8_t>(carry);
 }
 
-uint8_t Flags::get_php()
+uint8_t Flags::get_php() const
 {
     uint8_t flags = get();
     flags |= (1 << 5) | (1 << 4);
@@ -57,12 +57,16 @@ MOS6502::MOS6502(SystemBus& system_bus, int32_t cpu_clock_rate) :
     clock_rate(cpu_clock_rate),
     clock_counter(0),
     system_bus(system_bus),
-    diagnostics(true),
-    heavy_diagnostics(false),
+    diagnostics(false),
     irq_counter(0),
     nmi_counter(0)
 {
     flags.set(0x34);
+}
+
+void MOS6502::set_diagnostics(bool enable)
+{
+    diagnostics = enable;
 }
 
 uint8_t MOS6502::read(uint16_t address)
@@ -284,7 +288,8 @@ void MOS6502::ror(uint8_t& value)
     flags.set_n_and_z(compound_value);
 }
 
-CpuData MOS6502::save_state(uint8_t opcode, const OpDecode& op_decode)
+// CpuData MOS6502::save_state(uint8_t opcode, const OpDecode& op_decode) const
+CpuData MOS6502::save_state() const
 {
     return {flags, pc, acc, x, y, stack_ptr, opcode, op_decode, system_bus.get_cpu_clock()};
 }
@@ -372,31 +377,38 @@ OpDecode MOS6502::decode(uint8_t opcode)
     return op_decode;
 }
 
-void MOS6502::step_diagnostics(uint8_t opcode, OpDecode& op_decode)
+void MOS6502::step_diagnostics(uint8_t opcode, const OpDecode& op_decode) const
 {
-    if (heavy_diagnostics)
+    logger::debug(
+        "{:04X}  {} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} CYC:{:>3}",
+        pc,
+        op_decode.instr_fmt(opcode, x, y, pc),
+        acc,
+        x,
+        y,
+        flags.get(),
+        stack_ptr,
+        static_cast<unsigned int>(system_bus.get_cpu_clock() % 1000)
+    );
+}
+
+uint32_t MOS6502::run(uint16_t steps)
+{
+    uint32_t cycles = 0;
+    for (auto idx = 0; idx < steps; ++idx)
     {
-        logger::warn(
-            "{:04X}  {} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} CYC:{:>3}",
-            pc,
-            op_decode.instr_fmt(opcode, x, y, pc),
-            acc,
-            x,
-            y,
-            flags.get(),
-            stack_ptr,
-            static_cast<unsigned int>(system_bus.get_cpu_clock() % 1000)
-        );
+        cycles += step();
     }
+    return cycles;
 }
 
 uint8_t MOS6502::step()
 {
     auto start_clock = system_bus.get_cpu_clock();
 
-    uint8_t opcode = read(pc);
+    opcode = read(pc);
 
-    OpDecode op_decode = decode(opcode);
+    op_decode = decode(opcode);
 
     if (diagnostics)
     {
@@ -406,35 +418,7 @@ uint8_t MOS6502::step()
     // std::this_thread::sleep_for(std::chrono::milliseconds(0));
 
     bool update_pc = true;
-    /*
-     * 11.82%  $A5 LDA zero-page
-     * 10.37%  $D0 BNE
-     * 7.33%  $4C JMP absolute
-     * 6.97%  $E8 INX
-     * 4.46%  $10 BPL
-     * 3.82%  $C9 CMP immediate
-     * 3.49%  $30 BMI
-     * 3.32%  $F0 BEQ
-     * 3.32%  $24 BIT zero-page
-     * 2.94%  $85 STA zero-page
-     * 2.00%  $88 DEX
-     * 1.98%  $C8 INY
-     * 1.77%  $A8 TAY
-     * 1.74%  $E6 INC zero-page
-     * 1.74%  $B0 BCS
-     * 1.66%  $BD LDA absolute,X
-     * 1.64%  $B5 LDA zero-page,X
-     * 1.51%  $AD LDA absolute
-     * 1.41%  $20 JSR absolute
-     * 1.38%  $4A LSR A
-     * 1.37%  $60 RTS
-     * 1.35%  $B1 LDA (zero-page),Y
-     * 1.32%  $29 AND immediate
-     * 1.27%  $9D STA absolute,X
-     * 1.24%  $8D STA absolute
-     * 1.08%  $18 CLC
-     * 1.03%  $A9 LDA immediate
-     */
+
     switch (opcode)
     {
     case LDA_ZPG:
@@ -1014,7 +998,7 @@ uint8_t MOS6502::step()
 
     if (system_bus.get_interrupt_signals().nmi)
     {
-        // nmi();
+        nmi();
     }
 
     auto brk_flag = flags.brk;

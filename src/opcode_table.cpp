@@ -2,7 +2,7 @@
 
 namespace mos6502 {
 
-std::string OpDecode::instr_fmt(uint8_t opcode, uint8_t x, uint8_t y, uint16_t pc)
+std::string OpDecode::instr_fmt(uint8_t opcode, uint8_t x, uint8_t y, uint16_t pc) const
 {
     OpcodeInfo op_info = OPCODE_INFO_TABLE[opcode];
     auto address_type = op_info.address_type;
@@ -56,33 +56,33 @@ std::string OpDecode::instr_fmt(uint8_t opcode, uint8_t x, uint8_t y, uint16_t p
     switch (address_type)
     {
     case AddressType::A:
-        return fmt::format("{:02X}        {} A       {}", opcode, op_info.name, meminfo);
+        return fmt::format("{:02X}        {} A       {}", opcode, op_info.name.data(), meminfo);
     case AddressType::ABS:
-        return fmt::format("{:02X} {:02X} {:02X}  {} ${:02X}{:02X} {}  ", opcode, b1, b2, op_info.name, b2, b1, meminfo);
+        return fmt::format("{:02X} {:02X} {:02X}  {} ${:02X}{:02X} {}  ", opcode, b1, b2, op_info.name.data(), b2, b1, meminfo);
     case AddressType::ABS_X:
-        return fmt::format("{:02X} {:02X} {:02X}  {} ${:02X}{:02X},X {}", opcode, b1, b2, op_info.name, b2, b1, meminfo);
+        return fmt::format("{:02X} {:02X} {:02X}  {} ${:02X}{:02X},X {}", opcode, b1, b2, op_info.name.data(), b2, b1, meminfo);
     case AddressType::ABS_Y:
-        return fmt::format("{:02X} {:02X} {:02X}  {} ${:02X}{:02X},Y {}", opcode, b1, b2, op_info.name, b2, b1, meminfo);
+        return fmt::format("{:02X} {:02X} {:02X}  {} ${:02X}{:02X},Y {}", opcode, b1, b2, op_info.name.data(), b2, b1, meminfo);
     case AddressType::IMM:
-        return fmt::format("{:02X} {:02X}     {} #${:02X}    {}", opcode, b1, op_info.name, b1, meminfo);
+        return fmt::format("{:02X} {:02X}     {} #${:02X}    {}", opcode, b1, op_info.name.data(), b1, meminfo);
     case AddressType::IMPL:
-        return fmt::format("{:02X}        {}         {}", opcode, op_info.name, meminfo);
+        return fmt::format("{:02X}        {}         {}", opcode, op_info.name.data(), meminfo);
     case AddressType::IND:
-        return fmt::format("{:02X} {:02X} {:02X}  {} (${:02X}{:02X}) {}", opcode, b1, b2, op_info.name, b2, b1, meminfo);
+        return fmt::format("{:02X} {:02X} {:02X}  {} (${:02X}{:02X}) {}", opcode, b1, b2, op_info.name.data(), b2, b1, meminfo);
     case AddressType::X_IND:
-        return fmt::format("{:02X} {:02X}     {} (${:02X},X) {}", opcode, b1, op_info.name, b1, meminfo);
+        return fmt::format("{:02X} {:02X}     {} (${:02X},X) {}", opcode, b1, op_info.name.data(), b1, meminfo);
     case AddressType::IND_Y:
-        return fmt::format("{:02X} {:02X}     {} (${:02X}),Y {}", opcode, b1, op_info.name, b1, meminfo);
+        return fmt::format("{:02X} {:02X}     {} (${:02X}),Y {}", opcode, b1, op_info.name.data(), b1, meminfo);
     case AddressType::REL:
-        return fmt::format("{:02X} {:02X}     {} ${:04X}   {}", opcode, b1, op_info.name, addr_data, meminfo);
+        return fmt::format("{:02X} {:02X}     {} ${:04X}   {}", opcode, b1, op_info.name.data(), addr_data, meminfo);
     case AddressType::ZPG:
-        return fmt::format("{:02X} {:02X}     {} ${:02X} {}", opcode, b1, op_info.name, b1, meminfo);
+        return fmt::format("{:02X} {:02X}     {} ${:02X} {}", opcode, b1, op_info.name.data(), b1, meminfo);
     case AddressType::ZPG_X:
-        return fmt::format("{:02X} {:02X}     {} ${:02X},X {}", opcode, b1, op_info.name, b1, meminfo);
+        return fmt::format("{:02X} {:02X}     {} ${:02X},X {}", opcode, b1, op_info.name.data(), b1, meminfo);
     case AddressType::ZPG_Y:
-        return fmt::format("{:02X} {:02X}     {} ${:02X},Y {}", opcode, b1, op_info.name, b1, meminfo);
+        return fmt::format("{:02X} {:02X}     {} ${:02X},Y {}", opcode, b1, op_info.name.data(), b1, meminfo);
     default:
-        return fmt::format("{:02X}        {} ILLEGAL {}", opcode, op_info.name, meminfo);
+        return fmt::format("{:02X}        {} ILLEGAL {}", opcode, op_info.name.data(), meminfo);
     }
 
 }
