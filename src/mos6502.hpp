@@ -76,7 +76,6 @@ public:
     /** Nonmaskable interupt signal */
     void nmi();
 
-    // CpuData save_state(uint8_t opcode, const OpDecode& op_decode) const;
     CpuData save_state() const;
 
     uint8_t debug_read(uint16_t address) const;

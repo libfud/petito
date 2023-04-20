@@ -80,6 +80,11 @@ void NES::run_diag()
     };
     NesState state = NesState::Running;
     int64_t cycles = 0;
+    std::transform(
+        diagnostic_msg.begin(),
+        diagnostic_msg.end(),
+        diagnostic_msg.begin(),
+        [](unsigned char c){ return std::tolower(c); });
     auto terminator = [&](const NES& nes){
         auto diag_msg = nes.diagnostics();
         std::transform(

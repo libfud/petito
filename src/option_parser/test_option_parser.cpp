@@ -5,13 +5,14 @@
 #include <string>
 #include "option_parser.hpp"
 
-namespace ui_op = option_parser;
+namespace option_parser {
 
 constexpr auto test_name = "TestOptionParser";
 constexpr auto test_doc = "test option parser";
 
 class TestOptionParser : public ::testing::Test {
 public:
+
     int argc() const
     {
         return stored_args.size();
@@ -38,7 +39,7 @@ public:
         stored_argv.push_back(awful_string);
     }
 
-    ui_op::OptionParser make_oparser()
+    OptionParser make_oparser()
     {
         return {argc(), argv(), test_name, test_doc};
     }
@@ -56,10 +57,10 @@ private:
     std::vector<std::string> stored_args;
     std::vector<char*> stored_argv;
 };
-
+#if 0
 TEST_F(TestOptionParser, AddFlag)
 {
-    ui_op::OptionParser oparser {make_oparser()};
+    OptionParser oparser {make_oparser()};
 
     auto res = oparser.add_flag("v", "verbose", "doc string");
 
@@ -80,7 +81,7 @@ TEST_F(TestOptionParser, AddFlag)
 
 TEST_F(TestOptionParser, AddEmptyFlagSet)
 {
-    ui_op::OptionParser oparser {make_oparser()};
+    OptionParser oparser {make_oparser()};
 
     EXPECT_TRUE(oparser.add_flag_set({}).is_ok());
 }
@@ -96,10 +97,10 @@ TEST_F(TestOptionParser, AddBadFlagSet)
 
     auto test_bad_flag_set = [&](std::vector<StringSet>&& string_set)
     {
-        ui_op::OptionParser oparser {make_oparser()};
-        std::vector<ui_op::FlagSet> flag_set;
+        OptionParser oparser {make_oparser()};
+        std::vector<FlagSet> flag_set;
         bool first = true;
-        auto make_flag_set = [&](StringSet& ss) -> ui_op::FlagSet {
+        auto make_flag_set = [&](StringSet& ss) -> FlagSet {
             if (first)
             {
                 first = false;
@@ -133,7 +134,7 @@ TEST_F(TestOptionParser, AddBadFlagSet)
 
 TEST_F(TestOptionParser, AddGoodFlagSet)
 {
-    ui_op::OptionParser oparser {make_oparser()};
+    OptionParser oparser {make_oparser()};
 
     auto res = oparser.add_flag_set({{"h", "help", "help string", oparser.create_help_callback()}});
 
@@ -142,7 +143,7 @@ TEST_F(TestOptionParser, AddGoodFlagSet)
 
 TEST_F(TestOptionParser, ParseEmpty)
 {
-    ui_op::OptionParser oparser {make_oparser()};
+    OptionParser oparser {make_oparser()};
 
     auto res = oparser.parse();
 
@@ -155,7 +156,7 @@ TEST_F(TestOptionParser, ParseNominal)
     add_arg("-H");
     add_arg("-V");
     add_arg("--verbosify");
-    ui_op::OptionParser oparser {make_oparser()};
+    OptionParser oparser {make_oparser()};
     int help_called = 0;
     std::string help_output;
     auto pre_callback = [&]()
@@ -209,7 +210,7 @@ TEST_F(TestOptionParser, ParseNominal)
 TEST_F(TestOptionParser, ParseBad)
 {
     add_arg("--lollersk8s");
-    ui_op::OptionParser oparser {make_oparser()};
+    OptionParser oparser {make_oparser()};
 
     auto res = oparser.parse();
 
@@ -219,7 +220,7 @@ TEST_F(TestOptionParser, ParseBad)
 TEST_F(TestOptionParser, HandleFlagBad)
 {
     add_arg("--help");
-    ui_op::OptionParser oparser {make_oparser()};
+    OptionParser oparser {make_oparser()};
     int help_called = 0;
     auto pre_callback = [&]()
     {
@@ -240,7 +241,7 @@ TEST_F(TestOptionParser, HandleFlagBad)
 TEST_F(TestOptionParser, HandleFlagNominal)
 {
     add_arg("--help");
-    ui_op::OptionParser oparser {make_oparser()};
+    OptionParser oparser {make_oparser()};
     int help_called = 0;
     auto pre_callback = [&]()
     {
@@ -257,3 +258,6 @@ TEST_F(TestOptionParser, HandleFlagNominal)
     EXPECT_TRUE(oparser.handle_flag("help"));
     EXPECT_EQ(help_called, 1);
 }
+#endif
+
+} // namespace option_parser

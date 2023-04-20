@@ -108,7 +108,7 @@ public:
         }
         catch (const cxxopts::exceptions::specification& e)
         {
-            logger::log(logger::LogLevel::Critical, "Error adding arguments: {}", e.what());
+            logger::log(logger::LogLevel::Critical, "Error adding arguments: {}", std::string{e.what()});
             return OptParserResult::err(ExceptionError{e.what()});
         }
 
@@ -130,7 +130,7 @@ public:
         }
         catch (const cxxopts::exceptions::specification& e)
         {
-            logger::log(logger::LogLevel::Critical, "Error adding arguments: {}", e.what());
+            logger::log(logger::LogLevel::Critical, "Error adding arguments: {}", std::string{e.what()});
             return OptParserResult::err(ExceptionError{e.what()});
         }
 

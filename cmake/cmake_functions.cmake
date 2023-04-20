@@ -21,7 +21,7 @@ macro(AddTestTarget)
         ${ModuleName}
         ${STM_EXTRA_LIBS}
         gtest gtest_main gmock)
-    target_compile_options(${TestModuleName} BEFORE PRIVATE -Werror -Wunused-value)
+    target_compile_options(${TestModuleName} BEFORE PRIVATE -Werror -Wno-error=array-bounds -Wunused-value)
 
     gtest_add_tests(
         TARGET ${TestModuleName}

@@ -2,6 +2,13 @@
 
 namespace mos6502 {
 
+using fmt::format;
+
+std::string opid_to_name(OpName opid)
+{
+    return OP_NAMES[static_cast<uint8_t>(opid)];
+}
+
 std::string OpDecode::instr_fmt(uint8_t opcode, uint8_t x, uint8_t y, uint16_t pc) const
 {
     OpcodeInfo op_info = OPCODE_INFO_TABLE[opcode];
@@ -20,31 +27,31 @@ std::string OpDecode::instr_fmt(uint8_t opcode, uint8_t x, uint8_t y, uint16_t p
         switch (address_type)
         {
         case AddressType::ABS:
-            meminfo = fmt::format("= {:02X}               ", data);
+            meminfo = format("= {:02X}               ", data);
             break;
         case AddressType::ABS_X:
-            meminfo = fmt::format("@ {:04X} = {:02X}        ", addr_data, data);
+            meminfo = format("@ {:04X} = {:02X}        ", addr_data, data);
             break;
         case AddressType::ABS_Y:
-            meminfo = fmt::format("@ {:04X} = {:02X}        ", addr_data, data);
+            meminfo = format("@ {:04X} = {:02X}        ", addr_data, data);
             break;
         case AddressType::ZPG:
-            meminfo = fmt::format("= {:02X}                   ", data);
+            meminfo = format("= {:02X}                   ", data);
             break;
         case AddressType::ZPG_X:
-            meminfo = fmt::format("@ {:02X} = {:02X}            ", addr_data, data);
+            meminfo = format("@ {:02X} = {:02X}            ", addr_data, data);
             break;
         case AddressType::ZPG_Y:
-            meminfo = fmt::format("@ {:02X} = {:02X}            ", addr_data, data);
+            meminfo = format("@ {:02X} = {:02X}            ", addr_data, data);
             break;
         case AddressType::IND:
-            meminfo = fmt::format("= {:04X}             ", addr_data);
+            meminfo = format("= {:04X}             ", addr_data);
             break;
         case AddressType::X_IND:
-            meminfo = fmt::format("@ {:02X} = {:04X} = {:02X}   ", (b1 + x) & 0xFF, addr_data, data);
+            meminfo = format("@ {:02X} = {:04X} = {:02X}   ", (b1 + x) & 0xFF, addr_data, data);
             break;
         case AddressType::IND_Y:
-            meminfo = fmt::format(
+            meminfo = format(
                 "= {:04X} @ {:04X} = {:02X} ",
                 static_cast<uint16_t>(addr_data - y), addr_data, data);
             break;
@@ -56,35 +63,34 @@ std::string OpDecode::instr_fmt(uint8_t opcode, uint8_t x, uint8_t y, uint16_t p
     switch (address_type)
     {
     case AddressType::A:
-        return fmt::format("{:02X}        {} A       {}", opcode, op_info.name.data(), meminfo);
+        return format("{:02X}        {} A       {}", opcode, opid_to_name(op_info.name), meminfo);
     case AddressType::ABS:
-        return fmt::format("{:02X} {:02X} {:02X}  {} ${:02X}{:02X} {}  ", opcode, b1, b2, op_info.name.data(), b2, b1, meminfo);
+        return format("{:02X} {:02X} {:02X}  {} ${:02X}{:02X} {}  ", opcode, b1, b2, opid_to_name(op_info.name), b2, b1, meminfo);
     case AddressType::ABS_X:
-        return fmt::format("{:02X} {:02X} {:02X}  {} ${:02X}{:02X},X {}", opcode, b1, b2, op_info.name.data(), b2, b1, meminfo);
+        return format("{:02X} {:02X} {:02X}  {} ${:02X}{:02X},X {}", opcode, b1, b2, opid_to_name(op_info.name), b2, b1, meminfo);
     case AddressType::ABS_Y:
-        return fmt::format("{:02X} {:02X} {:02X}  {} ${:02X}{:02X},Y {}", opcode, b1, b2, op_info.name.data(), b2, b1, meminfo);
+        return format("{:02X} {:02X} {:02X}  {} ${:02X}{:02X},Y {}", opcode, b1, b2, opid_to_name(op_info.name), b2, b1, meminfo);
     case AddressType::IMM:
-        return fmt::format("{:02X} {:02X}     {} #${:02X}    {}", opcode, b1, op_info.name.data(), b1, meminfo);
+        return format("{:02X} {:02X}     {} #${:02X}    {}", opcode, b1, opid_to_name(op_info.name), b1, meminfo);
     case AddressType::IMPL:
-        return fmt::format("{:02X}        {}         {}", opcode, op_info.name.data(), meminfo);
+        return format("{:02X}        {}         {}", opcode, opid_to_name(op_info.name), meminfo);
     case AddressType::IND:
-        return fmt::format("{:02X} {:02X} {:02X}  {} (${:02X}{:02X}) {}", opcode, b1, b2, op_info.name.data(), b2, b1, meminfo);
+        return format("{:02X} {:02X} {:02X}  {} (${:02X}{:02X}) {}", opcode, b1, b2, opid_to_name(op_info.name), b2, b1, meminfo);
     case AddressType::X_IND:
-        return fmt::format("{:02X} {:02X}     {} (${:02X},X) {}", opcode, b1, op_info.name.data(), b1, meminfo);
+        return format("{:02X} {:02X}     {} (${:02X},X) {}", opcode, b1, opid_to_name(op_info.name), b1, meminfo);
     case AddressType::IND_Y:
-        return fmt::format("{:02X} {:02X}     {} (${:02X}),Y {}", opcode, b1, op_info.name.data(), b1, meminfo);
+        return format("{:02X} {:02X}     {} (${:02X}),Y {}", opcode, b1, opid_to_name(op_info.name), b1, meminfo);
     case AddressType::REL:
-        return fmt::format("{:02X} {:02X}     {} ${:04X}   {}", opcode, b1, op_info.name.data(), addr_data, meminfo);
+        return format("{:02X} {:02X}     {} ${:04X}   {}", opcode, b1, opid_to_name(op_info.name), addr_data, meminfo);
     case AddressType::ZPG:
-        return fmt::format("{:02X} {:02X}     {} ${:02X} {}", opcode, b1, op_info.name.data(), b1, meminfo);
+        return format("{:02X} {:02X}     {} ${:02X} {}", opcode, b1, opid_to_name(op_info.name), b1, meminfo);
     case AddressType::ZPG_X:
-        return fmt::format("{:02X} {:02X}     {} ${:02X},X {}", opcode, b1, op_info.name.data(), b1, meminfo);
+        return format("{:02X} {:02X}     {} ${:02X},X {}", opcode, b1, opid_to_name(op_info.name), b1, meminfo);
     case AddressType::ZPG_Y:
-        return fmt::format("{:02X} {:02X}     {} ${:02X},Y {}", opcode, b1, op_info.name.data(), b1, meminfo);
+        return format("{:02X} {:02X}     {} ${:02X},Y {}", opcode, b1, opid_to_name(op_info.name), b1, meminfo);
     default:
-        return fmt::format("{:02X}        {} ILLEGAL {}", opcode, op_info.name.data(), meminfo);
+        return format("{:02X}        {} ILLEGAL {}", opcode, opid_to_name(op_info.name), meminfo);
     }
-
 }
 
 uint8_t address_mode_num_bytes(AddressType address_type)

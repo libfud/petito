@@ -288,7 +288,6 @@ void MOS6502::ror(uint8_t& value)
     flags.set_n_and_z(compound_value);
 }
 
-// CpuData MOS6502::save_state(uint8_t opcode, const OpDecode& op_decode) const
 CpuData MOS6502::save_state() const
 {
     return {flags, pc, acc, x, y, stack_ptr, opcode, op_decode, system_bus.get_cpu_clock()};
