@@ -57,7 +57,7 @@ private:
     std::vector<std::string> stored_args;
     std::vector<char*> stored_argv;
 };
-#if 0
+
 TEST_F(TestOptionParser, AddFlag)
 {
     OptionParser oparser {make_oparser()};
@@ -258,6 +258,5 @@ TEST_F(TestOptionParser, HandleFlagNominal)
     EXPECT_TRUE(oparser.handle_flag("help"));
     EXPECT_EQ(help_called, 1);
 }
-#endif
 
 } // namespace option_parser

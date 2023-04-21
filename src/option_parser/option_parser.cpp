@@ -3,12 +3,10 @@
 #include "../logger/logger.hpp"
 
 #include <iostream>
-#include <fmt/core.h>
 #include <utf8.h>
+#include <format>
 
 namespace option_parser {
-
-using LogLevel = logger::LogLevel;
 
 InvalidUtf8Error::InvalidUtf8Error(const std::string& input)
     : input{input}
@@ -17,7 +15,7 @@ InvalidUtf8Error::InvalidUtf8Error(const std::string& input)
 
 std::string InvalidUtf8Error::format() const
 {
-    return fmt::format("Invalid UTF8 Sequence {}", input);
+    return std::format("Invalid UTF8 Sequence {}", input);
 }
 
 FlagSizeError::FlagSizeError(size_t size)
@@ -27,7 +25,7 @@ FlagSizeError::FlagSizeError(size_t size)
 
 std::string FlagSizeError::format() const
 {
-    return fmt::format("Bad flag size: {}", size);
+    return std::format("Bad flag size: {}", size);
 }
 
 OptSizeError::OptSizeError(size_t size)
@@ -37,7 +35,7 @@ OptSizeError::OptSizeError(size_t size)
 
 std::string OptSizeError::format() const
 {
-    return fmt::format("Bad opt size: {}", size);
+    return std::format("Bad opt size: {}", size);
 }
 
 DocSizeError::DocSizeError(size_t size)
@@ -47,7 +45,7 @@ DocSizeError::DocSizeError(size_t size)
 
 std::string DocSizeError::format() const
 {
-    return fmt::format("Bad doc size: {}", size);
+    return std::format("Bad doc size: {}", size);
 }
 
 std::string ExceptionError::format() const
@@ -160,8 +158,9 @@ OptParserResult OptionParser::add_flag_set(std::vector<FlagSet>&& flag_set)
     }
     catch (const cxxopts::exceptions::specification& e)
     {
-        logger::log(LogLevel::Critical, "Error adding arguments: {}", e.what());
-        return OptParserResult::err(ExceptionError{e.what()});
+        std::string error_msg{e.what()};
+        logger::critical("Error adding arguments: {}", error_msg);
+        return OptParserResult::err(ExceptionError{"Specification error"});
     }
 
     return OptParserResult::ok({});
@@ -171,16 +170,17 @@ OptParserResult OptionParser::parse()
 {
     try
     {
-        int argc = stored_argv.size();
-        char** argv = stored_argv.data();
+        int argc = static_cast<int>(stored_argv.size());
+        // char** argv = stored_argv.data();
 
-        parsed_options.emplace(options_impl.parse(argc, argv));
+        parsed_options.emplace(options_impl.parse(argc, stored_argv.data()));
     }
     catch (const cxxopts::exceptions::parsing& e)
     {
-        logger::log(LogLevel::Error, "Error parsing: {}", e.what());
+        std::string error_msg{e.what()};
+        logger::error("Error parsing: {}", error_msg);
         std::cout << options_impl.help() << std::endl;
-        return OptParserResult::err(ExceptionError{e.what()});
+        return OptParserResult::err(ExceptionError{"Parsing error"});
     }
 
     return OptParserResult::ok({});

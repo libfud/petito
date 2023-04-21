@@ -35,8 +35,8 @@ include_directories(${SFML_INCLUDE_DIR})
 
 option(COVERAGE "Add coverage compilation and link options." OFF)
 if (${COVERAGE})
-  add_compile_options("--coverage")
-  add_link_options("--coverage")
+    add_compile_options("--coverage")
+    add_link_options("--coverage")
 endif()
 
 add_subdirectory(src)
