@@ -43,7 +43,7 @@ target_link_libraries(mos6502_lib PUBLIC Logger)
 add_common_dependency(mos6502 Logger)
 target_link_libraries(mos6502 PUBLIC nes_lib OptionParser)
 
-add_executable(test_mos6502 test_mos6502.cpp test_flags.cpp)
+add_executable(test_mos6502 test_mos6502.cpp test_flags.cpp test_system_bus.cpp)
 target_link_libraries(test_mos6502
     PRIVATE
     mos6502_lib
