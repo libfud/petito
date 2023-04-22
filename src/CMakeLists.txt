@@ -14,6 +14,7 @@ add_library(mos6502_lib mos6502.cpp opcode_table.cpp)
 
 add_library(apu_lib apu.cpp)
 add_library(nes_lib nes.cpp system_bus.cpp)
+add_library(asm_lib assembler.cpp opcode_table.cpp)
 add_executable(mos6502 emu.cpp)
 
 option(USE_ASAN "Use ASAN" OFF) #OFF by default
@@ -42,29 +43,5 @@ target_link_libraries(mos6502_lib PUBLIC Logger)
 
 add_common_dependency(mos6502 Logger)
 target_link_libraries(mos6502 PUBLIC nes_lib OptionParser)
-
-add_executable(test_mos6502 test_mos6502.cpp test_flags.cpp test_system_bus.cpp)
-target_link_libraries(test_mos6502
-    PRIVATE
-    mos6502_lib
-    nes_lib
-    gtest gtest_main gmock)
-
-gtest_add_tests(
-    TARGET test_mos6502
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    EXTRA_ARGS --gtest_output=xml:${CMAKE_BINARY_DIR}/Test${ModuleName}.xml)
-
-add_executable(test_nes test_nes.cpp)
-target_link_libraries(test_nes
-    PRIVATE
-    mos6502_lib
-    nes_lib
-    gtest gtest_main gmock)
-
-gtest_add_tests(
-    TARGET test_nes
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    EXTRA_ARGS --gtest_output=xml:${CMAKE_BINARY_DIR}/Test${ModuleName}.xml)
 
 install(TARGETS mos6502 DESTINATION bin)

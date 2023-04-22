@@ -71,3 +71,4 @@ analysis/scan-build/**
 # coverage artifacts
 *.gcda
 *.gcno
+code_coverage.info

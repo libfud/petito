@@ -321,46 +321,46 @@ OpDecode MOS6502::decode(uint8_t opcode)
 
     switch (address_type)
     {
-    case AddressType::A:
-    case AddressType::IMM:
-    case AddressType::IMPL:
+    case AddressMode::A:
+    case AddressMode::IMM:
+    case AddressMode::IMPL:
         break;
-    case AddressType::ABS:
+    case AddressMode::ABS:
         op_decode.effective_address = absolute(op_decode.b1, op_decode.b2);
         op_decode.data = read(op_decode.effective_address);
         break;
-    case AddressType::ABS_X:
+    case AddressMode::ABS_X:
         op_decode.effective_address = absolute_idx(op_decode.b1, op_decode.b2, x);
         op_decode.data = read(op_decode.effective_address);
         break;
-    case AddressType::ABS_Y:
+    case AddressMode::ABS_Y:
         op_decode.effective_address = absolute_idx(op_decode.b1, op_decode.b2, y);
         op_decode.data = read(op_decode.effective_address);
         break;
-    case AddressType::IND:
+    case AddressMode::IND:
         op_decode.effective_address = indirect(op_decode.b1, op_decode.b2);
         op_decode.data = read(op_decode.effective_address);
         break;
-    case AddressType::X_IND:
+    case AddressMode::X_IND:
         op_decode.effective_address = x_indirect(op_decode.b1);
         op_decode.data = read(op_decode.effective_address);
         break;
-    case AddressType::IND_Y:
+    case AddressMode::IND_Y:
         op_decode.effective_address = indirect_y(op_decode.b1);
         op_decode.data = read(op_decode.effective_address);
         break;
-    case AddressType::REL:
+    case AddressMode::REL:
         op_decode.effective_address = rel_addr(op_decode.b1);
         break;
-    case AddressType::ZPG:
+    case AddressMode::ZPG:
         op_decode.effective_address = op_decode.b1;
         op_decode.data = read(op_decode.effective_address);
         break;
-    case AddressType::ZPG_X:
+    case AddressMode::ZPG_X:
         op_decode.effective_address = zero_page_x(op_decode.b1);
         op_decode.data = read(op_decode.effective_address);
         break;
-    case AddressType::ZPG_Y:
+    case AddressMode::ZPG_Y:
         op_decode.effective_address = zero_page_y(op_decode.b1);
         op_decode.data = read(op_decode.effective_address);
         break;

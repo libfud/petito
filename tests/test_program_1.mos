@@ -1,0 +1,94 @@
+ZERO_PAGE EQU $0000
+INFO_PAGE EQU $0200
+SCRATCH_PAGE EQU $0300
+
+RESET_PATTERN_0 EQU $BE
+RESET_PATTERN_1 EQU $EF
+RESET_PATTERN_2 EQU $CA
+RESET_PATTERN_3 EQU $FE
+
+NMI_INFO_OFFSET EQU $0210
+IRQ_INFO_OFFSET EQU $0220
+
+;;  IDLE_ADDRESS EQU RESET_ADDRESS + 3 * 256
+reset_procedure:
+    LDX #$FF
+    LDA #$00
+;;  zero out $00 to $FF, $200-$2FF and $300-$3FF
+reset_zeros:
+    STA ZERO_PAGE,X
+    STA INFO_PAGE,X
+    STA SCRATCH_PAGE,X
+    DEX
+    BNE reset_zeros ;; repeat until X reaches zero (- (+ (* 3 3) 1 2)) -12
+    STA ZERO_PAGE,X ;;  zero out final loop
+    STA INFO_PAGE,X
+    STA SCRATCH_PAGE,X
+    LDA #RESET_PATTERN_0
+    LDY #RESET_PATTERN_1
+    LDX #0
+    STA INFO_PAGE+0
+    STY INFO_PAGE+1
+    LDA #RESET_PATTERN_2
+    LDY #RESET_PATTERN_3
+    STA INFO_PAGE+2
+    STY INFO_PAGE+3
+    JMP idle_procedure
+
+nmi_procedure:
+    PHP
+    PHA
+    INC NMI_INFO_OFFSET
+    LDA 'N
+    STA NMI_INFO_OFFSET+1
+    LDA 'M
+    STA NMI_INFO_OFFSET+2
+    LDA 'I
+    STA NMI_INFO_OFFSET+3
+;;  write X to memory
+    TXA
+    STA NMI_INFO_OFFSET+5
+;;  push X (in Acc) onto stack, transfer SP to X, write SP to memory
+    PHA
+    TSX
+    TXA
+    STA NMI_INFO_OFFSET+8
+;;  pop X from stack, restore X
+    PLA
+    TAX
+;;  write Y to memory
+    TYA
+    STA NMI_INFO_OFFSET+6
+;;  restore A, write A to memory
+    PLA
+    STA NMI_INFO_OFFSET+4
+;;  copy flags to acc, write flags to memory
+    PLA
+    STA NMI_INFO_OFFSET+7
+;;  restore flags
+    PHA
+    PLP
+;;  restore A
+    LDA NMI_INFO_OFFSET+acc_offset
+    RTI
+
+irq_procedure:
+;; push Acc and flags to stack
+    PHP
+    PHA
+    INC IRQ_INFO_OFFSET
+    LDA 'I
+    STA IRQ_INFO_OFFSET+1
+    LDA 'R
+    STA IRQ_INFO_OFFSET+2
+    LDA 'Q
+    STA IRQ_INFO_OFFSET+3
+;; pop Acc and flags from stack
+    PLA
+    PLP
+    RTI
+
+idle_procedure:
+    CLI
+    NOP
+    JMP idle_procedure

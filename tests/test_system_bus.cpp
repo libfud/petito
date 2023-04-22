@@ -78,8 +78,7 @@ size_t add_nmi_procedure(std::vector<uint8_t>& program, uint16_t nmi_address)
         PHA_IMPL, PLP_IMPL,
         // restore A
         LDA_ABS, NMI_INFO_OFFSET + acc_offset, INFO_PAGE,
-        // go to idle procedure
-        JMP_ABS, IDLE_ADDRESS_LOW, IDLE_ADDRESS_HIGH,
+        RTI_IMPL
     };
     std::memcpy(&program[nmi_address], nmi_procedure.data(), nmi_procedure.size());
     return nmi_procedure.size();
@@ -101,7 +100,7 @@ size_t add_irq_procedure(std::vector<uint8_t>& program, uint16_t irq_address)
         // pop Acc and flags from stack
         PLA_IMPL, PLP_IMPL,
         // go to idle procedure
-        JMP_ABS, IDLE_ADDRESS_LOW, IDLE_ADDRESS_HIGH,
+        RTI_IMPL
     };
     std::memcpy(&program[irq_address], irq_procedure.data(), irq_procedure.size());
     return irq_procedure.size();
