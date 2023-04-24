@@ -737,6 +737,37 @@ TEST(TestToken, AbsoluteHexError)
     ASSERT_EQ(result.get_err(), AsmError::BadNumber);
 }
 
+TEST(TestToken, CommaRegister)
+{
+    std::string input{};
+
+    input = ",X";
+    auto result = Token::tokenize_line(input);
+    ASSERT_TRUE(result.is_ok());
+    auto tokens = result.get_ok();
+    ASSERT_EQ(tokens.size(), 1);
+    auto token = tokens[0];
+    ASSERT_EQ(token.token_type(), TokenType::CommaX);
+
+    input = ",Y";
+    result = Token::tokenize_line(input);
+    ASSERT_TRUE(result.is_ok());
+    tokens = result.get_ok();
+    ASSERT_EQ(tokens.size(), 1);
+    token = tokens[0];
+    ASSERT_EQ(token.token_type(), TokenType::CommaY);
+
+    input = ",";
+    result = Token::tokenize_line(input);
+    ASSERT_TRUE(result.is_err());
+    ASSERT_EQ(result.get_err(), AsmError::InvalidComma);
+
+    input = ",L";
+    result = Token::tokenize_line(input);
+    ASSERT_TRUE(result.is_err());
+    ASSERT_EQ(result.get_err(), AsmError::InvalidComma);
+}
+
 TEST(TestToken, CompLaMnCm)
 {
     const auto op_id = OpName::NOP;
@@ -821,25 +852,43 @@ TEST(TestToken, Composite1)
 
     input = std::format("{}: {} (${:04X}),X ;; {}", test_label, mnemonic, address, comment);
     auto result = Token::tokenize_line(input);
+    if (result.is_err())
+    {
+        std::cerr << std::format("Error: {}\n", static_cast<uint8_t>(result.get_err()));
+    }
     ASSERT_TRUE(result.is_ok());
     auto tokens = result.get_ok();
-    ASSERT_EQ(tokens.size(), 7);
+    EXPECT_EQ(tokens.size(), 7);
 
+    ASSERT_GT(tokens.size(), 0);
     auto token = tokens[0];
     ASSERT_EQ(token.token_type(), TokenType::Label);
     ASSERT_EQ(std::get<token::Label>(token.get()).value, test_label);
 
+    ASSERT_GT(tokens.size(), 1);
     token = tokens[1];
     ASSERT_EQ(token.token_type(), TokenType::Mnemonic);
     ASSERT_EQ(std::get<token::Mnemonic>(token.get()).value, op_id);
 
+    ASSERT_GT(tokens.size(), 2);
     token = tokens[2];
     ASSERT_EQ(token.token_type(), TokenType::LParen);
 
+    ASSERT_GT(tokens.size(), 3);
+    token = tokens[3];
+    ASSERT_EQ(token.token_type(), TokenType::Address);
+    ASSERT_EQ(std::get<token::Address>(token.get()).value, address);
+
+    ASSERT_GT(tokens.size(), 4);
     token = tokens[4];
     ASSERT_EQ(token.token_type(), TokenType::RParen);
 
-    token = tokens[1];
+    ASSERT_GT(tokens.size(), 5);
+    token = tokens[5];
+    ASSERT_EQ(token.token_type(), TokenType::CommaX);
+
+    ASSERT_EQ(tokens.size(), 7);
+    token = tokens[6];
     ASSERT_EQ(token.token_type(), TokenType::Comment);
     ASSERT_EQ(std::get<token::Comment>(token.get()).value, comment);
 }

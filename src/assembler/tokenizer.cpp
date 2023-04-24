@@ -437,7 +437,7 @@ auto Token::make_byte(
     {
         return RetType::ok({});
     }
-    end_index = index + length;
+    end_index = index + length - 1;
     return RetType::ok(Token{TokenVariant{Byte{static_cast<uint8_t>(number)}}});
 }
 
@@ -464,7 +464,7 @@ auto Token::make_address(
     {
         return RetType::err(AsmError::BadNumber);
     }
-    end_index = index + length;
+    end_index = index + length - 1;
     return RetType::ok(Token{TokenVariant{Address{static_cast<uint16_t>(number)}}});
 }
 
@@ -534,13 +534,13 @@ auto Token::make_comma_register(
 
     const auto reg_name = input[index + 1];
 
-    if (reg_name == 'x')
+    if (reg_name == 'X')
     {
         end_index = index + 1;
         return RetType::ok(Token{TokenVariant{CommaX{}}});
     }
 
-    if (reg_name == 'y')
+    if (reg_name == 'Y')
     {
         end_index = index + 1;
         return RetType::ok(Token{TokenVariant{CommaY{}}});

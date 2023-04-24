@@ -157,7 +157,7 @@ enum class TokenType : uint8_t {
     CommaX,
     CommaY,
     Directive,
-    Symbol
+    Symbol,
 };
 
 using token::TokenVariant;
