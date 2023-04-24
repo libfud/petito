@@ -4,7 +4,6 @@
 #include <array>
 #include <cstdint>
 #include <functional>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -32,7 +31,8 @@ public:
     void run_diag();
     void step();
     void set_diagnostics(std::string diag_msg);
-    std::string diagnostics() const;
+    auto diagnostics() const -> bool;
+    auto diagnostics2() -> const std::string&;
 
 private:
     mos6502::MOS6502 cpu;
@@ -45,6 +45,8 @@ private:
     sf::RenderWindow window;
     float screen_scale;
     std::string diagnostic_msg;
+public:
+    const std::string_view debug_msg;
 };
 
 }

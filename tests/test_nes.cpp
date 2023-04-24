@@ -37,18 +37,14 @@ TEST_F(TestNes, basic)
     logger::set_pattern("%v");
     logger::set_level(logger::LogLevel::Warn);
     auto terminator = [&](const NES& nes){
-        auto diag_msg = nes.diagnostics();
-        std::transform(
-            diag_msg.begin(),
-            diag_msg.end(),
-            diag_msg.begin(),
-            [](unsigned char c){ return std::tolower(c); });
-        if (diag_msg.find("passed") != std::string::npos)
+        auto has_debug_msg = nes.diagnostics();
+        // passed substring
+        if (nes.debug_msg.find("assed") != std::string::npos)
         {
             state = NesState::Passed;
             return false;
         }
-        else if (diag_msg.find("failed") != std::string::npos)
+        else if (nes.debug_msg.find("failed") != std::string::npos)
         {
             state = NesState::Failed;
             return false;

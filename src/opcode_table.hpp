@@ -3,7 +3,6 @@
 
 #include <array>
 #include <cstdint>
-#include <fmt/core.h>
 #include <map>
 #include <string>
 #include <type_traits>
@@ -462,9 +461,9 @@ constexpr std::array<std::string, static_cast<uint8_t>(OpName::SED) + 1> OP_NAME
     "SED",
 };
 
-std::string opid_to_name(OpName opid);
+const std::string& opid_to_name(OpName opid);
 
-const std::map<std::string, OpName> MNEMONIC_MAP{
+static const std::map<std::string, OpName> MNEMONIC_MAP{
     {"BRK", OpName::BRK},
     {"ORA", OpName::ORA},
     {"JAM", OpName::JAM},
@@ -862,6 +861,6 @@ static_assert(std::is_trivial<OpDecode>::value);
 
 constexpr size_t foo_size = sizeof(OPCODE_INFO_TABLE);
 
-}
+} // namespace mos6502
 
 #endif

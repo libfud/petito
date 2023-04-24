@@ -14,7 +14,6 @@ add_library(mos6502_lib mos6502.cpp opcode_table.cpp)
 
 add_library(apu_lib apu.cpp)
 add_library(nes_lib nes.cpp system_bus.cpp)
-add_library(asm_lib assembler.cpp opcode_table.cpp)
 add_executable(mos6502 emu.cpp)
 
 option(USE_ASAN "Use ASAN" OFF) #OFF by default
@@ -29,6 +28,7 @@ add_subdirectory(result)
 add_subdirectory(option_parser)
 add_subdirectory(cartridge)
 add_subdirectory(ppu)
+add_subdirectory(assembler)
 
 add_common_dependency(nes_lib Logger)
 target_link_libraries(nes_lib PUBLIC

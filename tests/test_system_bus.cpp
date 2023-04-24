@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <format>
+#include <cstring>
 
 namespace mos6502 {
 
@@ -141,7 +142,7 @@ TestSystemBus::TestSystemBus(
         if ((base_address + proc_size) > max_address)
         {
             throw std::runtime_error(
-                fmt::format(
+                std::format(
                     "{} procedure too large! Expected less than {}, got {}",
                     name,
                     max_address - base_address,
@@ -196,7 +197,7 @@ uint8_t TestSystemBus::read(uint16_t address)
         return vectors[mapped_address];
     }
 
-    throw std::runtime_error(fmt::format("Invalid address read 0x{:04X}", address));
+    throw std::runtime_error(std::format("Invalid address read 0x{:04X}", address));
 }
 
 void TestSystemBus::write(uint16_t address, uint8_t data) {
@@ -207,7 +208,7 @@ void TestSystemBus::write(uint16_t address, uint8_t data) {
     else
     {
         throw std::runtime_error(
-            fmt::format(
+            std::format(
                 "Invalid address write 0x{:04X}, 0x{:02X}",
                 address,
                 data));

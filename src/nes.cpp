@@ -17,7 +17,8 @@ NES::NES(Cartridge&& cart, int32_t cpu_clock_rate) :
     system_bus{this->cart, ppu, apu},
     virtual_screen{},
     screen_scale{3.0f},
-    diagnostic_msg{}
+    diagnostic_msg{},
+    debug_msg(static_cast<const char*>(static_cast<void*>(&system_bus.cart.prg_ram[4])), 128)
 {
     system_bus.init();
 }
@@ -80,27 +81,21 @@ void NES::run_diag()
     };
     NesState state = NesState::Running;
     int64_t cycles = 0;
-    std::transform(
-        diagnostic_msg.begin(),
-        diagnostic_msg.end(),
-        diagnostic_msg.begin(),
-        [](unsigned char c){ return std::tolower(c); });
     auto terminator = [&](const NES& nes){
-        auto diag_msg = nes.diagnostics();
-        std::transform(
-            diag_msg.begin(),
-            diag_msg.end(),
-            diag_msg.begin(),
-            [](unsigned char c){ return std::tolower(c); });
-        if (diag_msg.find(diagnostic_msg) != std::string::npos)
+        auto has_debug_msg = nes.diagnostics();
+        if (!has_debug_msg)
         {
-            fmt::print("Passed: Step {}, diag={}\n", cycles, diag_msg);
+            return true;
+        }
+        if (debug_msg.find(diagnostic_msg) != std::string::npos)
+        {
+            fmt::print("Passed: Step {}, diag={}\n", cycles, debug_msg);
             state = NesState::Passed;
             return false;
         }
-        else if (diag_msg.find("failed") != std::string::npos)
+        else if (debug_msg.find("failed") != std::string::npos)
         {
-            fmt::print("Failed: Step {}, diag={}\n", cycles, diag_msg);
+            fmt::print("Failed: Step {}, diag={}\n", cycles, debug_msg);
             state = NesState::Failed;
             return false;
         }
@@ -112,7 +107,7 @@ void NES::run_diag()
         cycles++;
         if (cycles % 100000 == 0)
         {
-            logger::debug("Step {}, diag={}", cycles, diag_msg);
+            logger::debug("Step {}, diag={}", cycles, debug_msg);
         }
         if (cycles > 10000000000 || cycles < 0)
         {
@@ -132,31 +127,27 @@ void NES::step()
     // ppu.run(cycles);
 }
 
-std::string NES::diagnostics() const
+auto NES::diagnostics() const -> bool
 {
-    uint8_t status = cpu.debug_read(0x6000);
+    constexpr auto DEBUG_STATUS_ADDRESS = 0x6000;
+    uint8_t status = cpu.debug_read(DEBUG_STATUS_ADDRESS);
 
+    bool has_debug_msg = false;
     if (status == 0x80)
     {
-        std::vector<char> msg_buf(256, 0);
-        memcpy(
-            msg_buf.data(),
-            &system_bus.cart.prg_ram[4],
-            sizeof(msg_buf));
-        std::string message(msg_buf.data());
-        if (message.size() > 0)
+        if (debug_msg.size() > 0)
         {
+            has_debug_msg = true;
             logger::debug(
-                "Test in progress {:02X} {:02X} {:02X}\nmessage={}",
+                "Test in progress {:02X} {:02X} {:02X}\nmessage=\n{}",
                 system_bus.cart.prg_ram[1],
                 system_bus.cart.prg_ram[2],
                 system_bus.cart.prg_ram[3],
-                message
+                debug_msg
             );
         }
-        return message;
     }
-    return std::string{""};
+    return has_debug_msg;
 }
 
 }

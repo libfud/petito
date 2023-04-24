@@ -25,7 +25,7 @@ gtest_add_tests(
     EXTRA_ARGS --gtest_output=xml:${CMAKE_BINARY_DIR}/Test${ModuleName}.xml)
 
 add_executable(test_asm test_assembler.cpp)
-target_include_directories(test_asm PRIVATE ../src)
+target_include_directories(test_asm PRIVATE ../src ../src/assembler)
 target_link_libraries(test_asm
     PRIVATE
     asm_lib
