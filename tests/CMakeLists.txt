@@ -24,8 +24,8 @@ gtest_add_tests(
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     EXTRA_ARGS --gtest_output=xml:${CMAKE_BINARY_DIR}/Test${ModuleName}.xml)
 
-add_executable(test_asm test_assembler.cpp)
-target_include_directories(test_asm PRIVATE ../src ../src/assembler)
+add_executable(test_asm test_assembler.cpp test_tokenizer.cpp)
+target_include_directories(test_asm PRIVATE ../src ../src/assembler /usr/include/antlr4-runtime)
 target_link_libraries(test_asm
     PRIVATE
     asm_lib
@@ -35,3 +35,7 @@ gtest_add_tests(
     TARGET test_asm
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     EXTRA_ARGS --gtest_output=xml:${CMAKE_BINARY_DIR}/Test${ModuleName}.xml)
+
+file(GLOB MOS_FILES "*.mos")
+# configure_file(input_file output_file COPYONLY)
+file(COPY ${MOS_FILES} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/asm)

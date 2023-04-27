@@ -1,0 +1,29 @@
+;;  IDLE_ADDRESS EQU RESET_ADDRESS + 3 * 256
+reset_procedure: ;; Reset procedure
+    LDX #$FF ;; load counter
+    LDA #$00
+;;  zero out $00 to $FF, $200-$2FF and $300-$3FF
+; reset_zeros:
+;     STA $00,X
+;     STA $0200,X
+;     STA $0300,X
+;     DEX
+;     BNE reset_zeros ;; repeat until X reaches zero (- (+ (* 3 3) 1 2)) -12
+;     STA $00,X ;;  zero out final loop
+;     STA $0200,X
+;     STA $0300,X
+;     LDA #$CA
+;     LDY #$FE
+;     LDX #0
+;     STA $0200+0
+;     STY $0200+1
+;     LDA #$BE
+;     LDY #EF
+;     STA $0200+2
+;     STY $0200+3
+;     JMP idle_procedure
+
+; idle_procedure:
+;     CLI
+;     NOP
+;     JMP idle_procedure

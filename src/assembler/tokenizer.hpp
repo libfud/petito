@@ -1,3 +1,6 @@
+#ifndef TOKENIZER_HPP
+#define TOKENIZER_HPP
+
 #include <cstdint>
 #include <map>
 #include <string>
@@ -13,7 +16,6 @@ namespace mos6502 {
 using result::Result;
 
 using SymbolMap = std::map<std::string, uint16_t>;
-using InputStream = std::vector<std::string>;
 
 enum class Base : uint8_t {
     Binary = 2,
@@ -73,9 +75,17 @@ enum class AsmError {
     NoTokenToParse,
     InvalidToken,
     InvalidPragma,
+    InvalidKeyword,
     InvalidComma,
     BadNumber,
     BadChar,
+    BadAssign,
+    SymbolUndefined,
+    SymbolRedefined,
+    BadEvaluation,
+    BadParse,
+    InvalidRange,
+    Unimplemented,
 };
 
 enum class ArithmeticOp: char {
@@ -105,6 +115,15 @@ const std::map<std::string, Pragma> PRAGMA_MAP {
     {"REPEAT", Pragma::Repeat},
 };
 
+enum class Keyword {
+    Equal = 0,
+};
+
+const std::map<std::string, Keyword> KEYWORD_MAP {
+    {"EQU", Keyword::Equal},
+    {"=", Keyword::Equal},
+};
+
 namespace token {
 struct Label { std::string value; };
 struct Comment { std::string value; };
@@ -121,6 +140,7 @@ struct RBracket {};
 struct CommaX {};
 struct CommaY {};
 struct Directive { Pragma value; };
+struct Reserved { Keyword value; };
 struct Symbol { std::string value; };
 using TokenVariant = std::variant<
     Label,
@@ -138,6 +158,7 @@ using TokenVariant = std::variant<
     CommaX,
     CommaY,
     Directive,
+    Reserved,
     Symbol>;
 } // namespace token
 
@@ -157,6 +178,7 @@ enum class TokenType : uint8_t {
     CommaX,
     CommaY,
     Directive,
+    Keyword,
     Symbol,
 };
 
@@ -164,9 +186,10 @@ using token::TokenVariant;
 
 class Token {
 public:
+    using TokenVector = std::vector<Token>;
     explicit Token(TokenVariant token_value);
     using ParseTokenResult = Result<std::optional<Token>, AsmError>;
-    using TokenStreamResult = Result<std::vector<Token>, AsmError>;
+    using TokenStreamResult = Result<TokenVector, AsmError>;
 
     static auto tokenize_line(const std::string& input) -> TokenStreamResult;
     auto get() const -> const TokenVariant&;
@@ -231,10 +254,19 @@ private:
         size_t index,
         size_t& end_index) -> ParseTokenResult;
 
+    static auto make_keyword(
+        const std::string& input,
+        size_t index,
+        size_t& end_index) -> std::optional<Token>;
+
     static auto make_symbol(
         const std::string& input,
         size_t index,
         size_t& end_index) -> std::optional<Token>;
 };
 
+using TokenVector = Token::TokenVector;
+
 } // namespace mos6502
+
+#endif

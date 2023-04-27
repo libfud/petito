@@ -4,6 +4,7 @@
 #include <array>
 #include <cstdint>
 #include <map>
+#include <set>
 #include <string>
 #include <type_traits>
 
@@ -842,8 +843,6 @@ static const std::array<OpcodeInfo, 256> OPCODE_INFO_TABLE = {
     OpcodeInfo{OpName::ISB, AddressMode::ABS_X, 7},
 };
 
-// clang warns OPCODE_INFO_TABLE is unused but that is very wrong.
-
 uint8_t address_mode_num_bytes(AddressMode address_type);
 
 struct OpDecode
@@ -860,6 +859,120 @@ struct OpDecode
 static_assert(std::is_trivial<OpDecode>::value);
 
 constexpr size_t foo_size = sizeof(OPCODE_INFO_TABLE);
+
+using OpSet = std::set<OpName>;
+
+const OpSet IMPLICIT_OP_SET{
+    OpName::BRK, OpName::PHP, OpName::CLC, OpName::PLP, OpName::SEC,
+    OpName::RTI, OpName::PHA, OpName::CLI, OpName::RTS, OpName::PLA,
+    OpName::SEI, OpName::DEY, OpName::TXA, OpName::TYA, OpName::TXS,
+    OpName::TAY, OpName::TAX, OpName::CLV, OpName::TSX, OpName::INY,
+    OpName::DEX, OpName::CLD, OpName::INX, OpName::SED, OpName::NOP,
+};
+
+const OpSet ACC_OP_SET{
+    OpName::ASL,
+    OpName::ROL,
+    OpName::LSR,
+    OpName::ROR,
+};
+
+const OpSet IMMEDIATE_OP_SET{
+    OpName::ORA, OpName::ANC, OpName::AND, OpName::EOR, OpName::ALR,
+    OpName::ADC, OpName::ARR, OpName::NOP, OpName::ANE, OpName::LDY,
+    OpName::LDX, OpName::LDA, OpName::LXA, OpName::CPY, OpName::CMP,
+    OpName::SBX, OpName::CPX, OpName::SBC,
+};
+
+const OpSet ABSOLUTE_OP_SET{
+    OpName::NOP, OpName::ORA, OpName::ASL, OpName::SLO, OpName::JSR,
+    OpName::BIT, OpName::AND, OpName::ROL, OpName::RLA, OpName::JMP,
+    OpName::EOR, OpName::LSR, OpName::SRE, OpName::ADC, OpName::ROR,
+    OpName::RRA, OpName::STY, OpName::STA, OpName::STX, OpName::SAX,
+    OpName::LDY, OpName::LDA, OpName::LDX, OpName::LAX, OpName::CPY,
+    OpName::CMP, OpName::DEC, OpName::DCP, OpName::CPX, OpName::SBC,
+    OpName::INC, OpName::ISB,
+};
+
+const OpSet ABSOLUTE_X_OP_SET{
+    OpName::NOP, OpName::ORA, OpName::ASL, OpName::SLO, OpName::AND,
+    OpName::ROL, OpName::RLA, OpName::EOR, OpName::LSR, OpName::SRE,
+    OpName::ADC, OpName::ROR, OpName::RRA, OpName::SHY, OpName::STA,
+    OpName::LDY, OpName::LDA, OpName::CMP, OpName::DEC, OpName::DCP,
+    OpName::SBC, OpName::INC, OpName::ISB,
+};
+
+const OpSet ABSOLUTE_Y_OP_SET{
+    OpName::ORA, OpName::SLO, OpName::AND, OpName::RLA, OpName::EOR,
+    OpName::SRE, OpName::ADC, OpName::RRA, OpName::STA, OpName::TAS,
+    OpName::SHX, OpName::SHA, OpName::LDA, OpName::LAS, OpName::LDX,
+    OpName::LAX, OpName::CMP, OpName::DCP, OpName::SBC, OpName::ISB,
+};
+
+const OpSet ZPG_OP_SET{
+    OpName::NOP, OpName::ORA, OpName::ASL, OpName::SLO, OpName::BIT,
+    OpName::AND, OpName::ROL, OpName::RLA, OpName::EOR, OpName::LSR,
+    OpName::SRE, OpName::ADC, OpName::ROR, OpName::RRA, OpName::STY,
+    OpName::STA, OpName::STX, OpName::SAX, OpName::LDY, OpName::LDA,
+    OpName::LDX, OpName::LAX, OpName::CPY, OpName::CMP, OpName::DEC,
+    OpName::DCP, OpName::CPX, OpName::SBC, OpName::INC, OpName::ISB,
+};
+
+const OpSet ZPG_X_OP_SET{
+    OpName::NOP, OpName::ORA, OpName::ASL, OpName::SLO, OpName::AND,
+    OpName::ROL, OpName::RLA, OpName::EOR, OpName::LSR, OpName::SRE,
+    OpName::ADC, OpName::ROR, OpName::RRA, OpName::STY, OpName::STA,
+    OpName::LDY, OpName::LDA, OpName::CMP, OpName::DEC, OpName::DCP,
+    OpName::SBC, OpName::INC, OpName::ISB,
+};
+
+const OpSet ZPG_Y_OP_SET{
+    OpName::STX,
+    OpName::SAX,
+    OpName::LDX,
+    OpName::LAX,
+};
+
+const OpSet INDIRECT_OP_SET{OpName::JMP};
+
+const OpSet X_INDIRECT_OP_SET{
+    OpName::ORA, OpName::SLO, OpName::AND, OpName::RLA,
+    OpName::EOR, OpName::SRE, OpName::ADC, OpName::RRA,
+    OpName::STA, OpName::SAX, OpName::LDA, OpName::LAX,
+    OpName::CMP, OpName::DCP, OpName::SBC, OpName::ISB,
+};
+
+const OpSet INDIRECT_Y_OP_SET{
+    OpName::ORA, OpName::SLO, OpName::AND, OpName::RLA,
+    OpName::EOR, OpName::SRE, OpName::ADC, OpName::RRA,
+    OpName::STA, OpName::SHA, OpName::LDA, OpName::LAX,
+    OpName::CMP, OpName::DCP, OpName::SBC, OpName::ISB,
+};
+
+const OpSet RELATIVE_OP_SET{
+    OpName::BPL, OpName::BMI, OpName::BVC, OpName::BVS,
+    OpName::BCC, OpName::BCS, OpName::BNE, OpName::BEQ,
+};
+
+const OpSet JAM_OP_SET{OpName::JAM};
+
+const std::map<AddressMode, OpSet> ADDRESS_MODE_MAP{
+    {AddressMode::IMPL, IMPLICIT_OP_SET},
+    {AddressMode::A, ACC_OP_SET},
+    {AddressMode::IMM, IMMEDIATE_OP_SET},
+    {AddressMode::ABS, ABSOLUTE_OP_SET},
+    {AddressMode::ABS_X, ABSOLUTE_X_OP_SET},
+    {AddressMode::ABS_Y, ABSOLUTE_Y_OP_SET},
+    {AddressMode::ZPG, ZPG_OP_SET},
+    {AddressMode::ZPG_X, ZPG_X_OP_SET},
+    {AddressMode::ZPG_Y, ZPG_Y_OP_SET},
+    {AddressMode::IND, INDIRECT_OP_SET},
+    {AddressMode::X_IND, X_INDIRECT_OP_SET},
+    {AddressMode::IND_Y, INDIRECT_Y_OP_SET},
+    {AddressMode::REL, RELATIVE_OP_SET},
+    {AddressMode::NI, JAM_OP_SET},
+};
+
 
 } // namespace mos6502
 

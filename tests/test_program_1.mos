@@ -69,7 +69,7 @@ nmi_procedure:
     PHA
     PLP
 ;;  restore A
-    LDA NMI_INFO_OFFSET+acc_offset
+    LDA NMI_INFO_OFFSET+4
     RTI
 
 irq_procedure:

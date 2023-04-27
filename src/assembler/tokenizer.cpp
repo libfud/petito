@@ -256,11 +256,16 @@ auto Token::tokenize_line(const std::string& input) -> TokenStreamResult
 
         if (!token_found)
         {
-            auto pragma_token_found_result = check_token_result(end_index, make_comma_register);
+            auto pragma_token_found_result = check_token_result(end_index, make_pragma);
             if (pragma_token_found_result.is_err()) {
                 return TokenStreamResult::err(pragma_token_found_result.get_err());
             }
             token_found = pragma_token_found_result.get_ok();
+        }
+
+        if (!token_found)
+        {
+            token_found = check_token_type(end_index, make_keyword);
         }
 
         if (!token_found)
@@ -589,6 +594,41 @@ auto Token::make_pragma(
 
     end_index = substr_end_idx;
     return RetType::ok(Token{TokenVariant{Directive{PRAGMA_MAP.at(pragma)}}});
+}
+
+auto Token::make_keyword(
+    const std::string& input,
+    size_t index,
+    size_t& end_index) -> std::optional<Token>
+{
+    using token::Reserved;
+
+    const char c = input[index];
+    if (!std::isalpha(c) && c != '=')
+    {
+        if (c != '=')
+        {
+            return {};
+        }
+    }
+
+    size_t length = 1;
+    size_t substr_end_idx = index;
+    while (!isspace(input[substr_end_idx]) && substr_end_idx < input.length())
+    {
+        ++substr_end_idx;
+        ++length;
+    }
+
+    const auto keyword{input.substr(index, length)};
+
+    if (!KEYWORD_MAP.contains(keyword))
+    {
+        return {};
+    }
+
+    end_index = substr_end_idx;
+    return Token{TokenVariant{Reserved{KEYWORD_MAP.at(keyword)}}};
 }
 
 auto Token::make_symbol(
