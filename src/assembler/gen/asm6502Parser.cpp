@@ -45,8 +45,8 @@ void asm6502ParserInitialize() {
       "program", "line", "label", "assign", "instruction", "comment", "nop", 
       "implicit", "acc", "immediate", "x_index", "y_index", "x_indirect", 
       "indirect_y", "absolute", "relative", "mnemonic", "shift", "jump", 
-      "jsr", "arithmetic", "binary_expression", "binary_op", "unary_op", 
-      "number", "byte", "multibyte", "character"
+      "jsr", "expression", "binary_op", "unary_op", "atom", "byte", "multibyte", 
+      "character"
     },
     std::vector<std::string>{
       "", "", "", "", "'_'", "'+'", "'-'", "'*'", "'/'", "'<'", "'>'", "'['", 
@@ -64,106 +64,105 @@ void asm6502ParserInitialize() {
     }
   );
   static const int32_t serializedATNSegment[] = {
-  	4,1,40,300,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,4,2,5,7,5,2,6,7,6,2,
+  	4,1,40,296,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,4,2,5,7,5,2,6,7,6,2,
   	7,7,7,2,8,7,8,2,9,7,9,2,10,7,10,2,11,7,11,2,12,7,12,2,13,7,13,2,14,7,
   	14,2,15,7,15,2,16,7,16,2,17,7,17,2,18,7,18,2,19,7,19,2,20,7,20,2,21,7,
-  	21,2,22,7,22,2,23,7,23,2,24,7,24,2,25,7,25,2,26,7,26,2,27,7,27,1,0,4,
-  	0,58,8,0,11,0,12,0,59,1,0,1,0,1,1,3,1,65,8,1,1,1,1,1,1,1,1,1,3,1,71,8,
-  	1,1,1,1,1,1,1,1,1,3,1,77,8,1,1,1,1,1,1,1,1,1,3,1,83,8,1,1,1,1,1,1,1,3,
-  	1,88,8,1,1,1,1,1,3,1,92,8,1,1,1,1,1,1,1,1,1,3,1,98,8,1,1,1,1,1,3,1,102,
-  	8,1,1,1,1,1,1,1,3,1,107,8,1,1,1,1,1,1,1,3,1,112,8,1,1,1,1,1,3,1,116,8,
-  	1,1,1,1,1,3,1,120,8,1,1,1,1,1,1,1,1,1,3,1,126,8,1,1,1,1,1,3,1,130,8,1,
-  	1,1,1,1,1,1,3,1,135,8,1,1,1,3,1,138,8,1,1,1,1,1,3,1,142,8,1,1,1,1,1,3,
-  	1,146,8,1,1,1,1,1,3,1,150,8,1,1,2,3,2,153,8,2,1,2,1,2,3,2,157,8,2,1,3,
-  	1,3,1,3,1,3,1,3,1,3,1,4,1,4,1,4,1,4,1,4,1,4,1,4,1,4,1,4,1,4,1,4,1,4,3,
-  	4,177,8,4,1,5,1,5,1,6,1,6,1,7,1,7,1,8,1,8,1,8,3,8,188,8,8,1,9,1,9,1,9,
-  	1,9,1,9,1,10,1,10,3,10,197,8,10,1,10,1,10,1,10,1,10,1,11,1,11,3,11,205,
-  	8,11,1,11,1,11,1,11,1,11,1,12,1,12,1,12,3,12,214,8,12,1,12,1,12,1,12,
-  	1,12,1,12,1,13,1,13,1,13,3,13,224,8,13,1,13,1,13,1,13,1,13,1,13,1,14,
-  	1,14,3,14,233,8,14,1,14,1,14,1,14,1,15,1,15,1,15,1,15,1,16,1,16,1,17,
-  	1,17,1,18,1,18,1,18,1,18,1,18,1,18,1,18,1,18,1,18,3,18,255,8,18,1,19,
-  	1,19,1,19,1,19,1,20,1,20,4,20,263,8,20,11,20,12,20,264,1,20,1,20,1,20,
-  	1,20,5,20,271,8,20,10,20,12,20,274,9,20,3,20,276,8,20,1,21,1,21,1,21,
-  	1,22,1,22,1,23,1,23,1,24,3,24,286,8,24,1,24,1,24,1,24,1,24,3,24,292,8,
-  	24,1,25,1,25,1,26,1,26,1,27,1,27,1,27,0,0,28,0,2,4,6,8,10,12,14,16,18,
-  	20,22,24,26,28,30,32,34,36,38,40,42,44,46,48,50,52,54,0,4,1,0,5,8,2,0,
-  	5,7,9,10,4,0,20,20,22,22,24,24,26,26,4,0,21,21,23,23,25,25,27,27,325,
-  	0,57,1,0,0,0,2,149,1,0,0,0,4,152,1,0,0,0,6,158,1,0,0,0,8,176,1,0,0,0,
-  	10,178,1,0,0,0,12,180,1,0,0,0,14,182,1,0,0,0,16,184,1,0,0,0,18,189,1,
-  	0,0,0,20,196,1,0,0,0,22,204,1,0,0,0,24,210,1,0,0,0,26,220,1,0,0,0,28,
-  	232,1,0,0,0,30,237,1,0,0,0,32,241,1,0,0,0,34,243,1,0,0,0,36,254,1,0,0,
-  	0,38,256,1,0,0,0,40,275,1,0,0,0,42,277,1,0,0,0,44,280,1,0,0,0,46,282,
-  	1,0,0,0,48,285,1,0,0,0,50,293,1,0,0,0,52,295,1,0,0,0,54,297,1,0,0,0,56,
-  	58,3,2,1,0,57,56,1,0,0,0,58,59,1,0,0,0,59,57,1,0,0,0,59,60,1,0,0,0,60,
-  	61,1,0,0,0,61,62,5,0,0,1,62,1,1,0,0,0,63,65,5,2,0,0,64,63,1,0,0,0,64,
-  	65,1,0,0,0,65,66,1,0,0,0,66,67,3,4,2,0,67,68,5,2,0,0,68,70,3,8,4,0,69,
-  	71,5,2,0,0,70,69,1,0,0,0,70,71,1,0,0,0,71,72,1,0,0,0,72,73,3,10,5,0,73,
-  	74,5,3,0,0,74,150,1,0,0,0,75,77,5,2,0,0,76,75,1,0,0,0,76,77,1,0,0,0,77,
-  	78,1,0,0,0,78,79,3,4,2,0,79,80,5,2,0,0,80,82,3,8,4,0,81,83,5,2,0,0,82,
-  	81,1,0,0,0,82,83,1,0,0,0,83,84,1,0,0,0,84,85,5,3,0,0,85,150,1,0,0,0,86,
-  	88,5,2,0,0,87,86,1,0,0,0,87,88,1,0,0,0,88,89,1,0,0,0,89,91,3,4,2,0,90,
-  	92,5,2,0,0,91,90,1,0,0,0,91,92,1,0,0,0,92,93,1,0,0,0,93,94,3,10,5,0,94,
-  	95,5,3,0,0,95,150,1,0,0,0,96,98,5,2,0,0,97,96,1,0,0,0,97,98,1,0,0,0,98,
-  	99,1,0,0,0,99,101,3,4,2,0,100,102,5,2,0,0,101,100,1,0,0,0,101,102,1,0,
-  	0,0,102,103,1,0,0,0,103,104,5,3,0,0,104,150,1,0,0,0,105,107,5,2,0,0,106,
-  	105,1,0,0,0,106,107,1,0,0,0,107,111,1,0,0,0,108,109,3,4,2,0,109,110,5,
-  	2,0,0,110,112,1,0,0,0,111,108,1,0,0,0,111,112,1,0,0,0,112,113,1,0,0,0,
-  	113,150,3,6,3,0,114,116,5,2,0,0,115,114,1,0,0,0,115,116,1,0,0,0,116,117,
-  	1,0,0,0,117,119,3,8,4,0,118,120,5,2,0,0,119,118,1,0,0,0,119,120,1,0,0,
-  	0,120,121,1,0,0,0,121,122,3,10,5,0,122,123,5,3,0,0,123,150,1,0,0,0,124,
-  	126,5,2,0,0,125,124,1,0,0,0,125,126,1,0,0,0,126,127,1,0,0,0,127,129,3,
-  	8,4,0,128,130,5,2,0,0,129,128,1,0,0,0,129,130,1,0,0,0,130,131,1,0,0,0,
-  	131,132,5,3,0,0,132,150,1,0,0,0,133,135,5,2,0,0,134,133,1,0,0,0,134,135,
-  	1,0,0,0,135,137,1,0,0,0,136,138,3,10,5,0,137,136,1,0,0,0,137,138,1,0,
-  	0,0,138,139,1,0,0,0,139,150,5,3,0,0,140,142,5,2,0,0,141,140,1,0,0,0,141,
-  	142,1,0,0,0,142,143,1,0,0,0,143,145,3,6,3,0,144,146,3,10,5,0,145,144,
-  	1,0,0,0,145,146,1,0,0,0,146,147,1,0,0,0,147,148,5,3,0,0,148,150,1,0,0,
-  	0,149,64,1,0,0,0,149,76,1,0,0,0,149,87,1,0,0,0,149,97,1,0,0,0,149,106,
-  	1,0,0,0,149,115,1,0,0,0,149,125,1,0,0,0,149,134,1,0,0,0,149,141,1,0,0,
-  	0,150,3,1,0,0,0,151,153,5,17,0,0,152,151,1,0,0,0,152,153,1,0,0,0,153,
-  	154,1,0,0,0,154,156,5,40,0,0,155,157,5,16,0,0,156,155,1,0,0,0,156,157,
-  	1,0,0,0,157,5,1,0,0,0,158,159,5,40,0,0,159,160,5,2,0,0,160,161,5,30,0,
-  	0,161,162,5,2,0,0,162,163,3,40,20,0,163,7,1,0,0,0,164,177,3,12,6,0,165,
-  	177,3,14,7,0,166,177,3,16,8,0,167,177,3,18,9,0,168,177,3,20,10,0,169,
-  	177,3,22,11,0,170,177,3,24,12,0,171,177,3,26,13,0,172,177,3,28,14,0,173,
-  	177,3,30,15,0,174,177,3,36,18,0,175,177,3,38,19,0,176,164,1,0,0,0,176,
-  	165,1,0,0,0,176,166,1,0,0,0,176,167,1,0,0,0,176,168,1,0,0,0,176,169,1,
-  	0,0,0,176,170,1,0,0,0,176,171,1,0,0,0,176,172,1,0,0,0,176,173,1,0,0,0,
-  	176,174,1,0,0,0,176,175,1,0,0,0,177,9,1,0,0,0,178,179,5,1,0,0,179,11,
-  	1,0,0,0,180,181,5,31,0,0,181,13,1,0,0,0,182,183,5,32,0,0,183,15,1,0,0,
-  	0,184,187,3,34,17,0,185,186,5,2,0,0,186,188,5,39,0,0,187,185,1,0,0,0,
-  	187,188,1,0,0,0,188,17,1,0,0,0,189,190,3,32,16,0,190,191,5,2,0,0,191,
-  	192,5,15,0,0,192,193,3,40,20,0,193,19,1,0,0,0,194,197,3,34,17,0,195,197,
-  	3,32,16,0,196,194,1,0,0,0,196,195,1,0,0,0,197,198,1,0,0,0,198,199,5,2,
-  	0,0,199,200,3,40,20,0,200,201,5,18,0,0,201,21,1,0,0,0,202,205,3,34,17,
-  	0,203,205,3,32,16,0,204,202,1,0,0,0,204,203,1,0,0,0,205,206,1,0,0,0,206,
-  	207,5,2,0,0,207,208,3,40,20,0,208,209,5,19,0,0,209,23,1,0,0,0,210,213,
-  	5,13,0,0,211,214,3,34,17,0,212,214,3,32,16,0,213,211,1,0,0,0,213,212,
-  	1,0,0,0,214,215,1,0,0,0,215,216,5,2,0,0,216,217,3,40,20,0,217,218,5,18,
-  	0,0,218,219,5,14,0,0,219,25,1,0,0,0,220,223,5,13,0,0,221,224,3,34,17,
-  	0,222,224,3,32,16,0,223,221,1,0,0,0,223,222,1,0,0,0,224,225,1,0,0,0,225,
-  	226,5,2,0,0,226,227,3,40,20,0,227,228,5,14,0,0,228,229,5,19,0,0,229,27,
-  	1,0,0,0,230,233,3,34,17,0,231,233,3,32,16,0,232,230,1,0,0,0,232,231,1,
-  	0,0,0,233,234,1,0,0,0,234,235,5,2,0,0,235,236,3,40,20,0,236,29,1,0,0,
-  	0,237,238,5,33,0,0,238,239,5,2,0,0,239,240,3,40,20,0,240,31,1,0,0,0,241,
-  	242,5,37,0,0,242,33,1,0,0,0,243,244,5,34,0,0,244,35,1,0,0,0,245,246,5,
-  	35,0,0,246,247,5,2,0,0,247,255,3,40,20,0,248,249,5,35,0,0,249,250,5,2,
-  	0,0,250,251,5,13,0,0,251,252,3,40,20,0,252,253,5,14,0,0,253,255,1,0,0,
-  	0,254,245,1,0,0,0,254,248,1,0,0,0,255,37,1,0,0,0,256,257,5,36,0,0,257,
-  	258,5,2,0,0,258,259,3,40,20,0,259,39,1,0,0,0,260,262,5,11,0,0,261,263,
-  	3,40,20,0,262,261,1,0,0,0,263,264,1,0,0,0,264,262,1,0,0,0,264,265,1,0,
-  	0,0,265,266,1,0,0,0,266,267,5,12,0,0,267,276,1,0,0,0,268,272,3,48,24,
-  	0,269,271,3,42,21,0,270,269,1,0,0,0,271,274,1,0,0,0,272,270,1,0,0,0,272,
-  	273,1,0,0,0,273,276,1,0,0,0,274,272,1,0,0,0,275,260,1,0,0,0,275,268,1,
-  	0,0,0,276,41,1,0,0,0,277,278,3,44,22,0,278,279,3,48,24,0,279,43,1,0,0,
-  	0,280,281,7,0,0,0,281,45,1,0,0,0,282,283,7,1,0,0,283,47,1,0,0,0,284,286,
-  	3,46,23,0,285,284,1,0,0,0,285,286,1,0,0,0,286,291,1,0,0,0,287,292,3,50,
-  	25,0,288,292,3,52,26,0,289,292,3,54,27,0,290,292,5,40,0,0,291,287,1,0,
-  	0,0,291,288,1,0,0,0,291,289,1,0,0,0,291,290,1,0,0,0,292,49,1,0,0,0,293,
-  	294,7,2,0,0,294,51,1,0,0,0,295,296,7,3,0,0,296,53,1,0,0,0,297,298,5,28,
-  	0,0,298,55,1,0,0,0,35,59,64,70,76,82,87,91,97,101,106,111,115,119,125,
-  	129,134,137,141,145,149,152,156,176,187,196,204,213,223,232,254,264,272,
-  	275,285,291
+  	21,2,22,7,22,2,23,7,23,2,24,7,24,2,25,7,25,2,26,7,26,1,0,4,0,56,8,0,11,
+  	0,12,0,57,1,0,1,0,1,1,3,1,63,8,1,1,1,1,1,1,1,1,1,3,1,69,8,1,1,1,1,1,1,
+  	1,1,1,3,1,75,8,1,1,1,1,1,1,1,1,1,3,1,81,8,1,1,1,1,1,1,1,3,1,86,8,1,1,
+  	1,1,1,3,1,90,8,1,1,1,1,1,1,1,1,1,3,1,96,8,1,1,1,1,1,3,1,100,8,1,1,1,1,
+  	1,1,1,3,1,105,8,1,1,1,1,1,1,1,3,1,110,8,1,1,1,1,1,3,1,114,8,1,1,1,1,1,
+  	3,1,118,8,1,1,1,1,1,1,1,1,1,3,1,124,8,1,1,1,1,1,3,1,128,8,1,1,1,1,1,1,
+  	1,3,1,133,8,1,1,1,3,1,136,8,1,1,1,1,1,3,1,140,8,1,1,1,1,1,3,1,144,8,1,
+  	1,1,1,1,3,1,148,8,1,1,2,3,2,151,8,2,1,2,1,2,3,2,155,8,2,1,3,1,3,1,3,1,
+  	3,1,3,1,3,1,4,1,4,1,4,1,4,1,4,1,4,1,4,1,4,1,4,1,4,1,4,1,4,3,4,175,8,4,
+  	1,5,1,5,1,6,1,6,1,7,1,7,1,8,1,8,1,8,3,8,186,8,8,1,9,1,9,1,9,1,9,1,9,1,
+  	10,1,10,3,10,195,8,10,1,10,1,10,1,10,1,10,1,11,1,11,3,11,203,8,11,1,11,
+  	1,11,1,11,1,11,1,12,1,12,1,12,3,12,212,8,12,1,12,1,12,1,12,1,12,1,12,
+  	1,13,1,13,1,13,3,13,222,8,13,1,13,1,13,1,13,1,13,1,13,1,14,1,14,3,14,
+  	231,8,14,1,14,1,14,1,14,1,15,1,15,1,15,1,15,1,16,1,16,1,17,1,17,1,18,
+  	1,18,1,18,1,18,1,18,1,18,1,18,1,18,1,18,3,18,253,8,18,1,19,1,19,1,19,
+  	1,19,1,20,1,20,1,20,1,20,1,20,1,20,3,20,265,8,20,1,20,1,20,1,20,1,20,
+  	5,20,271,8,20,10,20,12,20,274,9,20,1,21,1,21,1,22,1,22,1,23,3,23,281,
+  	8,23,1,23,1,23,1,23,1,23,1,23,3,23,288,8,23,1,24,1,24,1,25,1,25,1,26,
+  	1,26,1,26,0,1,40,27,0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,
+  	36,38,40,42,44,46,48,50,52,0,4,1,0,5,8,2,0,5,6,9,10,4,0,20,20,22,22,24,
+  	24,26,26,4,0,21,21,23,23,25,25,27,27,322,0,55,1,0,0,0,2,147,1,0,0,0,4,
+  	150,1,0,0,0,6,156,1,0,0,0,8,174,1,0,0,0,10,176,1,0,0,0,12,178,1,0,0,0,
+  	14,180,1,0,0,0,16,182,1,0,0,0,18,187,1,0,0,0,20,194,1,0,0,0,22,202,1,
+  	0,0,0,24,208,1,0,0,0,26,218,1,0,0,0,28,230,1,0,0,0,30,235,1,0,0,0,32,
+  	239,1,0,0,0,34,241,1,0,0,0,36,252,1,0,0,0,38,254,1,0,0,0,40,264,1,0,0,
+  	0,42,275,1,0,0,0,44,277,1,0,0,0,46,280,1,0,0,0,48,289,1,0,0,0,50,291,
+  	1,0,0,0,52,293,1,0,0,0,54,56,3,2,1,0,55,54,1,0,0,0,56,57,1,0,0,0,57,55,
+  	1,0,0,0,57,58,1,0,0,0,58,59,1,0,0,0,59,60,5,0,0,1,60,1,1,0,0,0,61,63,
+  	5,2,0,0,62,61,1,0,0,0,62,63,1,0,0,0,63,64,1,0,0,0,64,65,3,4,2,0,65,66,
+  	5,2,0,0,66,68,3,8,4,0,67,69,5,2,0,0,68,67,1,0,0,0,68,69,1,0,0,0,69,70,
+  	1,0,0,0,70,71,3,10,5,0,71,72,5,3,0,0,72,148,1,0,0,0,73,75,5,2,0,0,74,
+  	73,1,0,0,0,74,75,1,0,0,0,75,76,1,0,0,0,76,77,3,4,2,0,77,78,5,2,0,0,78,
+  	80,3,8,4,0,79,81,5,2,0,0,80,79,1,0,0,0,80,81,1,0,0,0,81,82,1,0,0,0,82,
+  	83,5,3,0,0,83,148,1,0,0,0,84,86,5,2,0,0,85,84,1,0,0,0,85,86,1,0,0,0,86,
+  	87,1,0,0,0,87,89,3,4,2,0,88,90,5,2,0,0,89,88,1,0,0,0,89,90,1,0,0,0,90,
+  	91,1,0,0,0,91,92,3,10,5,0,92,93,5,3,0,0,93,148,1,0,0,0,94,96,5,2,0,0,
+  	95,94,1,0,0,0,95,96,1,0,0,0,96,97,1,0,0,0,97,99,3,4,2,0,98,100,5,2,0,
+  	0,99,98,1,0,0,0,99,100,1,0,0,0,100,101,1,0,0,0,101,102,5,3,0,0,102,148,
+  	1,0,0,0,103,105,5,2,0,0,104,103,1,0,0,0,104,105,1,0,0,0,105,109,1,0,0,
+  	0,106,107,3,4,2,0,107,108,5,2,0,0,108,110,1,0,0,0,109,106,1,0,0,0,109,
+  	110,1,0,0,0,110,111,1,0,0,0,111,148,3,6,3,0,112,114,5,2,0,0,113,112,1,
+  	0,0,0,113,114,1,0,0,0,114,115,1,0,0,0,115,117,3,8,4,0,116,118,5,2,0,0,
+  	117,116,1,0,0,0,117,118,1,0,0,0,118,119,1,0,0,0,119,120,3,10,5,0,120,
+  	121,5,3,0,0,121,148,1,0,0,0,122,124,5,2,0,0,123,122,1,0,0,0,123,124,1,
+  	0,0,0,124,125,1,0,0,0,125,127,3,8,4,0,126,128,5,2,0,0,127,126,1,0,0,0,
+  	127,128,1,0,0,0,128,129,1,0,0,0,129,130,5,3,0,0,130,148,1,0,0,0,131,133,
+  	5,2,0,0,132,131,1,0,0,0,132,133,1,0,0,0,133,135,1,0,0,0,134,136,3,10,
+  	5,0,135,134,1,0,0,0,135,136,1,0,0,0,136,137,1,0,0,0,137,148,5,3,0,0,138,
+  	140,5,2,0,0,139,138,1,0,0,0,139,140,1,0,0,0,140,141,1,0,0,0,141,143,3,
+  	6,3,0,142,144,3,10,5,0,143,142,1,0,0,0,143,144,1,0,0,0,144,145,1,0,0,
+  	0,145,146,5,3,0,0,146,148,1,0,0,0,147,62,1,0,0,0,147,74,1,0,0,0,147,85,
+  	1,0,0,0,147,95,1,0,0,0,147,104,1,0,0,0,147,113,1,0,0,0,147,123,1,0,0,
+  	0,147,132,1,0,0,0,147,139,1,0,0,0,148,3,1,0,0,0,149,151,5,17,0,0,150,
+  	149,1,0,0,0,150,151,1,0,0,0,151,152,1,0,0,0,152,154,5,40,0,0,153,155,
+  	5,16,0,0,154,153,1,0,0,0,154,155,1,0,0,0,155,5,1,0,0,0,156,157,5,40,0,
+  	0,157,158,5,2,0,0,158,159,5,30,0,0,159,160,5,2,0,0,160,161,3,40,20,0,
+  	161,7,1,0,0,0,162,175,3,12,6,0,163,175,3,14,7,0,164,175,3,16,8,0,165,
+  	175,3,18,9,0,166,175,3,20,10,0,167,175,3,22,11,0,168,175,3,24,12,0,169,
+  	175,3,26,13,0,170,175,3,28,14,0,171,175,3,30,15,0,172,175,3,36,18,0,173,
+  	175,3,38,19,0,174,162,1,0,0,0,174,163,1,0,0,0,174,164,1,0,0,0,174,165,
+  	1,0,0,0,174,166,1,0,0,0,174,167,1,0,0,0,174,168,1,0,0,0,174,169,1,0,0,
+  	0,174,170,1,0,0,0,174,171,1,0,0,0,174,172,1,0,0,0,174,173,1,0,0,0,175,
+  	9,1,0,0,0,176,177,5,1,0,0,177,11,1,0,0,0,178,179,5,31,0,0,179,13,1,0,
+  	0,0,180,181,5,32,0,0,181,15,1,0,0,0,182,185,3,34,17,0,183,184,5,2,0,0,
+  	184,186,5,39,0,0,185,183,1,0,0,0,185,186,1,0,0,0,186,17,1,0,0,0,187,188,
+  	3,32,16,0,188,189,5,2,0,0,189,190,5,15,0,0,190,191,3,40,20,0,191,19,1,
+  	0,0,0,192,195,3,34,17,0,193,195,3,32,16,0,194,192,1,0,0,0,194,193,1,0,
+  	0,0,195,196,1,0,0,0,196,197,5,2,0,0,197,198,3,40,20,0,198,199,5,18,0,
+  	0,199,21,1,0,0,0,200,203,3,34,17,0,201,203,3,32,16,0,202,200,1,0,0,0,
+  	202,201,1,0,0,0,203,204,1,0,0,0,204,205,5,2,0,0,205,206,3,40,20,0,206,
+  	207,5,19,0,0,207,23,1,0,0,0,208,211,5,13,0,0,209,212,3,34,17,0,210,212,
+  	3,32,16,0,211,209,1,0,0,0,211,210,1,0,0,0,212,213,1,0,0,0,213,214,5,2,
+  	0,0,214,215,3,40,20,0,215,216,5,18,0,0,216,217,5,14,0,0,217,25,1,0,0,
+  	0,218,221,5,13,0,0,219,222,3,34,17,0,220,222,3,32,16,0,221,219,1,0,0,
+  	0,221,220,1,0,0,0,222,223,1,0,0,0,223,224,5,2,0,0,224,225,3,40,20,0,225,
+  	226,5,14,0,0,226,227,5,19,0,0,227,27,1,0,0,0,228,231,3,34,17,0,229,231,
+  	3,32,16,0,230,228,1,0,0,0,230,229,1,0,0,0,231,232,1,0,0,0,232,233,5,2,
+  	0,0,233,234,3,40,20,0,234,29,1,0,0,0,235,236,5,33,0,0,236,237,5,2,0,0,
+  	237,238,3,40,20,0,238,31,1,0,0,0,239,240,5,37,0,0,240,33,1,0,0,0,241,
+  	242,5,34,0,0,242,35,1,0,0,0,243,244,5,35,0,0,244,245,5,2,0,0,245,253,
+  	3,40,20,0,246,247,5,35,0,0,247,248,5,2,0,0,248,249,5,13,0,0,249,250,3,
+  	40,20,0,250,251,5,14,0,0,251,253,1,0,0,0,252,243,1,0,0,0,252,246,1,0,
+  	0,0,253,37,1,0,0,0,254,255,5,36,0,0,255,256,5,2,0,0,256,257,3,40,20,0,
+  	257,39,1,0,0,0,258,259,6,20,-1,0,259,260,5,11,0,0,260,261,3,40,20,0,261,
+  	262,5,12,0,0,262,265,1,0,0,0,263,265,3,46,23,0,264,258,1,0,0,0,264,263,
+  	1,0,0,0,265,272,1,0,0,0,266,267,10,3,0,0,267,268,3,42,21,0,268,269,3,
+  	40,20,4,269,271,1,0,0,0,270,266,1,0,0,0,271,274,1,0,0,0,272,270,1,0,0,
+  	0,272,273,1,0,0,0,273,41,1,0,0,0,274,272,1,0,0,0,275,276,7,0,0,0,276,
+  	43,1,0,0,0,277,278,7,1,0,0,278,45,1,0,0,0,279,281,3,44,22,0,280,279,1,
+  	0,0,0,280,281,1,0,0,0,281,287,1,0,0,0,282,288,3,48,24,0,283,288,3,50,
+  	25,0,284,288,3,52,26,0,285,288,5,40,0,0,286,288,5,7,0,0,287,282,1,0,0,
+  	0,287,283,1,0,0,0,287,284,1,0,0,0,287,285,1,0,0,0,287,286,1,0,0,0,288,
+  	47,1,0,0,0,289,290,7,2,0,0,290,49,1,0,0,0,291,292,7,3,0,0,292,51,1,0,
+  	0,0,293,294,5,28,0,0,294,53,1,0,0,0,34,57,62,68,74,80,85,89,95,99,104,
+  	109,113,117,123,127,132,135,139,143,147,150,154,174,185,194,202,211,221,
+  	230,252,264,272,280,287
   };
   staticData->serializedATN = antlr4::atn::SerializedATNView(serializedATNSegment, sizeof(serializedATNSegment) / sizeof(serializedATNSegment[0]));
 
@@ -250,13 +249,13 @@ asm6502Parser::ProgramContext* asm6502Parser::program() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(57); 
+    setState(55); 
     _errHandler->sync(this);
     _la = _input->LA(1);
     do {
-      setState(56);
+      setState(54);
       line();
-      setState(59); 
+      setState(57); 
       _errHandler->sync(this);
       _la = _input->LA(1);
     } while ((((_la & ~ 0x3fULL) == 0) &&
@@ -273,7 +272,7 @@ asm6502Parser::ProgramContext* asm6502Parser::program() {
       | (1ULL << asm6502Parser::JSR)
       | (1ULL << asm6502Parser::MNEMONIC)
       | (1ULL << asm6502Parser::SYMBOL))) != 0));
-    setState(61);
+    setState(59);
     match(asm6502Parser::EOF);
    
   }
@@ -339,139 +338,139 @@ asm6502Parser::LineContext* asm6502Parser::line() {
     exitRule();
   });
   try {
-    setState(149);
+    setState(147);
     _errHandler->sync(this);
     switch (getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 19, _ctx)) {
     case 1: {
       enterOuterAlt(_localctx, 1);
+      setState(62);
+      _errHandler->sync(this);
+
+      _la = _input->LA(1);
+      if (_la == asm6502Parser::WHITESPACE) {
+        setState(61);
+        match(asm6502Parser::WHITESPACE);
+      }
       setState(64);
-      _errHandler->sync(this);
-
-      _la = _input->LA(1);
-      if (_la == asm6502Parser::WHITESPACE) {
-        setState(63);
-        match(asm6502Parser::WHITESPACE);
-      }
-      setState(66);
       label();
-      setState(67);
+      setState(65);
       match(asm6502Parser::WHITESPACE);
-      setState(68);
+      setState(66);
       instruction();
-      setState(70);
+      setState(68);
       _errHandler->sync(this);
 
       _la = _input->LA(1);
       if (_la == asm6502Parser::WHITESPACE) {
-        setState(69);
+        setState(67);
         match(asm6502Parser::WHITESPACE);
       }
-      setState(72);
+      setState(70);
       comment();
-      setState(73);
+      setState(71);
       match(asm6502Parser::NEWLINE);
       break;
     }
 
     case 2: {
       enterOuterAlt(_localctx, 2);
+      setState(74);
+      _errHandler->sync(this);
+
+      _la = _input->LA(1);
+      if (_la == asm6502Parser::WHITESPACE) {
+        setState(73);
+        match(asm6502Parser::WHITESPACE);
+      }
       setState(76);
-      _errHandler->sync(this);
-
-      _la = _input->LA(1);
-      if (_la == asm6502Parser::WHITESPACE) {
-        setState(75);
-        match(asm6502Parser::WHITESPACE);
-      }
-      setState(78);
       label();
-      setState(79);
+      setState(77);
       match(asm6502Parser::WHITESPACE);
-      setState(80);
+      setState(78);
       instruction();
-      setState(82);
+      setState(80);
       _errHandler->sync(this);
 
       _la = _input->LA(1);
       if (_la == asm6502Parser::WHITESPACE) {
-        setState(81);
+        setState(79);
         match(asm6502Parser::WHITESPACE);
       }
-      setState(84);
+      setState(82);
       match(asm6502Parser::NEWLINE);
       break;
     }
 
     case 3: {
       enterOuterAlt(_localctx, 3);
+      setState(85);
+      _errHandler->sync(this);
+
+      _la = _input->LA(1);
+      if (_la == asm6502Parser::WHITESPACE) {
+        setState(84);
+        match(asm6502Parser::WHITESPACE);
+      }
       setState(87);
-      _errHandler->sync(this);
-
-      _la = _input->LA(1);
-      if (_la == asm6502Parser::WHITESPACE) {
-        setState(86);
-        match(asm6502Parser::WHITESPACE);
-      }
-      setState(89);
       label();
-      setState(91);
+      setState(89);
       _errHandler->sync(this);
 
       _la = _input->LA(1);
       if (_la == asm6502Parser::WHITESPACE) {
-        setState(90);
+        setState(88);
         match(asm6502Parser::WHITESPACE);
       }
-      setState(93);
+      setState(91);
       comment();
-      setState(94);
+      setState(92);
       match(asm6502Parser::NEWLINE);
       break;
     }
 
     case 4: {
       enterOuterAlt(_localctx, 4);
+      setState(95);
+      _errHandler->sync(this);
+
+      _la = _input->LA(1);
+      if (_la == asm6502Parser::WHITESPACE) {
+        setState(94);
+        match(asm6502Parser::WHITESPACE);
+      }
       setState(97);
-      _errHandler->sync(this);
-
-      _la = _input->LA(1);
-      if (_la == asm6502Parser::WHITESPACE) {
-        setState(96);
-        match(asm6502Parser::WHITESPACE);
-      }
-      setState(99);
       label();
-      setState(101);
+      setState(99);
       _errHandler->sync(this);
 
       _la = _input->LA(1);
       if (_la == asm6502Parser::WHITESPACE) {
-        setState(100);
+        setState(98);
         match(asm6502Parser::WHITESPACE);
       }
-      setState(103);
+      setState(101);
       match(asm6502Parser::NEWLINE);
       break;
     }
 
     case 5: {
       enterOuterAlt(_localctx, 5);
-      setState(106);
+      setState(104);
       _errHandler->sync(this);
 
       _la = _input->LA(1);
       if (_la == asm6502Parser::WHITESPACE) {
-        setState(105);
+        setState(103);
         match(asm6502Parser::WHITESPACE);
       }
-      setState(111);
+      setState(109);
       _errHandler->sync(this);
 
       switch (getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 10, _ctx)) {
       case 1: {
-        setState(108);
+        setState(106);
         label();
-        setState(109);
+        setState(107);
         match(asm6502Parser::WHITESPACE);
         break;
       }
@@ -479,107 +478,107 @@ asm6502Parser::LineContext* asm6502Parser::line() {
       default:
         break;
       }
-      setState(113);
+      setState(111);
       assign();
       break;
     }
 
     case 6: {
       enterOuterAlt(_localctx, 6);
+      setState(113);
+      _errHandler->sync(this);
+
+      _la = _input->LA(1);
+      if (_la == asm6502Parser::WHITESPACE) {
+        setState(112);
+        match(asm6502Parser::WHITESPACE);
+      }
       setState(115);
-      _errHandler->sync(this);
-
-      _la = _input->LA(1);
-      if (_la == asm6502Parser::WHITESPACE) {
-        setState(114);
-        match(asm6502Parser::WHITESPACE);
-      }
-      setState(117);
       instruction();
-      setState(119);
+      setState(117);
       _errHandler->sync(this);
 
       _la = _input->LA(1);
       if (_la == asm6502Parser::WHITESPACE) {
-        setState(118);
+        setState(116);
         match(asm6502Parser::WHITESPACE);
       }
-      setState(121);
+      setState(119);
       comment();
-      setState(122);
+      setState(120);
       match(asm6502Parser::NEWLINE);
       break;
     }
 
     case 7: {
       enterOuterAlt(_localctx, 7);
+      setState(123);
+      _errHandler->sync(this);
+
+      _la = _input->LA(1);
+      if (_la == asm6502Parser::WHITESPACE) {
+        setState(122);
+        match(asm6502Parser::WHITESPACE);
+      }
       setState(125);
-      _errHandler->sync(this);
-
-      _la = _input->LA(1);
-      if (_la == asm6502Parser::WHITESPACE) {
-        setState(124);
-        match(asm6502Parser::WHITESPACE);
-      }
-      setState(127);
       instruction();
-      setState(129);
+      setState(127);
       _errHandler->sync(this);
 
       _la = _input->LA(1);
       if (_la == asm6502Parser::WHITESPACE) {
-        setState(128);
+        setState(126);
         match(asm6502Parser::WHITESPACE);
       }
-      setState(131);
+      setState(129);
       match(asm6502Parser::NEWLINE);
       break;
     }
 
     case 8: {
       enterOuterAlt(_localctx, 8);
-      setState(134);
+      setState(132);
       _errHandler->sync(this);
 
       _la = _input->LA(1);
       if (_la == asm6502Parser::WHITESPACE) {
-        setState(133);
+        setState(131);
         match(asm6502Parser::WHITESPACE);
       }
-      setState(137);
+      setState(135);
       _errHandler->sync(this);
 
       _la = _input->LA(1);
       if (_la == asm6502Parser::COMMENT) {
-        setState(136);
+        setState(134);
         comment();
       }
-      setState(139);
+      setState(137);
       match(asm6502Parser::NEWLINE);
       break;
     }
 
     case 9: {
       enterOuterAlt(_localctx, 9);
-      setState(141);
+      setState(139);
       _errHandler->sync(this);
 
       _la = _input->LA(1);
       if (_la == asm6502Parser::WHITESPACE) {
-        setState(140);
+        setState(138);
         match(asm6502Parser::WHITESPACE);
       }
-      setState(143);
+      setState(141);
       assign();
-      setState(145);
+      setState(143);
       _errHandler->sync(this);
 
       _la = _input->LA(1);
       if (_la == asm6502Parser::COMMENT) {
-        setState(144);
+        setState(142);
         comment();
       }
-      setState(147);
+      setState(145);
       match(asm6502Parser::NEWLINE);
       break;
     }
@@ -636,22 +635,22 @@ asm6502Parser::LabelContext* asm6502Parser::label() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(152);
+    setState(150);
     _errHandler->sync(this);
 
     _la = _input->LA(1);
     if (_la == asm6502Parser::AT) {
-      setState(151);
+      setState(149);
       match(asm6502Parser::AT);
     }
-    setState(154);
+    setState(152);
     match(asm6502Parser::SYMBOL);
-    setState(156);
+    setState(154);
     _errHandler->sync(this);
 
     _la = _input->LA(1);
     if (_la == asm6502Parser::COLON) {
-      setState(155);
+      setState(153);
       match(asm6502Parser::COLON);
     }
    
@@ -687,8 +686,8 @@ tree::TerminalNode* asm6502Parser::AssignContext::EQU() {
   return getToken(asm6502Parser::EQU, 0);
 }
 
-asm6502Parser::ArithmeticContext* asm6502Parser::AssignContext::arithmetic() {
-  return getRuleContext<asm6502Parser::ArithmeticContext>(0);
+asm6502Parser::ExpressionContext* asm6502Parser::AssignContext::expression() {
+  return getRuleContext<asm6502Parser::ExpressionContext>(0);
 }
 
 
@@ -710,16 +709,16 @@ asm6502Parser::AssignContext* asm6502Parser::assign() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(158);
+    setState(156);
     match(asm6502Parser::SYMBOL);
+    setState(157);
+    match(asm6502Parser::WHITESPACE);
+    setState(158);
+    match(asm6502Parser::EQU);
     setState(159);
     match(asm6502Parser::WHITESPACE);
     setState(160);
-    match(asm6502Parser::EQU);
-    setState(161);
-    match(asm6502Parser::WHITESPACE);
-    setState(162);
-    arithmetic();
+    expression(0);
    
   }
   catch (RecognitionException &e) {
@@ -803,89 +802,89 @@ asm6502Parser::InstructionContext* asm6502Parser::instruction() {
     exitRule();
   });
   try {
-    setState(176);
+    setState(174);
     _errHandler->sync(this);
     switch (getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 22, _ctx)) {
     case 1: {
       enterOuterAlt(_localctx, 1);
-      setState(164);
+      setState(162);
       nop();
       break;
     }
 
     case 2: {
       enterOuterAlt(_localctx, 2);
-      setState(165);
+      setState(163);
       implicit();
       break;
     }
 
     case 3: {
       enterOuterAlt(_localctx, 3);
-      setState(166);
+      setState(164);
       acc();
       break;
     }
 
     case 4: {
       enterOuterAlt(_localctx, 4);
-      setState(167);
+      setState(165);
       immediate();
       break;
     }
 
     case 5: {
       enterOuterAlt(_localctx, 5);
-      setState(168);
+      setState(166);
       x_index();
       break;
     }
 
     case 6: {
       enterOuterAlt(_localctx, 6);
-      setState(169);
+      setState(167);
       y_index();
       break;
     }
 
     case 7: {
       enterOuterAlt(_localctx, 7);
-      setState(170);
+      setState(168);
       x_indirect();
       break;
     }
 
     case 8: {
       enterOuterAlt(_localctx, 8);
-      setState(171);
+      setState(169);
       indirect_y();
       break;
     }
 
     case 9: {
       enterOuterAlt(_localctx, 9);
-      setState(172);
+      setState(170);
       absolute();
       break;
     }
 
     case 10: {
       enterOuterAlt(_localctx, 10);
-      setState(173);
+      setState(171);
       relative();
       break;
     }
 
     case 11: {
       enterOuterAlt(_localctx, 11);
-      setState(174);
+      setState(172);
       jump();
       break;
     }
 
     case 12: {
       enterOuterAlt(_localctx, 12);
-      setState(175);
+      setState(173);
       jsr();
       break;
     }
@@ -933,7 +932,7 @@ asm6502Parser::CommentContext* asm6502Parser::comment() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(178);
+    setState(176);
     match(asm6502Parser::COMMENT);
    
   }
@@ -975,7 +974,7 @@ asm6502Parser::NopContext* asm6502Parser::nop() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(180);
+    setState(178);
     match(asm6502Parser::NOP);
    
   }
@@ -1017,7 +1016,7 @@ asm6502Parser::ImplicitContext* asm6502Parser::implicit() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(182);
+    setState(180);
     match(asm6502Parser::IMPLIED);
    
   }
@@ -1067,16 +1066,16 @@ asm6502Parser::AccContext* asm6502Parser::acc() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(184);
+    setState(182);
     shift();
-    setState(187);
+    setState(185);
     _errHandler->sync(this);
 
     switch (getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 23, _ctx)) {
     case 1: {
-      setState(185);
+      setState(183);
       match(asm6502Parser::WHITESPACE);
-      setState(186);
+      setState(184);
       match(asm6502Parser::ACC);
       break;
     }
@@ -1113,8 +1112,8 @@ tree::TerminalNode* asm6502Parser::ImmediateContext::HASH() {
   return getToken(asm6502Parser::HASH, 0);
 }
 
-asm6502Parser::ArithmeticContext* asm6502Parser::ImmediateContext::arithmetic() {
-  return getRuleContext<asm6502Parser::ArithmeticContext>(0);
+asm6502Parser::ExpressionContext* asm6502Parser::ImmediateContext::expression() {
+  return getRuleContext<asm6502Parser::ExpressionContext>(0);
 }
 
 
@@ -1136,14 +1135,14 @@ asm6502Parser::ImmediateContext* asm6502Parser::immediate() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(189);
+    setState(187);
     mnemonic();
-    setState(190);
+    setState(188);
     match(asm6502Parser::WHITESPACE);
-    setState(191);
+    setState(189);
     match(asm6502Parser::HASH);
-    setState(192);
-    arithmetic();
+    setState(190);
+    expression(0);
    
   }
   catch (RecognitionException &e) {
@@ -1165,8 +1164,8 @@ tree::TerminalNode* asm6502Parser::X_indexContext::WHITESPACE() {
   return getToken(asm6502Parser::WHITESPACE, 0);
 }
 
-asm6502Parser::ArithmeticContext* asm6502Parser::X_indexContext::arithmetic() {
-  return getRuleContext<asm6502Parser::ArithmeticContext>(0);
+asm6502Parser::ExpressionContext* asm6502Parser::X_indexContext::expression() {
+  return getRuleContext<asm6502Parser::ExpressionContext>(0);
 }
 
 tree::TerminalNode* asm6502Parser::X_indexContext::X_INDEX() {
@@ -1200,17 +1199,17 @@ asm6502Parser::X_indexContext* asm6502Parser::x_index() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(196);
+    setState(194);
     _errHandler->sync(this);
     switch (_input->LA(1)) {
       case asm6502Parser::SHIFT: {
-        setState(194);
+        setState(192);
         shift();
         break;
       }
 
       case asm6502Parser::MNEMONIC: {
-        setState(195);
+        setState(193);
         mnemonic();
         break;
       }
@@ -1218,11 +1217,11 @@ asm6502Parser::X_indexContext* asm6502Parser::x_index() {
     default:
       throw NoViableAltException(this);
     }
-    setState(198);
+    setState(196);
     match(asm6502Parser::WHITESPACE);
-    setState(199);
-    arithmetic();
-    setState(200);
+    setState(197);
+    expression(0);
+    setState(198);
     match(asm6502Parser::X_INDEX);
    
   }
@@ -1245,8 +1244,8 @@ tree::TerminalNode* asm6502Parser::Y_indexContext::WHITESPACE() {
   return getToken(asm6502Parser::WHITESPACE, 0);
 }
 
-asm6502Parser::ArithmeticContext* asm6502Parser::Y_indexContext::arithmetic() {
-  return getRuleContext<asm6502Parser::ArithmeticContext>(0);
+asm6502Parser::ExpressionContext* asm6502Parser::Y_indexContext::expression() {
+  return getRuleContext<asm6502Parser::ExpressionContext>(0);
 }
 
 tree::TerminalNode* asm6502Parser::Y_indexContext::Y_INDEX() {
@@ -1280,17 +1279,17 @@ asm6502Parser::Y_indexContext* asm6502Parser::y_index() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(204);
+    setState(202);
     _errHandler->sync(this);
     switch (_input->LA(1)) {
       case asm6502Parser::SHIFT: {
-        setState(202);
+        setState(200);
         shift();
         break;
       }
 
       case asm6502Parser::MNEMONIC: {
-        setState(203);
+        setState(201);
         mnemonic();
         break;
       }
@@ -1298,11 +1297,11 @@ asm6502Parser::Y_indexContext* asm6502Parser::y_index() {
     default:
       throw NoViableAltException(this);
     }
-    setState(206);
+    setState(204);
     match(asm6502Parser::WHITESPACE);
-    setState(207);
-    arithmetic();
-    setState(208);
+    setState(205);
+    expression(0);
+    setState(206);
     match(asm6502Parser::Y_INDEX);
    
   }
@@ -1329,8 +1328,8 @@ tree::TerminalNode* asm6502Parser::X_indirectContext::WHITESPACE() {
   return getToken(asm6502Parser::WHITESPACE, 0);
 }
 
-asm6502Parser::ArithmeticContext* asm6502Parser::X_indirectContext::arithmetic() {
-  return getRuleContext<asm6502Parser::ArithmeticContext>(0);
+asm6502Parser::ExpressionContext* asm6502Parser::X_indirectContext::expression() {
+  return getRuleContext<asm6502Parser::ExpressionContext>(0);
 }
 
 tree::TerminalNode* asm6502Parser::X_indirectContext::X_INDEX() {
@@ -1368,19 +1367,19 @@ asm6502Parser::X_indirectContext* asm6502Parser::x_indirect() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(210);
+    setState(208);
     match(asm6502Parser::LPAREN);
-    setState(213);
+    setState(211);
     _errHandler->sync(this);
     switch (_input->LA(1)) {
       case asm6502Parser::SHIFT: {
-        setState(211);
+        setState(209);
         shift();
         break;
       }
 
       case asm6502Parser::MNEMONIC: {
-        setState(212);
+        setState(210);
         mnemonic();
         break;
       }
@@ -1388,13 +1387,13 @@ asm6502Parser::X_indirectContext* asm6502Parser::x_indirect() {
     default:
       throw NoViableAltException(this);
     }
-    setState(215);
+    setState(213);
     match(asm6502Parser::WHITESPACE);
-    setState(216);
-    arithmetic();
-    setState(217);
+    setState(214);
+    expression(0);
+    setState(215);
     match(asm6502Parser::X_INDEX);
-    setState(218);
+    setState(216);
     match(asm6502Parser::RPAREN);
    
   }
@@ -1421,8 +1420,8 @@ tree::TerminalNode* asm6502Parser::Indirect_yContext::WHITESPACE() {
   return getToken(asm6502Parser::WHITESPACE, 0);
 }
 
-asm6502Parser::ArithmeticContext* asm6502Parser::Indirect_yContext::arithmetic() {
-  return getRuleContext<asm6502Parser::ArithmeticContext>(0);
+asm6502Parser::ExpressionContext* asm6502Parser::Indirect_yContext::expression() {
+  return getRuleContext<asm6502Parser::ExpressionContext>(0);
 }
 
 tree::TerminalNode* asm6502Parser::Indirect_yContext::RPAREN() {
@@ -1460,19 +1459,19 @@ asm6502Parser::Indirect_yContext* asm6502Parser::indirect_y() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(220);
+    setState(218);
     match(asm6502Parser::LPAREN);
-    setState(223);
+    setState(221);
     _errHandler->sync(this);
     switch (_input->LA(1)) {
       case asm6502Parser::SHIFT: {
-        setState(221);
+        setState(219);
         shift();
         break;
       }
 
       case asm6502Parser::MNEMONIC: {
-        setState(222);
+        setState(220);
         mnemonic();
         break;
       }
@@ -1480,13 +1479,13 @@ asm6502Parser::Indirect_yContext* asm6502Parser::indirect_y() {
     default:
       throw NoViableAltException(this);
     }
-    setState(225);
+    setState(223);
     match(asm6502Parser::WHITESPACE);
-    setState(226);
-    arithmetic();
-    setState(227);
+    setState(224);
+    expression(0);
+    setState(225);
     match(asm6502Parser::RPAREN);
-    setState(228);
+    setState(226);
     match(asm6502Parser::Y_INDEX);
    
   }
@@ -1509,8 +1508,8 @@ tree::TerminalNode* asm6502Parser::AbsoluteContext::WHITESPACE() {
   return getToken(asm6502Parser::WHITESPACE, 0);
 }
 
-asm6502Parser::ArithmeticContext* asm6502Parser::AbsoluteContext::arithmetic() {
-  return getRuleContext<asm6502Parser::ArithmeticContext>(0);
+asm6502Parser::ExpressionContext* asm6502Parser::AbsoluteContext::expression() {
+  return getRuleContext<asm6502Parser::ExpressionContext>(0);
 }
 
 asm6502Parser::ShiftContext* asm6502Parser::AbsoluteContext::shift() {
@@ -1540,17 +1539,17 @@ asm6502Parser::AbsoluteContext* asm6502Parser::absolute() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(232);
+    setState(230);
     _errHandler->sync(this);
     switch (_input->LA(1)) {
       case asm6502Parser::SHIFT: {
-        setState(230);
+        setState(228);
         shift();
         break;
       }
 
       case asm6502Parser::MNEMONIC: {
-        setState(231);
+        setState(229);
         mnemonic();
         break;
       }
@@ -1558,10 +1557,10 @@ asm6502Parser::AbsoluteContext* asm6502Parser::absolute() {
     default:
       throw NoViableAltException(this);
     }
-    setState(234);
+    setState(232);
     match(asm6502Parser::WHITESPACE);
-    setState(235);
-    arithmetic();
+    setState(233);
+    expression(0);
    
   }
   catch (RecognitionException &e) {
@@ -1587,8 +1586,8 @@ tree::TerminalNode* asm6502Parser::RelativeContext::WHITESPACE() {
   return getToken(asm6502Parser::WHITESPACE, 0);
 }
 
-asm6502Parser::ArithmeticContext* asm6502Parser::RelativeContext::arithmetic() {
-  return getRuleContext<asm6502Parser::ArithmeticContext>(0);
+asm6502Parser::ExpressionContext* asm6502Parser::RelativeContext::expression() {
+  return getRuleContext<asm6502Parser::ExpressionContext>(0);
 }
 
 
@@ -1610,12 +1609,12 @@ asm6502Parser::RelativeContext* asm6502Parser::relative() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(237);
+    setState(235);
     match(asm6502Parser::BRANCH);
-    setState(238);
+    setState(236);
     match(asm6502Parser::WHITESPACE);
-    setState(239);
-    arithmetic();
+    setState(237);
+    expression(0);
    
   }
   catch (RecognitionException &e) {
@@ -1656,7 +1655,7 @@ asm6502Parser::MnemonicContext* asm6502Parser::mnemonic() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(241);
+    setState(239);
     match(asm6502Parser::MNEMONIC);
    
   }
@@ -1698,7 +1697,7 @@ asm6502Parser::ShiftContext* asm6502Parser::shift() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(243);
+    setState(241);
     match(asm6502Parser::SHIFT);
    
   }
@@ -1725,8 +1724,8 @@ tree::TerminalNode* asm6502Parser::JumpContext::WHITESPACE() {
   return getToken(asm6502Parser::WHITESPACE, 0);
 }
 
-asm6502Parser::ArithmeticContext* asm6502Parser::JumpContext::arithmetic() {
-  return getRuleContext<asm6502Parser::ArithmeticContext>(0);
+asm6502Parser::ExpressionContext* asm6502Parser::JumpContext::expression() {
+  return getRuleContext<asm6502Parser::ExpressionContext>(0);
 }
 
 tree::TerminalNode* asm6502Parser::JumpContext::LPAREN() {
@@ -1755,31 +1754,31 @@ asm6502Parser::JumpContext* asm6502Parser::jump() {
     exitRule();
   });
   try {
-    setState(254);
+    setState(252);
     _errHandler->sync(this);
     switch (getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 29, _ctx)) {
     case 1: {
       enterOuterAlt(_localctx, 1);
-      setState(245);
+      setState(243);
       match(asm6502Parser::JUMP);
-      setState(246);
+      setState(244);
       match(asm6502Parser::WHITESPACE);
-      setState(247);
-      arithmetic();
+      setState(245);
+      expression(0);
       break;
     }
 
     case 2: {
       enterOuterAlt(_localctx, 2);
-      setState(248);
+      setState(246);
       match(asm6502Parser::JUMP);
-      setState(249);
+      setState(247);
       match(asm6502Parser::WHITESPACE);
-      setState(250);
+      setState(248);
       match(asm6502Parser::LPAREN);
-      setState(251);
-      arithmetic();
-      setState(252);
+      setState(249);
+      expression(0);
+      setState(250);
       match(asm6502Parser::RPAREN);
       break;
     }
@@ -1812,8 +1811,8 @@ tree::TerminalNode* asm6502Parser::JsrContext::WHITESPACE() {
   return getToken(asm6502Parser::WHITESPACE, 0);
 }
 
-asm6502Parser::ArithmeticContext* asm6502Parser::JsrContext::arithmetic() {
-  return getRuleContext<asm6502Parser::ArithmeticContext>(0);
+asm6502Parser::ExpressionContext* asm6502Parser::JsrContext::expression() {
+  return getRuleContext<asm6502Parser::ExpressionContext>(0);
 }
 
 
@@ -1835,12 +1834,12 @@ asm6502Parser::JsrContext* asm6502Parser::jsr() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(256);
+    setState(254);
     match(asm6502Parser::JSR);
-    setState(257);
+    setState(255);
     match(asm6502Parser::WHITESPACE);
-    setState(258);
-    arithmetic();
+    setState(256);
+    expression(0);
    
   }
   catch (RecognitionException &e) {
@@ -1852,94 +1851,77 @@ asm6502Parser::JsrContext* asm6502Parser::jsr() {
   return _localctx;
 }
 
-//----------------- ArithmeticContext ------------------------------------------------------------------
+//----------------- ExpressionContext ------------------------------------------------------------------
 
-asm6502Parser::ArithmeticContext::ArithmeticContext(ParserRuleContext *parent, size_t invokingState)
+asm6502Parser::ExpressionContext::ExpressionContext(ParserRuleContext *parent, size_t invokingState)
   : ParserRuleContext(parent, invokingState) {
 }
 
-tree::TerminalNode* asm6502Parser::ArithmeticContext::LBRACKET() {
+tree::TerminalNode* asm6502Parser::ExpressionContext::LBRACKET() {
   return getToken(asm6502Parser::LBRACKET, 0);
 }
 
-tree::TerminalNode* asm6502Parser::ArithmeticContext::RBRACKET() {
+std::vector<asm6502Parser::ExpressionContext *> asm6502Parser::ExpressionContext::expression() {
+  return getRuleContexts<asm6502Parser::ExpressionContext>();
+}
+
+asm6502Parser::ExpressionContext* asm6502Parser::ExpressionContext::expression(size_t i) {
+  return getRuleContext<asm6502Parser::ExpressionContext>(i);
+}
+
+tree::TerminalNode* asm6502Parser::ExpressionContext::RBRACKET() {
   return getToken(asm6502Parser::RBRACKET, 0);
 }
 
-std::vector<asm6502Parser::ArithmeticContext *> asm6502Parser::ArithmeticContext::arithmetic() {
-  return getRuleContexts<asm6502Parser::ArithmeticContext>();
+asm6502Parser::AtomContext* asm6502Parser::ExpressionContext::atom() {
+  return getRuleContext<asm6502Parser::AtomContext>(0);
 }
 
-asm6502Parser::ArithmeticContext* asm6502Parser::ArithmeticContext::arithmetic(size_t i) {
-  return getRuleContext<asm6502Parser::ArithmeticContext>(i);
-}
-
-asm6502Parser::NumberContext* asm6502Parser::ArithmeticContext::number() {
-  return getRuleContext<asm6502Parser::NumberContext>(0);
-}
-
-std::vector<asm6502Parser::Binary_expressionContext *> asm6502Parser::ArithmeticContext::binary_expression() {
-  return getRuleContexts<asm6502Parser::Binary_expressionContext>();
-}
-
-asm6502Parser::Binary_expressionContext* asm6502Parser::ArithmeticContext::binary_expression(size_t i) {
-  return getRuleContext<asm6502Parser::Binary_expressionContext>(i);
+asm6502Parser::Binary_opContext* asm6502Parser::ExpressionContext::binary_op() {
+  return getRuleContext<asm6502Parser::Binary_opContext>(0);
 }
 
 
-size_t asm6502Parser::ArithmeticContext::getRuleIndex() const {
-  return asm6502Parser::RuleArithmetic;
+size_t asm6502Parser::ExpressionContext::getRuleIndex() const {
+  return asm6502Parser::RuleExpression;
 }
 
 
-asm6502Parser::ArithmeticContext* asm6502Parser::arithmetic() {
-  ArithmeticContext *_localctx = _tracker.createInstance<ArithmeticContext>(_ctx, getState());
-  enterRule(_localctx, 40, asm6502Parser::RuleArithmetic);
-  size_t _la = 0;
+
+asm6502Parser::ExpressionContext* asm6502Parser::expression() {
+   return expression(0);
+}
+
+asm6502Parser::ExpressionContext* asm6502Parser::expression(int precedence) {
+  ParserRuleContext *parentContext = _ctx;
+  size_t parentState = getState();
+  asm6502Parser::ExpressionContext *_localctx = _tracker.createInstance<ExpressionContext>(_ctx, parentState);
+  asm6502Parser::ExpressionContext *previousContext = _localctx;
+  (void)previousContext; // Silence compiler, in case the context is not used by generated code.
+  size_t startState = 40;
+  enterRecursionRule(_localctx, 40, asm6502Parser::RuleExpression, precedence);
+
+    
 
 #if __cplusplus > 201703L
   auto onExit = finally([=, this] {
 #else
   auto onExit = finally([=] {
 #endif
-    exitRule();
+    unrollRecursionContexts(parentContext);
   });
   try {
     size_t alt;
-    setState(275);
+    enterOuterAlt(_localctx, 1);
+    setState(264);
     _errHandler->sync(this);
     switch (_input->LA(1)) {
       case asm6502Parser::LBRACKET: {
-        enterOuterAlt(_localctx, 1);
-        setState(260);
+        setState(259);
         match(asm6502Parser::LBRACKET);
-        setState(262); 
-        _errHandler->sync(this);
-        _la = _input->LA(1);
-        do {
-          setState(261);
-          arithmetic();
-          setState(264); 
-          _errHandler->sync(this);
-          _la = _input->LA(1);
-        } while ((((_la & ~ 0x3fULL) == 0) &&
-          ((1ULL << _la) & ((1ULL << asm6502Parser::PLUS)
-          | (1ULL << asm6502Parser::MINUS)
-          | (1ULL << asm6502Parser::STAR)
-          | (1ULL << asm6502Parser::LOW_BYTE_VALUE)
-          | (1ULL << asm6502Parser::HIGH_BYTE_VALUE)
-          | (1ULL << asm6502Parser::LBRACKET)
-          | (1ULL << asm6502Parser::OCTAL_BYTE)
-          | (1ULL << asm6502Parser::OCTAL_NUMBER)
-          | (1ULL << asm6502Parser::HEX_BYTE)
-          | (1ULL << asm6502Parser::HEX_NUMBER)
-          | (1ULL << asm6502Parser::DECIMAL_BYTE)
-          | (1ULL << asm6502Parser::DECIMAL_NUMBER)
-          | (1ULL << asm6502Parser::BINARY_BYTE)
-          | (1ULL << asm6502Parser::BINARY_NUMBER)
-          | (1ULL << asm6502Parser::CHARACTER)
-          | (1ULL << asm6502Parser::SYMBOL))) != 0));
-        setState(266);
+        setState(260);
+        expression(0);
+        setState(261);
         match(asm6502Parser::RBRACKET);
         break;
       }
@@ -1959,83 +1941,43 @@ asm6502Parser::ArithmeticContext* asm6502Parser::arithmetic() {
       case asm6502Parser::BINARY_NUMBER:
       case asm6502Parser::CHARACTER:
       case asm6502Parser::SYMBOL: {
-        enterOuterAlt(_localctx, 2);
-        setState(268);
-        number();
-        setState(272);
-        _errHandler->sync(this);
-        alt = getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 31, _ctx);
-        while (alt != 2 && alt != atn::ATN::INVALID_ALT_NUMBER) {
-          if (alt == 1) {
-            setState(269);
-            binary_expression(); 
-          }
-          setState(274);
-          _errHandler->sync(this);
-          alt = getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 31, _ctx);
-        }
+        setState(263);
+        atom();
         break;
       }
 
     default:
       throw NoViableAltException(this);
     }
-   
+    _ctx->stop = _input->LT(-1);
+    setState(272);
+    _errHandler->sync(this);
+    alt = getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 31, _ctx);
+    while (alt != 2 && alt != atn::ATN::INVALID_ALT_NUMBER) {
+      if (alt == 1) {
+        if (!_parseListeners.empty())
+          triggerExitRuleEvent();
+        previousContext = _localctx;
+        _localctx = _tracker.createInstance<ExpressionContext>(parentContext, parentState);
+        pushNewRecursionContext(_localctx, startState, RuleExpression);
+        setState(266);
+
+        if (!(precpred(_ctx, 3))) throw FailedPredicateException(this, "precpred(_ctx, 3)");
+        setState(267);
+        binary_op();
+        setState(268);
+        expression(4); 
+      }
+      setState(274);
+      _errHandler->sync(this);
+      alt = getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 31, _ctx);
+    }
   }
   catch (RecognitionException &e) {
     _errHandler->reportError(this, e);
     _localctx->exception = std::current_exception();
     _errHandler->recover(this, _localctx->exception);
   }
-
-  return _localctx;
-}
-
-//----------------- Binary_expressionContext ------------------------------------------------------------------
-
-asm6502Parser::Binary_expressionContext::Binary_expressionContext(ParserRuleContext *parent, size_t invokingState)
-  : ParserRuleContext(parent, invokingState) {
-}
-
-asm6502Parser::Binary_opContext* asm6502Parser::Binary_expressionContext::binary_op() {
-  return getRuleContext<asm6502Parser::Binary_opContext>(0);
-}
-
-asm6502Parser::NumberContext* asm6502Parser::Binary_expressionContext::number() {
-  return getRuleContext<asm6502Parser::NumberContext>(0);
-}
-
-
-size_t asm6502Parser::Binary_expressionContext::getRuleIndex() const {
-  return asm6502Parser::RuleBinary_expression;
-}
-
-
-asm6502Parser::Binary_expressionContext* asm6502Parser::binary_expression() {
-  Binary_expressionContext *_localctx = _tracker.createInstance<Binary_expressionContext>(_ctx, getState());
-  enterRule(_localctx, 42, asm6502Parser::RuleBinary_expression);
-
-#if __cplusplus > 201703L
-  auto onExit = finally([=, this] {
-#else
-  auto onExit = finally([=] {
-#endif
-    exitRule();
-  });
-  try {
-    enterOuterAlt(_localctx, 1);
-    setState(277);
-    binary_op();
-    setState(278);
-    number();
-   
-  }
-  catch (RecognitionException &e) {
-    _errHandler->reportError(this, e);
-    _localctx->exception = std::current_exception();
-    _errHandler->recover(this, _localctx->exception);
-  }
-
   return _localctx;
 }
 
@@ -2069,7 +2011,7 @@ size_t asm6502Parser::Binary_opContext::getRuleIndex() const {
 
 asm6502Parser::Binary_opContext* asm6502Parser::binary_op() {
   Binary_opContext *_localctx = _tracker.createInstance<Binary_opContext>(_ctx, getState());
-  enterRule(_localctx, 44, asm6502Parser::RuleBinary_op);
+  enterRule(_localctx, 42, asm6502Parser::RuleBinary_op);
   size_t _la = 0;
 
 #if __cplusplus > 201703L
@@ -2081,7 +2023,7 @@ asm6502Parser::Binary_opContext* asm6502Parser::binary_op() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(280);
+    setState(275);
     _la = _input->LA(1);
     if (!((((_la & ~ 0x3fULL) == 0) &&
       ((1ULL << _la) & ((1ULL << asm6502Parser::PLUS)
@@ -2127,10 +2069,6 @@ tree::TerminalNode* asm6502Parser::Unary_opContext::MINUS() {
   return getToken(asm6502Parser::MINUS, 0);
 }
 
-tree::TerminalNode* asm6502Parser::Unary_opContext::STAR() {
-  return getToken(asm6502Parser::STAR, 0);
-}
-
 
 size_t asm6502Parser::Unary_opContext::getRuleIndex() const {
   return asm6502Parser::RuleUnary_op;
@@ -2139,7 +2077,7 @@ size_t asm6502Parser::Unary_opContext::getRuleIndex() const {
 
 asm6502Parser::Unary_opContext* asm6502Parser::unary_op() {
   Unary_opContext *_localctx = _tracker.createInstance<Unary_opContext>(_ctx, getState());
-  enterRule(_localctx, 46, asm6502Parser::RuleUnary_op);
+  enterRule(_localctx, 44, asm6502Parser::RuleUnary_op);
   size_t _la = 0;
 
 #if __cplusplus > 201703L
@@ -2151,12 +2089,11 @@ asm6502Parser::Unary_opContext* asm6502Parser::unary_op() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(282);
+    setState(277);
     _la = _input->LA(1);
     if (!((((_la & ~ 0x3fULL) == 0) &&
       ((1ULL << _la) & ((1ULL << asm6502Parser::PLUS)
       | (1ULL << asm6502Parser::MINUS)
-      | (1ULL << asm6502Parser::STAR)
       | (1ULL << asm6502Parser::LOW_BYTE_VALUE)
       | (1ULL << asm6502Parser::HIGH_BYTE_VALUE))) != 0))) {
     _errHandler->recoverInline(this);
@@ -2176,41 +2113,45 @@ asm6502Parser::Unary_opContext* asm6502Parser::unary_op() {
   return _localctx;
 }
 
-//----------------- NumberContext ------------------------------------------------------------------
+//----------------- AtomContext ------------------------------------------------------------------
 
-asm6502Parser::NumberContext::NumberContext(ParserRuleContext *parent, size_t invokingState)
+asm6502Parser::AtomContext::AtomContext(ParserRuleContext *parent, size_t invokingState)
   : ParserRuleContext(parent, invokingState) {
 }
 
-asm6502Parser::ByteContext* asm6502Parser::NumberContext::byte() {
+asm6502Parser::ByteContext* asm6502Parser::AtomContext::byte() {
   return getRuleContext<asm6502Parser::ByteContext>(0);
 }
 
-asm6502Parser::MultibyteContext* asm6502Parser::NumberContext::multibyte() {
+asm6502Parser::MultibyteContext* asm6502Parser::AtomContext::multibyte() {
   return getRuleContext<asm6502Parser::MultibyteContext>(0);
 }
 
-asm6502Parser::CharacterContext* asm6502Parser::NumberContext::character() {
+asm6502Parser::CharacterContext* asm6502Parser::AtomContext::character() {
   return getRuleContext<asm6502Parser::CharacterContext>(0);
 }
 
-tree::TerminalNode* asm6502Parser::NumberContext::SYMBOL() {
+tree::TerminalNode* asm6502Parser::AtomContext::SYMBOL() {
   return getToken(asm6502Parser::SYMBOL, 0);
 }
 
-asm6502Parser::Unary_opContext* asm6502Parser::NumberContext::unary_op() {
+tree::TerminalNode* asm6502Parser::AtomContext::STAR() {
+  return getToken(asm6502Parser::STAR, 0);
+}
+
+asm6502Parser::Unary_opContext* asm6502Parser::AtomContext::unary_op() {
   return getRuleContext<asm6502Parser::Unary_opContext>(0);
 }
 
 
-size_t asm6502Parser::NumberContext::getRuleIndex() const {
-  return asm6502Parser::RuleNumber;
+size_t asm6502Parser::AtomContext::getRuleIndex() const {
+  return asm6502Parser::RuleAtom;
 }
 
 
-asm6502Parser::NumberContext* asm6502Parser::number() {
-  NumberContext *_localctx = _tracker.createInstance<NumberContext>(_ctx, getState());
-  enterRule(_localctx, 48, asm6502Parser::RuleNumber);
+asm6502Parser::AtomContext* asm6502Parser::atom() {
+  AtomContext *_localctx = _tracker.createInstance<AtomContext>(_ctx, getState());
+  enterRule(_localctx, 46, asm6502Parser::RuleAtom);
   size_t _la = 0;
 
 #if __cplusplus > 201703L
@@ -2222,27 +2163,26 @@ asm6502Parser::NumberContext* asm6502Parser::number() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(285);
+    setState(280);
     _errHandler->sync(this);
 
     _la = _input->LA(1);
     if ((((_la & ~ 0x3fULL) == 0) &&
       ((1ULL << _la) & ((1ULL << asm6502Parser::PLUS)
       | (1ULL << asm6502Parser::MINUS)
-      | (1ULL << asm6502Parser::STAR)
       | (1ULL << asm6502Parser::LOW_BYTE_VALUE)
       | (1ULL << asm6502Parser::HIGH_BYTE_VALUE))) != 0)) {
-      setState(284);
+      setState(279);
       unary_op();
     }
-    setState(291);
+    setState(287);
     _errHandler->sync(this);
     switch (_input->LA(1)) {
       case asm6502Parser::OCTAL_BYTE:
       case asm6502Parser::HEX_BYTE:
       case asm6502Parser::DECIMAL_BYTE:
       case asm6502Parser::BINARY_BYTE: {
-        setState(287);
+        setState(282);
         byte();
         break;
       }
@@ -2251,20 +2191,26 @@ asm6502Parser::NumberContext* asm6502Parser::number() {
       case asm6502Parser::HEX_NUMBER:
       case asm6502Parser::DECIMAL_NUMBER:
       case asm6502Parser::BINARY_NUMBER: {
-        setState(288);
+        setState(283);
         multibyte();
         break;
       }
 
       case asm6502Parser::CHARACTER: {
-        setState(289);
+        setState(284);
         character();
         break;
       }
 
       case asm6502Parser::SYMBOL: {
-        setState(290);
+        setState(285);
         match(asm6502Parser::SYMBOL);
+        break;
+      }
+
+      case asm6502Parser::STAR: {
+        setState(286);
+        match(asm6502Parser::STAR);
         break;
       }
 
@@ -2312,7 +2258,7 @@ size_t asm6502Parser::ByteContext::getRuleIndex() const {
 
 asm6502Parser::ByteContext* asm6502Parser::byte() {
   ByteContext *_localctx = _tracker.createInstance<ByteContext>(_ctx, getState());
-  enterRule(_localctx, 50, asm6502Parser::RuleByte);
+  enterRule(_localctx, 48, asm6502Parser::RuleByte);
   size_t _la = 0;
 
 #if __cplusplus > 201703L
@@ -2324,7 +2270,7 @@ asm6502Parser::ByteContext* asm6502Parser::byte() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(293);
+    setState(289);
     _la = _input->LA(1);
     if (!((((_la & ~ 0x3fULL) == 0) &&
       ((1ULL << _la) & ((1ULL << asm6502Parser::OCTAL_BYTE)
@@ -2378,7 +2324,7 @@ size_t asm6502Parser::MultibyteContext::getRuleIndex() const {
 
 asm6502Parser::MultibyteContext* asm6502Parser::multibyte() {
   MultibyteContext *_localctx = _tracker.createInstance<MultibyteContext>(_ctx, getState());
-  enterRule(_localctx, 52, asm6502Parser::RuleMultibyte);
+  enterRule(_localctx, 50, asm6502Parser::RuleMultibyte);
   size_t _la = 0;
 
 #if __cplusplus > 201703L
@@ -2390,7 +2336,7 @@ asm6502Parser::MultibyteContext* asm6502Parser::multibyte() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(295);
+    setState(291);
     _la = _input->LA(1);
     if (!((((_la & ~ 0x3fULL) == 0) &&
       ((1ULL << _la) & ((1ULL << asm6502Parser::OCTAL_NUMBER)
@@ -2432,7 +2378,7 @@ size_t asm6502Parser::CharacterContext::getRuleIndex() const {
 
 asm6502Parser::CharacterContext* asm6502Parser::character() {
   CharacterContext *_localctx = _tracker.createInstance<CharacterContext>(_ctx, getState());
-  enterRule(_localctx, 54, asm6502Parser::RuleCharacter);
+  enterRule(_localctx, 52, asm6502Parser::RuleCharacter);
 
 #if __cplusplus > 201703L
   auto onExit = finally([=, this] {
@@ -2443,7 +2389,7 @@ asm6502Parser::CharacterContext* asm6502Parser::character() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(297);
+    setState(293);
     match(asm6502Parser::CHARACTER);
    
   }
@@ -2454,6 +2400,26 @@ asm6502Parser::CharacterContext* asm6502Parser::character() {
   }
 
   return _localctx;
+}
+
+bool asm6502Parser::sempred(RuleContext *context, size_t ruleIndex, size_t predicateIndex) {
+  switch (ruleIndex) {
+    case 20: return expressionSempred(antlrcpp::downCast<ExpressionContext *>(context), predicateIndex);
+
+  default:
+    break;
+  }
+  return true;
+}
+
+bool asm6502Parser::expressionSempred(ExpressionContext *_localctx, size_t predicateIndex) {
+  switch (predicateIndex) {
+    case 0: return precpred(_ctx, 3);
+
+  default:
+    break;
+  }
+  return true;
 }
 
 void asm6502Parser::initialize() {

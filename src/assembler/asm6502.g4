@@ -198,7 +198,7 @@ label :
     ;
 
 assign :
-        SYMBOL WHITESPACE EQU WHITESPACE arithmetic
+        SYMBOL WHITESPACE EQU WHITESPACE expression
     ;
 
 instruction : nop
@@ -224,62 +224,56 @@ implicit : IMPLIED ;
 acc : shift (WHITESPACE ACC)? ;
 
 immediate :
-        mnemonic WHITESPACE HASH arithmetic
+        mnemonic WHITESPACE HASH expression
     ;
 
 x_index :
-        (shift | mnemonic) WHITESPACE arithmetic X_INDEX
+        (shift | mnemonic) WHITESPACE expression X_INDEX
     ;
 
 y_index :
-        (shift | mnemonic) WHITESPACE arithmetic Y_INDEX
+        (shift | mnemonic) WHITESPACE expression Y_INDEX
     ;
 
 x_indirect :
-        LPAREN (shift | mnemonic) WHITESPACE arithmetic X_INDEX RPAREN
+        LPAREN (shift | mnemonic) WHITESPACE expression X_INDEX RPAREN
     ;
 
 indirect_y :
-        LPAREN (shift | mnemonic) WHITESPACE arithmetic RPAREN Y_INDEX
+        LPAREN (shift | mnemonic) WHITESPACE expression RPAREN Y_INDEX
     ;
 
 absolute :
-        (shift | mnemonic) WHITESPACE arithmetic
+        (shift | mnemonic) WHITESPACE expression
     ;
 
-relative : BRANCH WHITESPACE arithmetic ;
+relative : BRANCH WHITESPACE expression ;
 
 mnemonic : MNEMONIC ;
 
 shift : SHIFT ;
 
 jump :
-        JUMP WHITESPACE arithmetic |
-        JUMP WHITESPACE LPAREN arithmetic RPAREN
+        JUMP WHITESPACE expression |
+        JUMP WHITESPACE LPAREN expression RPAREN
     ;
 
 jsr :
-        JSR WHITESPACE arithmetic ;
+        JSR WHITESPACE expression ;
 
-arithmetic :
-        LBRACKET arithmetic+ RBRACKET
-    |   number binary_expression*
-    ;
-
-binary_expression :
-        binary_op number
+expression :
+        expression binary_op expression
+    |   LBRACKET expression RBRACKET
+    |   atom
     ;
 
 binary_op : (PLUS | MINUS | STAR | SLASH) ;
 
 unary_op :
-        (LOW_BYTE_VALUE | HIGH_BYTE_VALUE | PLUS | MINUS | STAR) ;
+        (LOW_BYTE_VALUE | HIGH_BYTE_VALUE | PLUS | MINUS) ;
 
-// byte_op :
-//         (LOW_BYTE_VALUE | HIGH_BYTE_VALUE) ;
-
-number :
-        unary_op? (byte | multibyte | character | SYMBOL)
+atom :
+        unary_op? (byte | multibyte | character | SYMBOL | STAR)
     ;
 byte :
         (HEX_BYTE | DECIMAL_BYTE | OCTAL_BYTE | BINARY_BYTE)

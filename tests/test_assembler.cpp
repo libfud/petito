@@ -38,6 +38,8 @@ TEST(TestInstruction, FromFileName)
         std::cerr << std::format("Result is {}\n", static_cast<uint32_t>(result.get_err()));
     }
     ASSERT_TRUE(result.is_ok());
+    auto assembler = result.get_ok();
+    std::cout << assembler.format();
 }
 
 } // namespace mos6502

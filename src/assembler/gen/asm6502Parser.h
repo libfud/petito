@@ -27,9 +27,9 @@ public:
     RuleComment = 5, RuleNop = 6, RuleImplicit = 7, RuleAcc = 8, RuleImmediate = 9, 
     RuleX_index = 10, RuleY_index = 11, RuleX_indirect = 12, RuleIndirect_y = 13, 
     RuleAbsolute = 14, RuleRelative = 15, RuleMnemonic = 16, RuleShift = 17, 
-    RuleJump = 18, RuleJsr = 19, RuleArithmetic = 20, RuleBinary_expression = 21, 
-    RuleBinary_op = 22, RuleUnary_op = 23, RuleNumber = 24, RuleByte = 25, 
-    RuleMultibyte = 26, RuleCharacter = 27
+    RuleJump = 18, RuleJsr = 19, RuleExpression = 20, RuleBinary_op = 21, 
+    RuleUnary_op = 22, RuleAtom = 23, RuleByte = 24, RuleMultibyte = 25, 
+    RuleCharacter = 26
   };
 
   explicit asm6502Parser(antlr4::TokenStream *input);
@@ -69,11 +69,10 @@ public:
   class ShiftContext;
   class JumpContext;
   class JsrContext;
-  class ArithmeticContext;
-  class Binary_expressionContext;
+  class ExpressionContext;
   class Binary_opContext;
   class Unary_opContext;
-  class NumberContext;
+  class AtomContext;
   class ByteContext;
   class MultibyteContext;
   class CharacterContext; 
@@ -129,7 +128,7 @@ public:
     std::vector<antlr4::tree::TerminalNode *> WHITESPACE();
     antlr4::tree::TerminalNode* WHITESPACE(size_t i);
     antlr4::tree::TerminalNode *EQU();
-    ArithmeticContext *arithmetic();
+    ExpressionContext *expression();
 
    
   };
@@ -211,7 +210,7 @@ public:
     MnemonicContext *mnemonic();
     antlr4::tree::TerminalNode *WHITESPACE();
     antlr4::tree::TerminalNode *HASH();
-    ArithmeticContext *arithmetic();
+    ExpressionContext *expression();
 
    
   };
@@ -223,7 +222,7 @@ public:
     X_indexContext(antlr4::ParserRuleContext *parent, size_t invokingState);
     virtual size_t getRuleIndex() const override;
     antlr4::tree::TerminalNode *WHITESPACE();
-    ArithmeticContext *arithmetic();
+    ExpressionContext *expression();
     antlr4::tree::TerminalNode *X_INDEX();
     ShiftContext *shift();
     MnemonicContext *mnemonic();
@@ -238,7 +237,7 @@ public:
     Y_indexContext(antlr4::ParserRuleContext *parent, size_t invokingState);
     virtual size_t getRuleIndex() const override;
     antlr4::tree::TerminalNode *WHITESPACE();
-    ArithmeticContext *arithmetic();
+    ExpressionContext *expression();
     antlr4::tree::TerminalNode *Y_INDEX();
     ShiftContext *shift();
     MnemonicContext *mnemonic();
@@ -254,7 +253,7 @@ public:
     virtual size_t getRuleIndex() const override;
     antlr4::tree::TerminalNode *LPAREN();
     antlr4::tree::TerminalNode *WHITESPACE();
-    ArithmeticContext *arithmetic();
+    ExpressionContext *expression();
     antlr4::tree::TerminalNode *X_INDEX();
     antlr4::tree::TerminalNode *RPAREN();
     ShiftContext *shift();
@@ -271,7 +270,7 @@ public:
     virtual size_t getRuleIndex() const override;
     antlr4::tree::TerminalNode *LPAREN();
     antlr4::tree::TerminalNode *WHITESPACE();
-    ArithmeticContext *arithmetic();
+    ExpressionContext *expression();
     antlr4::tree::TerminalNode *RPAREN();
     antlr4::tree::TerminalNode *Y_INDEX();
     ShiftContext *shift();
@@ -287,7 +286,7 @@ public:
     AbsoluteContext(antlr4::ParserRuleContext *parent, size_t invokingState);
     virtual size_t getRuleIndex() const override;
     antlr4::tree::TerminalNode *WHITESPACE();
-    ArithmeticContext *arithmetic();
+    ExpressionContext *expression();
     ShiftContext *shift();
     MnemonicContext *mnemonic();
 
@@ -302,7 +301,7 @@ public:
     virtual size_t getRuleIndex() const override;
     antlr4::tree::TerminalNode *BRANCH();
     antlr4::tree::TerminalNode *WHITESPACE();
-    ArithmeticContext *arithmetic();
+    ExpressionContext *expression();
 
    
   };
@@ -337,7 +336,7 @@ public:
     virtual size_t getRuleIndex() const override;
     antlr4::tree::TerminalNode *JUMP();
     antlr4::tree::TerminalNode *WHITESPACE();
-    ArithmeticContext *arithmetic();
+    ExpressionContext *expression();
     antlr4::tree::TerminalNode *LPAREN();
     antlr4::tree::TerminalNode *RPAREN();
 
@@ -352,42 +351,29 @@ public:
     virtual size_t getRuleIndex() const override;
     antlr4::tree::TerminalNode *JSR();
     antlr4::tree::TerminalNode *WHITESPACE();
-    ArithmeticContext *arithmetic();
+    ExpressionContext *expression();
 
    
   };
 
   JsrContext* jsr();
 
-  class  ArithmeticContext : public antlr4::ParserRuleContext {
+  class  ExpressionContext : public antlr4::ParserRuleContext {
   public:
-    ArithmeticContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    ExpressionContext(antlr4::ParserRuleContext *parent, size_t invokingState);
     virtual size_t getRuleIndex() const override;
     antlr4::tree::TerminalNode *LBRACKET();
+    std::vector<ExpressionContext *> expression();
+    ExpressionContext* expression(size_t i);
     antlr4::tree::TerminalNode *RBRACKET();
-    std::vector<ArithmeticContext *> arithmetic();
-    ArithmeticContext* arithmetic(size_t i);
-    NumberContext *number();
-    std::vector<Binary_expressionContext *> binary_expression();
-    Binary_expressionContext* binary_expression(size_t i);
-
-   
-  };
-
-  ArithmeticContext* arithmetic();
-
-  class  Binary_expressionContext : public antlr4::ParserRuleContext {
-  public:
-    Binary_expressionContext(antlr4::ParserRuleContext *parent, size_t invokingState);
-    virtual size_t getRuleIndex() const override;
+    AtomContext *atom();
     Binary_opContext *binary_op();
-    NumberContext *number();
 
    
   };
 
-  Binary_expressionContext* binary_expression();
-
+  ExpressionContext* expression();
+  ExpressionContext* expression(int precedence);
   class  Binary_opContext : public antlr4::ParserRuleContext {
   public:
     Binary_opContext(antlr4::ParserRuleContext *parent, size_t invokingState);
@@ -410,27 +396,27 @@ public:
     antlr4::tree::TerminalNode *HIGH_BYTE_VALUE();
     antlr4::tree::TerminalNode *PLUS();
     antlr4::tree::TerminalNode *MINUS();
-    antlr4::tree::TerminalNode *STAR();
 
    
   };
 
   Unary_opContext* unary_op();
 
-  class  NumberContext : public antlr4::ParserRuleContext {
+  class  AtomContext : public antlr4::ParserRuleContext {
   public:
-    NumberContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    AtomContext(antlr4::ParserRuleContext *parent, size_t invokingState);
     virtual size_t getRuleIndex() const override;
     ByteContext *byte();
     MultibyteContext *multibyte();
     CharacterContext *character();
     antlr4::tree::TerminalNode *SYMBOL();
+    antlr4::tree::TerminalNode *STAR();
     Unary_opContext *unary_op();
 
    
   };
 
-  NumberContext* number();
+  AtomContext* atom();
 
   class  ByteContext : public antlr4::ParserRuleContext {
   public:
@@ -471,6 +457,10 @@ public:
 
   CharacterContext* character();
 
+
+  bool sempred(antlr4::RuleContext *_localctx, size_t ruleIndex, size_t predicateIndex) override;
+
+  bool expressionSempred(ExpressionContext *_localctx, size_t predicateIndex);
 
   // By default the static state used to implement the parser is lazily initialized during the first
   // call to the constructor. You can call this function if you wish to initialize the static state

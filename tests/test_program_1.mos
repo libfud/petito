@@ -39,11 +39,11 @@ nmi_procedure:
     PHP
     PHA
     INC NMI_INFO_OFFSET
-    LDA 'N
+    LDA #'N
     STA NMI_INFO_OFFSET+1
-    LDA 'M
+    LDA #'M
     STA NMI_INFO_OFFSET+2
-    LDA 'I
+    LDA #'I
     STA NMI_INFO_OFFSET+3
 ;;  write X to memory
     TXA
@@ -77,11 +77,11 @@ irq_procedure:
     PHP
     PHA
     INC IRQ_INFO_OFFSET
-    LDA 'I
+    LDA #'I
     STA IRQ_INFO_OFFSET+1
-    LDA 'R
+    LDA #'R
     STA IRQ_INFO_OFFSET+2
-    LDA 'Q
+    LDA #'Q
     STA IRQ_INFO_OFFSET+3
 ;; pop Acc and flags from stack
     PLA
