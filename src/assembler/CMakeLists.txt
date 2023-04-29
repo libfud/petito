@@ -1,5 +1,6 @@
 add_library(asm_lib assembler.cpp
     assembler_types.cpp
+    arithmetic.cpp
     asm_line.cpp
     tokenizer.cpp
     ../opcode_table.cpp)

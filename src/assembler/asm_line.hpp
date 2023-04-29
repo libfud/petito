@@ -8,6 +8,7 @@
 #include <variant>
 
 #include "assembler_types.hpp"
+#include "arithmetic.hpp"
 #include "opcode_table.hpp"
 #include "gen/asm6502Parser.h"
 #include "result/result.hpp"
@@ -15,107 +16,6 @@
 namespace mos6502 {
 
 using result::Result;
-
-enum class BinaryOperator {
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
-};
-
-enum class UnaryOperator {
-    LowByte,
-    HighByte,
-    Plus,
-    Minus,
-};
-
-struct PcStar {};
-
-using ArithAtomV = std::variant<
-    BinaryOperator,
-    UnaryOperator,
-    uint8_t,
-    uint16_t,
-    char,
-    PcStar,
-    std::string>;
-
-enum class ArithAtomType {
-    BinaryOp,
-    UnaryOp,
-    Byte,
-    Word,
-    Character,
-    PcStar,
-    Symbol
-};
-
-template <typename T>
-concept ArithmeticAtomType =
-    std::same_as<T, BinaryOperator> || std::same_as<T, UnaryOperator> ||
-    std::same_as<T, uint8_t> || std::same_as<T, uint16_t> ||
-    std::same_as<T, char> || std::same_as<T, PcStar> ||
-    std::same_as<T, std::string>;
-
-class ArithmeticAtom {
-public:
-    template <typename T> requires(ArithmeticAtomType<T>)
-    explicit ArithmeticAtom(const T& value)
-        : value(value)
-    {}
-
-    auto get_type() const -> ArithAtomType;
-
-    template <typename T>
-    const T& get() const
-        requires(ArithmeticAtomType<T>)
-    {
-        return std::get<T>(value);
-    }
-
-private:
-    ArithAtomV value;
-};
-
-class ArithmeticExpression
-{
-public:
-    ArithmeticExpression() = default;
-    ArithmeticExpression(const ArithmeticExpression& expr);
-    ArithmeticExpression(ArithmeticExpression&& expr);
-    ArithmeticExpression& operator=(const ArithmeticExpression& expr);
-    ArithmeticExpression& operator=(ArithmeticExpression&& expr);
-
-    using Context = asm6502Parser::ExpressionContext;
-    using ExprResult = Result<ArithmeticExpression, ParseError>;
-
-    static auto make(Context* context) -> ExprResult;
-
-    auto has_symbols() const -> bool;
-    auto has_words() const -> bool;
-
-    auto evaluate(const SymbolMap& symbol_map, uint16_t pc) -> Result<int32_t, AsmError>;
-
-    using Atom = ArithmeticAtom;
-    using Expr = ArithmeticExpression;
-    using SExpr = std::variant<Atom, std::unique_ptr<Expr>>;
-    auto add_atom(Atom&& atom) -> void;
-    auto add_expression(Expr&& nested_expression) -> void;
-
-    using NumberContext = asm6502Parser::AtomContext;
-    using BinaryOpContext = asm6502Parser::Binary_opContext;
-    using UnaryOpContext = asm6502Parser::Unary_opContext;
-private:
-    auto unary_expr(UnaryOperator op, uint16_t rhs) -> int32_t;
-    auto binary_expr(int32_t acc, BinaryOperator op, uint16_t rhs) -> int32_t;
-    auto handle_atom(Context* context) -> std::optional<ParseError>;
-    auto handle_unary_op(UnaryOpContext* context) -> std::optional<ParseError>;
-    auto handle_binary_op(BinaryOpContext* context) -> std::optional<ParseError>;
-    std::vector<SExpr> expression = {};
-    bool symbols_encountered = false;
-    bool words_encountered = false;
-};
 
 struct Symbol
 {
@@ -132,6 +32,284 @@ enum class LineType {
     Empty,
 };
 
+class InstructionLine {
+public:
+    InstructionLine() = default;
+    InstructionLine(
+        uint16_t pc,
+        OpName op_id,
+        AddressMode address_mode,
+        std::optional<std::string>&& label,
+        std::optional<std::string>&& comment);
+    virtual ~InstructionLine() = default;
+    auto format() const -> std::string;
+    auto has_label() const -> bool;
+    auto get_label() const -> const std::string&;
+    auto size() const -> uint16_t;
+
+protected:
+    virtual auto format_instruction() const -> std::string = 0;
+    uint16_t pc = {};
+    OpName op_id = {};
+    AddressMode address_mode = {};
+    std::optional<std::string> label = {};
+    std::optional<std::string> comment = {};
+};
+
+class NIModeInstructionLine : public InstructionLine
+{
+protected:
+    auto format_instruction() const -> std::string override;
+};
+
+class ImplicitInstructionLine : public InstructionLine
+{
+public:
+    ImplicitInstructionLine(
+        uint16_t pc,
+        OpName op_id,
+        std::optional<std::string>&& label,
+        std::optional<std::string>&& comment);
+protected:
+    auto format_instruction() const -> std::string override;
+};
+
+class AccInstructionLine : public InstructionLine
+{
+public:
+    AccInstructionLine(
+        uint16_t pc,
+        OpName op_id,
+        std::optional<std::string>&& label,
+        std::optional<std::string>&& comment);
+protected:
+    auto format_instruction() const -> std::string override;
+};
+
+class NByteInstructionLine : public InstructionLine
+{
+public:
+    NByteInstructionLine(
+        uint16_t pc,
+        OpName op_id,
+        AddressMode address_mode,
+        std::optional<std::string>&& label,
+        std::optional<std::string>&& comment,
+        ArithmeticExpression&& expression);
+protected:
+    ArithmeticExpression expression = {};
+};
+
+class OneOperandInstructionLine : public NByteInstructionLine
+{
+public:
+    OneOperandInstructionLine(
+        uint16_t pc,
+        OpName op_id,
+        AddressMode address_mode,
+        std::optional<std::string>&& label,
+        std::optional<std::string>&& comment,
+        ArithmeticExpression&& expression);
+
+    virtual ~OneOperandInstructionLine() = default;
+protected:
+    uint8_t operand = 0;
+};
+
+class TwoOperandInstructionLine : public NByteInstructionLine
+{
+public:
+    TwoOperandInstructionLine(
+        uint16_t pc,
+        OpName op_id,
+        AddressMode address_mode,
+        std::optional<std::string>&& label,
+        std::optional<std::string>&& comment,
+        ArithmeticExpression&& expression);
+
+    virtual ~TwoOperandInstructionLine() = default;
+protected:
+    uint8_t operand_1 = 0;
+    uint8_t operand_2 = 0;
+};
+
+class ImmediateInstructionLine : public OneOperandInstructionLine
+{
+public:
+    ImmediateInstructionLine(
+        uint16_t pc,
+        OpName op_id,
+        std::optional<std::string>&& label,
+        std::optional<std::string>&& comment,
+        ArithmeticExpression&& expression);
+protected:
+    auto format_instruction() const -> std::string override;
+};
+
+class RelativeInstructionLine : public OneOperandInstructionLine
+{
+public:
+    RelativeInstructionLine(
+        uint16_t pc,
+        OpName op_id,
+        std::optional<std::string>&& label,
+        std::optional<std::string>&& comment,
+        ArithmeticExpression&& expression);
+protected:
+    auto format_instruction() const -> std::string override;
+};
+
+class ZeroPageInstructionLine : public OneOperandInstructionLine
+{
+public:
+    ZeroPageInstructionLine(
+        uint16_t pc,
+        OpName op_id,
+        std::optional<std::string>&& label,
+        std::optional<std::string>&& comment,
+        ArithmeticExpression&& expression);
+protected:
+    auto format_instruction() const -> std::string override;
+};
+
+class ZeroPageXInstructionLine : public OneOperandInstructionLine
+{
+public:
+    ZeroPageXInstructionLine(
+        uint16_t pc,
+        OpName op_id,
+        std::optional<std::string>&& label,
+        std::optional<std::string>&& comment,
+        ArithmeticExpression&& expression);
+protected:
+    auto format_instruction() const -> std::string override;
+};
+
+class ZeroPageYInstructionLine : public OneOperandInstructionLine
+{
+public:
+    ZeroPageYInstructionLine(
+        uint16_t pc,
+        OpName op_id,
+        std::optional<std::string>&& label,
+        std::optional<std::string>&& comment,
+        ArithmeticExpression&& expression);
+protected:
+    auto format_instruction() const -> std::string override;
+};
+
+class XIndirectInstructionLine : public OneOperandInstructionLine
+{
+public:
+    XIndirectInstructionLine(
+        uint16_t pc,
+        OpName op_id,
+        std::optional<std::string>&& label,
+        std::optional<std::string>&& comment,
+        ArithmeticExpression&& expression);
+protected:
+    auto format_instruction() const -> std::string override;
+};
+
+class IndirectYInstructionLine : public OneOperandInstructionLine
+{
+public:
+    IndirectYInstructionLine(
+        uint16_t pc,
+        OpName op_id,
+        std::optional<std::string>&& label,
+        std::optional<std::string>&& comment,
+        ArithmeticExpression&& expression);
+protected:
+    auto format_instruction() const -> std::string override;
+};
+
+class IndirectInstructionLine : public TwoOperandInstructionLine
+{
+public:
+    IndirectInstructionLine(
+        uint16_t pc,
+        OpName op_id,
+        std::optional<std::string>&& label,
+        std::optional<std::string>&& comment,
+        ArithmeticExpression&& expression);
+protected:
+    auto format_instruction() const -> std::string override;
+};
+
+class AbsoluteInstructionLine : public TwoOperandInstructionLine
+{
+public:
+    AbsoluteInstructionLine(
+        uint16_t pc,
+        OpName op_id,
+        std::optional<std::string>&& label,
+        std::optional<std::string>&& comment,
+        ArithmeticExpression&& expression);
+protected:
+    auto format_instruction() const -> std::string override;
+};
+
+class AbsoluteXInstructionLine : public TwoOperandInstructionLine
+{
+public:
+    AbsoluteXInstructionLine(
+        uint16_t pc,
+        OpName op_id,
+        std::optional<std::string>&& label,
+        std::optional<std::string>&& comment,
+        ArithmeticExpression&& expression);
+protected:
+    auto format_instruction() const -> std::string override;
+};
+
+class AbsoluteYInstructionLine : public TwoOperandInstructionLine
+{
+public:
+    AbsoluteYInstructionLine(
+        uint16_t pc,
+        OpName op_id,
+        std::optional<std::string>&& label,
+        std::optional<std::string>&& comment,
+        ArithmeticExpression&& expression);
+protected:
+    auto format_instruction() const -> std::string override;
+};
+
+using InstructionLineMode = std::variant<
+    NIModeInstructionLine,
+    AccInstructionLine,
+    AbsoluteInstructionLine,
+    AbsoluteXInstructionLine,
+    AbsoluteYInstructionLine,
+    ImmediateInstructionLine,
+    ImplicitInstructionLine,
+    IndirectInstructionLine,
+    XIndirectInstructionLine,
+    IndirectYInstructionLine,
+    RelativeInstructionLine,
+    ZeroPageInstructionLine,
+    ZeroPageXInstructionLine,
+    ZeroPageYInstructionLine
+    >;
+
+template <typename T>
+concept InstructionLineType =
+    std::same_as<T, NIModeInstructionLine> ||
+    std::same_as<T, AccInstructionLine> ||
+    std::same_as<T, AbsoluteInstructionLine> ||
+    std::same_as<T, AbsoluteXInstructionLine> ||
+    std::same_as<T, AbsoluteYInstructionLine> ||
+    std::same_as<T, ImmediateInstructionLine> ||
+    std::same_as<T, ImplicitInstructionLine> ||
+    std::same_as<T, IndirectInstructionLine> ||
+    std::same_as<T, XIndirectInstructionLine> ||
+    std::same_as<T, IndirectYInstructionLine> ||
+    std::same_as<T, RelativeInstructionLine> ||
+    std::same_as<T, ZeroPageInstructionLine> ||
+    std::same_as<T, ZeroPageXInstructionLine> ||
+    std::same_as<T, ZeroPageYInstructionLine>;
+
 template <typename T>
 concept HasExpression = requires(T t) {
     { t.expression() } -> std::same_as<asm6502Parser::ExpressionContext*>;
@@ -144,11 +322,111 @@ concept HasShiftAndMnemonic = requires(T t) {
     { t.shift() } -> std::same_as<asm6502Parser::ShiftContext*>;
 };
 
+class AsmInstructionLine {
+public:
+    using ParseResult = Result<AsmInstructionLine, ParseError>;
+    static auto make(asm6502Parser::LineContext* line, uint16_t pc) -> ParseResult;
+
+    auto has_label() const -> bool;
+    auto get_label() const -> const std::string&;
+
+protected:
+    using BuilderResult = std::optional<ParseError>;
+    using InstructionContext = asm6502Parser::InstructionContext;
+    auto parse(
+        InstructionContext* rule,
+        uint16_t pc,
+        std::optional<std::string>&& label,
+        std::optional<std::string>&& comment) -> BuilderResult;
+#define DEF_PARSE_RULE(M_RULE_NAME) \
+    auto M_RULE_NAME( \
+        InstructionContext* rule, \
+        uint16_t pc, \
+        std::optional<std::string>&& label, \
+        std::optional<std::string>&& comment) -> BuilderResult
+    DEF_PARSE_RULE(parse_implicit);
+    DEF_PARSE_RULE(parse_acc);
+    DEF_PARSE_RULE(parse_immediate);
+    DEF_PARSE_RULE(parse_x_index);
+    DEF_PARSE_RULE(parse_y_index);
+    DEF_PARSE_RULE(parse_x_indirect);
+    DEF_PARSE_RULE(parse_indirect_y);
+    DEF_PARSE_RULE(parse_absolute);
+    DEF_PARSE_RULE(parse_relative);
+    DEF_PARSE_RULE(parse_jump);
+    DEF_PARSE_RULE(parse_jsr);
+#undef DEF_PARSE_RULE
+
+    struct OpInfo {
+        OpName op_id;
+        AddressMode address_mode;
+        ArithmeticExpression expression;
+    };
+
+    template <typename T, typename U>
+    auto parse_helper(
+        U* obj_ptr,
+        T* context,
+        AddressMode mode,
+        uint16_t pc,
+        std::optional<std::string>&& label,
+        std::optional<std::string>&& comment) -> BuilderResult
+        requires(HasShiftAndMnemonic<T>)
+    {
+        static_cast<void>(obj_ptr);
+        std::string name;
+        if (context->mnemonic())
+        {
+            name = context->mnemonic()->MNEMONIC()->getText();
+        }
+        else
+        {
+            name = context->shift()->SHIFT()->getText();
+        }
+
+        auto invalid_mnemonic = check_mnemonic(name, mode);
+        if (invalid_mnemonic.is_err())
+        {
+            return invalid_mnemonic.get_err();
+        }
+        auto op_id = invalid_mnemonic.get_ok();
+
+        auto arith_result = ArithmeticExpression::make(context->expression());
+        if (arith_result.is_err())
+        {
+            return arith_result.get_err();
+        }
+        auto expression = arith_result.get_ok();
+
+        instruction = U{
+            pc, op_id, std::move(label), std::move(comment), std::move(expression)};
+        return {};
+    }
+
+    auto parse_xy_index(
+        InstructionContext* rule,
+        AddressMode zpg_mode,
+        AddressMode abs_mode) -> Result<OpInfo, ParseError>;
+
+    auto check_mnemonic(
+        const std::string& name,
+        AddressMode mode) -> Result<OpName, ParseError>;
+
+private:
+    InstructionLineMode instruction = {};
+};
+
+struct LabelLine {
+    auto format() const -> std::string;
+    std::string label;
+    uint16_t pc;
+    std::optional<std::string> comment;
+};
+
 class Line {
 public:
     using LineResult = Result<Line, AsmError>;
     using BuilderResult = std::optional<ParseError>;
-    using DecodeResult = Result<bool, AsmError>;
     static auto make(asm6502Parser::LineContext* line) -> LineResult;
     auto has_label() const -> bool;
     auto get_label() const -> const std::string&;
