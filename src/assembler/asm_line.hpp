@@ -35,8 +35,8 @@ enum class LineType {
 
 class InstructionLine {
 public:
-    InstructionLine() = default;
-    InstructionLine(
+    constexpr InstructionLine() = default;
+    constexpr InstructionLine(
         uint16_t pc,
         OpName op_id,
         std::optional<std::string>&& label,
@@ -92,6 +92,17 @@ protected:
         return std::format("{} A", opid_to_name(op_id));
     }
 };
+
+template <class T>
+auto instruction_line_wrapper(
+    uint16_t pc,
+    OpName op_id,
+    std::optional<std::string>&& label,
+    std::optional<std::string>&& comment,
+    ArithmeticExpression&& expression) -> T
+{
+    return T{pc, op_id, std::move(label), std::move(comment), std::move(expression)};
+}
 
 class NOperandInstructionLine : public InstructionLine
 {
@@ -349,7 +360,7 @@ protected:
 
     template <typename T, typename U>
     auto parse_helper(
-        U* obj_ptr,
+        U obj_maker,
         T* context,
         AddressMode mode,
         uint16_t pc,
@@ -357,7 +368,6 @@ protected:
         std::optional<std::string>&& comment) -> BuilderResult
         requires(HasShiftAndMnemonic<T>)
     {
-        static_cast<void>(obj_ptr);
         std::string name;
         if (context->mnemonic())
         {
@@ -382,8 +392,8 @@ protected:
         }
         auto expression = arith_result.get_ok();
 
-        instruction = U{
-            pc, op_id, std::move(label), std::move(comment), std::move(expression)};
+        instruction = obj_maker(
+            pc, op_id, std::move(label), std::move(comment), std::move(expression));
         return {};
     }
 

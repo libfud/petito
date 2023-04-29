@@ -3,7 +3,7 @@
 
 namespace mos6502 {
 
-InstructionLine::InstructionLine(
+constexpr InstructionLine::InstructionLine(
     uint16_t pc,
     OpName op_id,
     std::optional<std::string>&& label,
@@ -339,9 +339,8 @@ auto AsmInstructionLine::parse_x_indirect(
         std::optional<std::string>&& comment) -> BuilderResult
 {
     auto* context = rule->x_indirect();
-    XIndirectInstructionLine* useless_ptr = nullptr;
     return parse_helper(
-        useless_ptr,
+        instruction_line_wrapper<XIndirectInstructionLine>,
         context,
         AddressMode::X_IND,
         pc,
@@ -356,9 +355,8 @@ auto AsmInstructionLine::parse_indirect_y(
         std::optional<std::string>&& comment) -> BuilderResult
 {
     auto* context = rule->indirect_y();
-    IndirectYInstructionLine* useless_ptr = nullptr;
     return parse_helper(
-        useless_ptr,
+        instruction_line_wrapper<IndirectYInstructionLine>,
         context,
         AddressMode::IND_Y,
         pc,
@@ -374,9 +372,8 @@ auto AsmInstructionLine::parse_absolute(
         std::optional<std::string>&& comment) -> BuilderResult
 {
     auto* context = rule->absolute();
-    AbsoluteInstructionLine* useless_ptr = nullptr;
     return parse_helper(
-        useless_ptr,
+        instruction_line_wrapper<AbsoluteInstructionLine>,
         context,
         AddressMode::ABS,
         pc,
