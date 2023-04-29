@@ -2,6 +2,7 @@
 #define ASM_LINE_HPP
 
 #include <cstdint>
+#include <format>
 #include <memory>
 #include <optional>
 #include <string>
@@ -38,61 +39,66 @@ public:
     InstructionLine(
         uint16_t pc,
         OpName op_id,
-        AddressMode address_mode,
         std::optional<std::string>&& label,
         std::optional<std::string>&& comment);
+
     virtual ~InstructionLine() = default;
-    auto format() const -> std::string;
-    auto has_label() const -> bool;
-    auto get_label() const -> const std::string&;
-    auto size() const -> uint16_t;
+    virtual auto address_mode() const -> AddressMode = 0;
+    constexpr auto format() const -> std::string;
+    constexpr auto has_label() const -> bool;
+    constexpr auto get_label() const -> const std::string&;
+    constexpr auto size() const -> uint16_t;
 
 protected:
-    virtual auto format_instruction() const -> std::string = 0;
+    virtual constexpr auto format_instruction() const -> std::string = 0;
     uint16_t pc = {};
     OpName op_id = {};
-    AddressMode address_mode = {};
     std::optional<std::string> label = {};
     std::optional<std::string> comment = {};
 };
 
 class NIModeInstructionLine : public InstructionLine
 {
+public:
+    using InstructionLine::InstructionLine;
+    constexpr auto address_mode() const  -> AddressMode override { return AddressMode::NI; }
 protected:
-    auto format_instruction() const -> std::string override;
+    auto format_instruction() const -> std::string override
+    {
+        return std::format("{}", opid_to_name(op_id));
+    }
 };
 
 class ImplicitInstructionLine : public InstructionLine
 {
 public:
-    ImplicitInstructionLine(
-        uint16_t pc,
-        OpName op_id,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment);
+    using InstructionLine::InstructionLine;
+    constexpr auto address_mode() const  -> AddressMode override { return AddressMode::IMPL; }
 protected:
-    auto format_instruction() const -> std::string override;
+    auto format_instruction() const -> std::string override
+    {
+        return std::format("{}", opid_to_name(op_id));
+    }
 };
 
 class AccInstructionLine : public InstructionLine
 {
 public:
-    AccInstructionLine(
-        uint16_t pc,
-        OpName op_id,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment);
+    using InstructionLine::InstructionLine;
+    constexpr auto address_mode() const  -> AddressMode override { return AddressMode::A; }
 protected:
-    auto format_instruction() const -> std::string override;
+    auto format_instruction() const -> std::string override
+    {
+        return std::format("{} A", opid_to_name(op_id));
+    }
 };
 
-class NByteInstructionLine : public InstructionLine
+class NOperandInstructionLine : public InstructionLine
 {
 public:
-    NByteInstructionLine(
+    NOperandInstructionLine(
         uint16_t pc,
         OpName op_id,
-        AddressMode address_mode,
         std::optional<std::string>&& label,
         std::optional<std::string>&& comment,
         ArithmeticExpression&& expression);
@@ -100,33 +106,19 @@ protected:
     ArithmeticExpression expression = {};
 };
 
-class OneOperandInstructionLine : public NByteInstructionLine
+class OneOperandInstructionLine : public NOperandInstructionLine
 {
 public:
-    OneOperandInstructionLine(
-        uint16_t pc,
-        OpName op_id,
-        AddressMode address_mode,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment,
-        ArithmeticExpression&& expression);
-
+    using NOperandInstructionLine::NOperandInstructionLine;
     virtual ~OneOperandInstructionLine() = default;
 protected:
     uint8_t operand = 0;
 };
 
-class TwoOperandInstructionLine : public NByteInstructionLine
+class TwoOperandInstructionLine : public NOperandInstructionLine
 {
 public:
-    TwoOperandInstructionLine(
-        uint16_t pc,
-        OpName op_id,
-        AddressMode address_mode,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment,
-        ArithmeticExpression&& expression);
-
+    using NOperandInstructionLine::NOperandInstructionLine;
     virtual ~TwoOperandInstructionLine() = default;
 protected:
     uint8_t operand_1 = 0;
@@ -136,144 +128,136 @@ protected:
 class ImmediateInstructionLine : public OneOperandInstructionLine
 {
 public:
-    ImmediateInstructionLine(
-        uint16_t pc,
-        OpName op_id,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment,
-        ArithmeticExpression&& expression);
+    using OneOperandInstructionLine::OneOperandInstructionLine;
+    constexpr auto address_mode() const  -> AddressMode override { return AddressMode::IMM; }
 protected:
-    auto format_instruction() const -> std::string override;
+    auto format_instruction() const -> std::string override
+    {
+        return std::format("{} #${:02X}", opid_to_name(op_id), operand);
+    }
 };
 
 class RelativeInstructionLine : public OneOperandInstructionLine
 {
 public:
-    RelativeInstructionLine(
-        uint16_t pc,
-        OpName op_id,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment,
-        ArithmeticExpression&& expression);
+    using OneOperandInstructionLine::OneOperandInstructionLine;
+    constexpr auto address_mode() const  -> AddressMode override { return AddressMode::REL; }
 protected:
-    auto format_instruction() const -> std::string override;
+    auto format_instruction() const -> std::string override
+    {
+        int8_t offset = static_cast<int8_t>(
+            operand > 127 ? (-(256 - operand)) & 0xFF : operand & 0x7F);
+        uint16_t new_pc = pc + offset;
+        return std::format("{} ${:04X}", opid_to_name(op_id), new_pc);
+    }
 };
 
 class ZeroPageInstructionLine : public OneOperandInstructionLine
 {
 public:
-    ZeroPageInstructionLine(
-        uint16_t pc,
-        OpName op_id,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment,
-        ArithmeticExpression&& expression);
+    using OneOperandInstructionLine::OneOperandInstructionLine;
+    constexpr auto address_mode() const  -> AddressMode override { return AddressMode::ZPG; }
 protected:
-    auto format_instruction() const -> std::string override;
+    auto format_instruction() const -> std::string override
+    {
+        return std::format("{} ${:02X}", opid_to_name(op_id), operand);
+    }
 };
 
 class ZeroPageXInstructionLine : public OneOperandInstructionLine
 {
 public:
-    ZeroPageXInstructionLine(
-        uint16_t pc,
-        OpName op_id,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment,
-        ArithmeticExpression&& expression);
+    using OneOperandInstructionLine::OneOperandInstructionLine;
+    constexpr auto address_mode() const  -> AddressMode override { return AddressMode::ZPG_X; }
 protected:
-    auto format_instruction() const -> std::string override;
+    auto format_instruction() const -> std::string override
+    {
+        return std::format("{} ${:02X},X", opid_to_name(op_id), operand);
+    }
 };
 
 class ZeroPageYInstructionLine : public OneOperandInstructionLine
 {
 public:
-    ZeroPageYInstructionLine(
-        uint16_t pc,
-        OpName op_id,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment,
-        ArithmeticExpression&& expression);
+    using OneOperandInstructionLine::OneOperandInstructionLine;
+    constexpr auto address_mode() const  -> AddressMode override { return AddressMode::ZPG_Y; }
 protected:
-    auto format_instruction() const -> std::string override;
+    auto format_instruction() const -> std::string override
+    {
+        return std::format("{} ${:02X},Y", opid_to_name(op_id), operand);
+    }
 };
 
 class XIndirectInstructionLine : public OneOperandInstructionLine
 {
 public:
-    XIndirectInstructionLine(
-        uint16_t pc,
-        OpName op_id,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment,
-        ArithmeticExpression&& expression);
+    using OneOperandInstructionLine::OneOperandInstructionLine;
+    constexpr auto address_mode() const  -> AddressMode override { return AddressMode::X_IND; }
 protected:
-    auto format_instruction() const -> std::string override;
+    auto format_instruction() const -> std::string override
+    {
+        return std::format("{} (${:02X},X)", opid_to_name(op_id), operand);
+    }
 };
 
 class IndirectYInstructionLine : public OneOperandInstructionLine
 {
 public:
-    IndirectYInstructionLine(
-        uint16_t pc,
-        OpName op_id,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment,
-        ArithmeticExpression&& expression);
+    using OneOperandInstructionLine::OneOperandInstructionLine;
+    constexpr auto address_mode() const  -> AddressMode override { return AddressMode::IND_Y; }
 protected:
-    auto format_instruction() const -> std::string override;
+    auto format_instruction() const -> std::string override
+    {
+        return std::format("{} (${:02X}),Y", opid_to_name(op_id), operand);
+    }
 };
 
 class IndirectInstructionLine : public TwoOperandInstructionLine
 {
 public:
-    IndirectInstructionLine(
-        uint16_t pc,
-        OpName op_id,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment,
-        ArithmeticExpression&& expression);
+    using TwoOperandInstructionLine::TwoOperandInstructionLine;
+    constexpr auto address_mode() const  -> AddressMode override { return AddressMode::IND; }
 protected:
-    auto format_instruction() const -> std::string override;
+    auto format_instruction() const -> std::string override
+    {
+        return std::format("{} (${:02X}{:02X})", opid_to_name(op_id), operand_2, operand_1);
+    }
 };
 
 class AbsoluteInstructionLine : public TwoOperandInstructionLine
 {
 public:
-    AbsoluteInstructionLine(
-        uint16_t pc,
-        OpName op_id,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment,
-        ArithmeticExpression&& expression);
+    using TwoOperandInstructionLine::TwoOperandInstructionLine;
+    constexpr auto address_mode() const  -> AddressMode override { return AddressMode::ABS; }
 protected:
-    auto format_instruction() const -> std::string override;
+    auto format_instruction() const -> std::string override
+    {
+        return std::format("{} ${:02X}{:02X}", opid_to_name(op_id), operand_2, operand_1);
+    }
 };
 
 class AbsoluteXInstructionLine : public TwoOperandInstructionLine
 {
 public:
-    AbsoluteXInstructionLine(
-        uint16_t pc,
-        OpName op_id,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment,
-        ArithmeticExpression&& expression);
+    using TwoOperandInstructionLine::TwoOperandInstructionLine;
+    constexpr auto address_mode() const  -> AddressMode override { return AddressMode::ABS_X; }
 protected:
-    auto format_instruction() const -> std::string override;
+    auto format_instruction() const -> std::string override
+    {
+        return std::format("{} ${:02X}{:02X},X", opid_to_name(op_id), operand_2, operand_1);
+    }
 };
 
 class AbsoluteYInstructionLine : public TwoOperandInstructionLine
 {
 public:
-    AbsoluteYInstructionLine(
-        uint16_t pc,
-        OpName op_id,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment,
-        ArithmeticExpression&& expression);
+    using TwoOperandInstructionLine::TwoOperandInstructionLine;
+    constexpr auto address_mode() const  -> AddressMode override { return AddressMode::ABS_Y; }
 protected:
-    auto format_instruction() const -> std::string override;
+    auto format_instruction() const -> std::string override
+    {
+        return std::format("{} ${:02X}{:02X},Y", opid_to_name(op_id), operand_2, operand_1);
+    }
 };
 
 using InstructionLineMode = std::variant<

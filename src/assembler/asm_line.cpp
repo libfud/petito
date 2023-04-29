@@ -6,18 +6,16 @@ namespace mos6502 {
 InstructionLine::InstructionLine(
     uint16_t pc,
     OpName op_id,
-    AddressMode address_mode,
     std::optional<std::string>&& label,
     std::optional<std::string>&& comment)
     :
     pc{pc},
     op_id{op_id},
-    address_mode{address_mode},
     label{label},
     comment{comment}
 {}
 
-auto InstructionLine::format() const -> std::string
+constexpr auto InstructionLine::format() const -> std::string
 {
     return std::format(
         "{}{}{}",
@@ -27,200 +25,30 @@ auto InstructionLine::format() const -> std::string
     );
 }
 
-auto InstructionLine::has_label() const -> bool
+constexpr auto InstructionLine::has_label() const -> bool
 {
     return label != std::nullopt;
 }
 
-auto InstructionLine::get_label() const -> const std::string&
+constexpr auto InstructionLine::get_label() const -> const std::string&
 {
     return label.value();
 }
 
-auto InstructionLine::size() const -> uint16_t
+constexpr auto InstructionLine::size() const -> uint16_t
 {
-    return address_mode_num_bytes(address_mode);
+    return 1 + address_mode_num_bytes(address_mode());
 }
 
-auto NIModeInstructionLine::format_instruction() const -> std::string
-{
-    return std::format("{}", opid_to_name(op_id));
-}
-
-
-ImplicitInstructionLine::ImplicitInstructionLine(
+NOperandInstructionLine::NOperandInstructionLine(
     uint16_t pc,
     OpName op_id,
-    std::optional<std::string>&& label,
-    std::optional<std::string>&& comment)
-    : InstructionLine{pc, op_id, AddressMode::IMPL, std::move(label), std::move(comment)}
-{
-}
-
-auto ImplicitInstructionLine::format_instruction() const -> std::string
-{
-    return std::format("{}", opid_to_name(op_id));
-}
-
-AccInstructionLine::AccInstructionLine(
-    uint16_t pc,
-    OpName op_id,
-    std::optional<std::string>&& label,
-    std::optional<std::string>&& comment)
-    : InstructionLine{pc, op_id, AddressMode::A, std::move(label), std::move(comment)}
-{
-}
-
-auto AccInstructionLine::format_instruction() const -> std::string
-{
-    return std::format("{} A", opid_to_name(op_id));
-}
-
-NByteInstructionLine::NByteInstructionLine(
-    uint16_t pc,
-    OpName op_id,
-    AddressMode address_mode,
     std::optional<std::string>&& label,
     std::optional<std::string>&& comment,
     ArithmeticExpression&& expression)
-    : InstructionLine{pc, op_id, address_mode, std::move(label), std::move(comment)},
+    : InstructionLine{pc, op_id, std::move(label), std::move(comment)},
       expression{std::move(expression)}
 {
-}
-
-OneOperandInstructionLine::OneOperandInstructionLine(
-    uint16_t pc,
-    OpName op_id,
-    AddressMode address_mode,
-    std::optional<std::string>&& label,
-    std::optional<std::string>&& comment,
-    ArithmeticExpression&& expression)
-    : NByteInstructionLine{
-            pc,
-            op_id,
-            address_mode,
-            std::move(label),
-            std::move(comment),
-            std::move(expression)}
-{
-}
-
-TwoOperandInstructionLine::TwoOperandInstructionLine(
-    uint16_t pc,
-    OpName op_id,
-    AddressMode address_mode,
-    std::optional<std::string>&& label,
-    std::optional<std::string>&& comment,
-    ArithmeticExpression&& expression)
-    : NByteInstructionLine{
-            pc,
-            op_id,
-            address_mode,
-            std::move(label),
-            std::move(comment),
-            std::move(expression)}
-{
-}
-
-// NOLINTBEGIN(cppcoreguidelines-macro-usage)
-#define IMPL_INSTR_LINE_CTOR(HYGIENE_CLASS_NAME, HYGIENE_BASE_CLASS, HYGIENE_ADDRESS_MODE) \
-    HYGIENE_CLASS_NAME::HYGIENE_CLASS_NAME(                             \
-        uint16_t pc,                                                    \
-        OpName op_id,                                                   \
-        std::optional<std::string>&& label,                             \
-        std::optional<std::string>&& comment,                           \
-        ArithmeticExpression&& expression)                              \
-    : HYGIENE_BASE_CLASS{                                               \
-            pc,                                                         \
-            op_id,                                                      \
-            HYGIENE_ADDRESS_MODE,                                       \
-        std::move(label),                                               \
-        std::move(comment),                                             \
-        std::move(expression)}                                          \
-    {}
-
-IMPL_INSTR_LINE_CTOR(ImmediateInstructionLine, OneOperandInstructionLine, AddressMode::IMM)
-
-IMPL_INSTR_LINE_CTOR(RelativeInstructionLine, OneOperandInstructionLine, AddressMode::REL)
-
-IMPL_INSTR_LINE_CTOR(ZeroPageInstructionLine, OneOperandInstructionLine, AddressMode::ZPG)
-
-IMPL_INSTR_LINE_CTOR(ZeroPageXInstructionLine, OneOperandInstructionLine, AddressMode::ZPG_X)
-
-IMPL_INSTR_LINE_CTOR(ZeroPageYInstructionLine, OneOperandInstructionLine, AddressMode::ZPG_Y)
-
-IMPL_INSTR_LINE_CTOR(XIndirectInstructionLine, OneOperandInstructionLine, AddressMode::X_IND)
-
-IMPL_INSTR_LINE_CTOR(IndirectYInstructionLine, OneOperandInstructionLine, AddressMode::IND_Y)
-
-IMPL_INSTR_LINE_CTOR(IndirectInstructionLine, TwoOperandInstructionLine, AddressMode::IND)
-
-IMPL_INSTR_LINE_CTOR(AbsoluteInstructionLine, TwoOperandInstructionLine, AddressMode::ABS)
-
-IMPL_INSTR_LINE_CTOR(AbsoluteXInstructionLine, TwoOperandInstructionLine, AddressMode::ABS_X)
-
-IMPL_INSTR_LINE_CTOR(AbsoluteYInstructionLine, TwoOperandInstructionLine, AddressMode::ABS_Y)
-
-#undef IMPL_INSTR_LINE_CTOR
-// NOLINTEND(cppcoreguidelines-macro-usage)
-
-auto ImmediateInstructionLine::format_instruction() const -> std::string
-{
-    return std::format("{} #${:02X}", opid_to_name(op_id), operand);
-}
-
-auto RelativeInstructionLine::format_instruction() const -> std::string
-{
-    // ((lambda (x) (if (> x 127) (- (- 256 x)) x)) #xF4) -12
-    int8_t offset = static_cast<int8_t>(
-        operand > 127 ? (-(256 - operand)) & 0xFF : operand & 0x7F);
-    uint16_t new_pc = pc + offset;
-    return std::format("{} ${:04X}", opid_to_name(op_id), new_pc);
-}
-
-auto ZeroPageInstructionLine::format_instruction() const -> std::string
-{
-    return std::format("{} ${:02X}", opid_to_name(op_id), operand);
-}
-
-auto ZeroPageXInstructionLine::format_instruction() const -> std::string
-{
-    return std::format("{} ${:02X},X", opid_to_name(op_id), operand);
-}
-
-auto ZeroPageYInstructionLine::format_instruction() const -> std::string
-{
-    return std::format("{} ${:02X},Y", opid_to_name(op_id), operand);
-}
-
-auto XIndirectInstructionLine::format_instruction() const -> std::string
-{
-    return std::format("{} (${:02X},X)", opid_to_name(op_id), operand);
-}
-
-auto IndirectYInstructionLine::format_instruction() const -> std::string
-{
-    return std::format("{} (${:02X}),Y", opid_to_name(op_id), operand);
-}
-
-auto IndirectInstructionLine::format_instruction() const -> std::string
-{
-    return std::format("{} (${:02X}{:02X})", opid_to_name(op_id), operand_2, operand_1);
-}
-
-auto AbsoluteInstructionLine::format_instruction() const -> std::string
-{
-    return std::format("{} ${:02X}{:02X}", opid_to_name(op_id), operand_2, operand_1);
-}
-
-auto AbsoluteXInstructionLine::format_instruction() const -> std::string
-{
-    return std::format("{} ${:02X}{:02X},X", opid_to_name(op_id), operand_2, operand_1);
-}
-
-auto AbsoluteYInstructionLine::format_instruction() const -> std::string
-{
-    return std::format("{} ${:02X}{:02X},Y", opid_to_name(op_id), operand_2, operand_1);
 }
 
 auto AsmInstructionLine::make(asm6502Parser::LineContext* line, uint16_t pc) -> ParseResult
@@ -723,6 +551,7 @@ auto Line::size() const -> uint16_t
     case LineType::Assign:
     case LineType::Comment:
     case LineType::Empty:
+    default:
         return 0;
     }
 }

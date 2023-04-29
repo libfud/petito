@@ -843,7 +843,40 @@ static const std::array<OpcodeInfo, 256> OPCODE_INFO_TABLE = {
     OpcodeInfo{OpName::ISB, AddressMode::ABS_X, 7},
 };
 
-uint8_t address_mode_num_bytes(AddressMode address_type);
+constexpr auto address_mode_num_bytes(AddressMode address_type) -> uint8_t
+{
+    switch (address_type)
+    {
+    case AddressMode::A:
+        return 0;
+    case AddressMode::ABS:
+        return 2;
+    case AddressMode::ABS_X:
+        return 2;
+    case AddressMode::ABS_Y:
+        return 2;
+    case AddressMode::IMM:
+        return 1;
+    case AddressMode::IMPL:
+        return 0;
+    case AddressMode::IND:
+        return 2;
+    case AddressMode::X_IND:
+        return 1;
+    case AddressMode::IND_Y:
+        return 1;
+    case AddressMode::REL:
+        return 1;
+    case AddressMode::ZPG:
+        return 1;
+    case AddressMode::ZPG_X:
+        return 1;
+    case AddressMode::ZPG_Y:
+        return 1;
+    default:
+        return 0;
+    }
+}
 
 struct OpDecode
 {
