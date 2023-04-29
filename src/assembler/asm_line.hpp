@@ -6,6 +6,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <type_traits>
 #include <variant>
 
 #include "assembler_types.hpp"
@@ -18,11 +19,13 @@ namespace mos6502 {
 
 using result::Result;
 
+/*
 struct Symbol
 {
     std::string name = {};
     ArithmeticExpression value = {};
 };
+*/
 
 enum class LineType {
     Instruction,
@@ -48,6 +51,8 @@ public:
     constexpr auto has_label() const -> bool;
     constexpr auto get_label() const -> const std::string&;
     constexpr auto size() const -> uint16_t;
+
+    virtual auto evaluate(const SymbolMap&) -> std::optional<AsmError>;
 
 protected:
     virtual constexpr auto format_instruction() const -> std::string = 0;
@@ -93,17 +98,6 @@ protected:
     }
 };
 
-template <class T>
-auto instruction_line_wrapper(
-    uint16_t pc,
-    OpName op_id,
-    std::optional<std::string>&& label,
-    std::optional<std::string>&& comment,
-    ArithmeticExpression&& expression) -> T
-{
-    return T{pc, op_id, std::move(label), std::move(comment), std::move(expression)};
-}
-
 class NOperandInstructionLine : public InstructionLine
 {
 public:
@@ -117,11 +111,24 @@ protected:
     ArithmeticExpression expression = {};
 };
 
+template <class T>
+auto instruction_line_wrapper(
+    uint16_t pc,
+    OpName op_id,
+    std::optional<std::string>&& label,
+    std::optional<std::string>&& comment,
+    ArithmeticExpression&& expression) -> T
+    requires(std::is_base_of<NOperandInstructionLine, T>::value)
+{
+    return T{pc, op_id, std::move(label), std::move(comment), std::move(expression)};
+}
+
 class OneOperandInstructionLine : public NOperandInstructionLine
 {
 public:
     using NOperandInstructionLine::NOperandInstructionLine;
     virtual ~OneOperandInstructionLine() = default;
+    virtual auto evaluate(const SymbolMap& symbol_map) -> std::optional<AsmError> override;
 protected:
     uint8_t operand = 0;
 };
@@ -131,6 +138,7 @@ class TwoOperandInstructionLine : public NOperandInstructionLine
 public:
     using NOperandInstructionLine::NOperandInstructionLine;
     virtual ~TwoOperandInstructionLine() = default;
+    virtual auto evaluate(const SymbolMap& symbol_map) -> std::optional<AsmError> override;
 protected:
     uint8_t operand_1 = 0;
     uint8_t operand_2 = 0;
@@ -153,6 +161,7 @@ class RelativeInstructionLine : public OneOperandInstructionLine
 public:
     using OneOperandInstructionLine::OneOperandInstructionLine;
     constexpr auto address_mode() const  -> AddressMode override { return AddressMode::REL; }
+    virtual auto evaluate(const SymbolMap& symbol_map) -> std::optional<AsmError> override;
 protected:
     auto format_instruction() const -> std::string override
     {
@@ -322,8 +331,11 @@ public:
     using ParseResult = Result<AsmInstructionLine, ParseError>;
     static auto make(asm6502Parser::LineContext* line, uint16_t pc) -> ParseResult;
 
+    auto complete_decode(SymbolMap& symbol_map) -> std::optional<ParseError>;
+
     auto has_label() const -> bool;
     auto get_label() const -> const std::string&;
+    constexpr auto size() const -> uint16_t;
 
 protected:
     using BuilderResult = std::optional<ParseError>;

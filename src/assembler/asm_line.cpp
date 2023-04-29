@@ -40,6 +40,11 @@ constexpr auto InstructionLine::size() const -> uint16_t
     return 1 + address_mode_num_bytes(address_mode());
 }
 
+auto InstructionLine::evaluate(const SymbolMap&) -> std::optional<AsmError>
+{
+    return {};
+}
+
 NOperandInstructionLine::NOperandInstructionLine(
     uint16_t pc,
     OpName op_id,
@@ -49,6 +54,62 @@ NOperandInstructionLine::NOperandInstructionLine(
     : InstructionLine{pc, op_id, std::move(label), std::move(comment)},
       expression{std::move(expression)}
 {
+}
+
+auto OneOperandInstructionLine::evaluate(const SymbolMap& symbol_map) -> std::optional<AsmError>
+{
+    auto result = expression.evaluate(symbol_map, pc);
+    if (result.is_err())
+    {
+        return result.get_err();
+    }
+
+    auto value = result.get_ok();
+    if (value < 0 || value > 0xFF)
+    {
+        return AsmError::InvalidRange;
+    }
+
+    operand = value;
+    return {};
+}
+
+auto TwoOperandInstructionLine::evaluate(const SymbolMap& symbol_map) -> std::optional<AsmError>
+{
+    auto result = expression.evaluate(symbol_map, pc);
+    if (result.is_err())
+    {
+        return result.get_err();
+    }
+
+    auto value = result.get_ok();
+    if (value < 0 || value > 0xFFFF)
+    {
+        return AsmError::InvalidRange;
+    }
+
+    operand_1 = value & 0xFF;
+    operand_2 = (value >> 8) & 0xFF;
+    return {};
+}
+
+auto RelativeInstructionLine::evaluate(const SymbolMap& symbol_map) -> std::optional<AsmError>
+{
+    auto result = expression.evaluate(symbol_map, pc);
+    if (result.is_err())
+    {
+        return result.get_err();
+    }
+
+    auto value = result.get_ok();
+    if (value < -127 || value > 128)
+    {
+        return AsmError::InvalidRange;
+    }
+    // ((lambda (x) (if (> x 127) (- (- 256 x)) x)) #xF4)
+    operand = value & 0xFF;
+
+    return {};
 }
 
 auto AsmInstructionLine::make(asm6502Parser::LineContext* line, uint16_t pc) -> ParseResult
@@ -478,6 +539,11 @@ auto AsmInstructionLine::check_mnemonic(
     }
 
     return RetType::ok(op_id);
+}
+
+auto AsmInstructionLine::complete_decode(SymbolMap& symbol_map) -> std::optional<ParseError>
+{
+    return {};
 }
 
 auto Line::make(asm6502Parser::LineContext* line) -> LineResult
