@@ -20,6 +20,7 @@ TEST(TestAssembler, FromFileName)
         std::cerr << std::format("Result is {}\n", static_cast<uint32_t>(result.get_err()));
     }
     ASSERT_TRUE(result.is_ok());
+    auto assembler = result.get_ok();
 }
 
 TEST(TestAssembler, Nop)
@@ -30,8 +31,11 @@ TEST(TestAssembler, Nop)
     auto result = Assembler::from_text(input);
     ASSERT_TRUE(result.is_ok());
     auto assembler = result.get_ok();
-    ASSERT_EQ(assembler.format(), input);
-    ASSERT_EQ(assembler.size(), 1);
+    EXPECT_EQ(assembler.format(), input);
+    EXPECT_EQ(assembler.size(), 1);
+    auto prog_bytes = assembler.serialize();
+    ASSERT_EQ(prog_bytes.size(), 1);
+    EXPECT_EQ(prog_bytes[0], NOP_IMPL);
 }
 
 } // namespace mos6502

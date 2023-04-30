@@ -107,6 +107,7 @@ auto Assembler::make_lines(ProgramContext* program_file) -> std::optional<ParseE
         }
         auto size = instruction.size();
         pc += size;
+        program.push_back(std::move(instruction));
     }
     program_bytes.reserve(pc);
 
@@ -125,12 +126,7 @@ auto Assembler::evaluate() -> std::optional<ParseError>
             return res;
         }
         std::visit(
-            [&](const auto& v){
-                program_bytes.insert(
-                    program_bytes.end(),
-                    std::make_move_iterator(v.begin()),
-                    std::make_move_iterator(v.end()));
-            },
+            [&](const auto& v){ program_bytes.insert(program_bytes.end(), v.begin(), v.end()); },
             instruction.serialize());
     }
 
