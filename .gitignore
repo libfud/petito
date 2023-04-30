@@ -48,6 +48,7 @@ external/chibi-scheme-prefix
 /target
 /build
 /data/roms
+/ignore/
 
 # Emacs
 *~

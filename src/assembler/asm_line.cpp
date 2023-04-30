@@ -113,7 +113,8 @@ auto RelativeInstructionLine::evaluate(const SymbolMap& symbol_map) -> std::opti
     {
         return AsmError::InvalidRange;
     }
-    int8_t offset_8_bit = offset;
+    int8_t sign = offset < 0 ? -1 : 1;
+    int8_t offset_8_bit = static_cast<int8_t>(sign * static_cast<int8_t>(std::abs(offset)));
     operand = *reinterpret_cast<const int8_t*>(&offset_8_bit);
 
     return {};
@@ -583,6 +584,13 @@ auto LabelLine::make(asm6502Parser::LineContext* context, uint16_t pc) -> LabelR
         label_line.comment = context->comment()->COMMENT()->getText();
     }
     return LabelResult::ok(label_line);
+}
+
+auto LabelLine::format() const -> std::string
+{
+    const auto comment_str = comment == std::nullopt ?
+        "" : std::format("\t;{}", comment.value());
+    return std::format("{}:{}", label, comment_str);
 }
 
 auto AssignLine::make(asm6502Parser::LineContext* context, uint16_t pc) -> AssignResult

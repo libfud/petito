@@ -425,11 +425,7 @@ enum class LineType {
 struct LabelLine {
     using LabelResult = Result<LabelLine, ParseError>;
     static auto make(asm6502Parser::LineContext* line, uint16_t pc) -> LabelResult;
-    constexpr auto format() const -> std::string {
-        const auto comment_str = comment == std::nullopt ?
-            "" : std::format("\t;{}", comment.value());
-        return std::format("{}:{}", label, comment_str);
-    }
+    auto format() const -> std::string;
     constexpr auto has_label() const -> bool { return true; }
     constexpr auto get_label() const -> const std::string& { return label; }
     constexpr auto size() const -> uint16_t { return 0; }

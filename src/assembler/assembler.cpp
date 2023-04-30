@@ -39,7 +39,7 @@ auto Assembler::from_file_name(std::string&& name) -> AssemblerResult
     assembler.program_counter_lines.reserve(lines.size());
 
     size_t pc = 0;
-    for (auto idx = 0; idx < lines.size(); ++idx)
+    for (size_t idx = 0; idx < lines.size(); ++idx)
     {
         auto instruction_result = AsmLine::make(lines[idx], pc);
         if (instruction_result.is_err())
@@ -65,7 +65,7 @@ auto Assembler::from_file_name(std::string&& name) -> AssemblerResult
         assembler.program.push_back(std::move(instruction));
         pc += size;
     }
-    for (auto idx = 0; idx < assembler.program.size(); ++idx)
+    for (size_t idx = 0; idx < assembler.program.size(); ++idx)
     {
         auto& instruction = assembler.program[idx];
         auto res = instruction.evaluate(assembler.symbols);

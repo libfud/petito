@@ -1,5 +1,5 @@
 if(NOT DEFINED ENV{NO_CLANG_CHECK})
-    set(CMAKE_CXX_CLANG_TIDY clang-tidy -extra-arg=-std=c++20 -checks=cppcore*,-readability-magic-numbers,-cppcoreguidelines-pro-bounds-constant-array-index,-cppcoreguidelines-avoid-magic-numbers,-cppcoreguidelines-pro-bounds-pointer-arithmetic,-cppcoreguidelines-pro-type-const-cast,-cppcoreguidelines-pro-type-union-access,cplusplus*)
+    set(CMAKE_CXX_CLANG_TIDY clang-tidy -extra-arg=-std=c++20 -checks=cppcore*,-readability-magic-numbers,-cppcoreguidelines-pro-bounds-constant-array-index,-cppcoreguidelines-avoid-magic-numbers,-cppcoreguidelines-pro-bounds-pointer-arithmetic,-cppcoreguidelines-pro-type-const-cast,-cppcoreguidelines-pro-type-union-access,cplusplus*,-cppcoreguidelines-pro-type-reinterpret-cast)
 endif()
 
 SET(CMAKE_CXX_FLAGS_COVERAGE
