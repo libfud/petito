@@ -109,16 +109,7 @@ auto RelativeInstructionLine::evaluate(const SymbolMap& symbol_map) -> std::opti
 
     target_address = value;
     int32_t offset = target_address - (pc + size());
-    if (offset < -128 || offset > 127)
-    {
-        return AsmError::InvalidRange;
-    }
-    int8_t sign = offset < 0 ? -1 : 1;
-    int8_t offset_8_bit = static_cast<int8_t>(std::abs(offset));
-    if (offset < 0)
-    {
-        offset_8_bit = -offset_8_bit;
-    }
+    int8_t offset_8_bit = static_cast<int8_t>(offset);
     operand = static_cast<const uint8_t>(offset_8_bit);
 
     return {};
