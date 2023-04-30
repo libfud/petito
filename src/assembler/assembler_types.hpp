@@ -59,14 +59,19 @@ enum class AsmError {
 };
 
 enum class ParseError {
-  InvalidLabelParse,
-  InvalidCommentParse,
-  InvalidOpIdParse,
-  InvalidHashParse,
-  BadArithmetic,
-  BadAssign,
-  BadNumber,
-  LogicError,
+    FailedToLoad,
+    InvalidLabelParse,
+    InvalidCommentParse,
+    InvalidOpIdParse,
+    InvalidHashParse,
+    BadArithmetic,
+    BadAssign,
+    BadNumber,
+    BadEvaluation,
+    InvalidRange,
+    SymbolUndefined,
+    SymbolRedefined,
+    LogicError,
 };
 
 } // namespace mos6502

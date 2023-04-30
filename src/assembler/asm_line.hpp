@@ -30,12 +30,27 @@ public:
 
     virtual ~InstructionLine() = default;
     virtual auto address_mode() const -> AddressMode = 0;
-    constexpr auto format() const -> std::string;
-    constexpr auto has_label() const -> bool;
-    constexpr auto get_label() const -> const std::string&;
-    constexpr auto size() const -> uint16_t;
 
-    virtual auto evaluate(const SymbolMap&) -> std::optional<AsmError>;
+    constexpr auto format() const -> std::string;
+
+    virtual constexpr auto has_label() const -> bool { return label != std::nullopt; }
+    constexpr auto get_label() const -> const std::string& {
+        return label.value();
+    }
+    constexpr auto program_counter() const -> uint16_t
+    {
+        return pc;
+    }
+    constexpr auto size() const -> uint16_t
+    {
+        return 1 + address_mode_num_bytes(address_mode());
+    }
+    constexpr auto opcode() const -> uint8_t
+    {
+        return OPCODE_MAP.at(address_mode()).at(op_id);
+    }
+
+    virtual auto evaluate(const SymbolMap&) -> std::optional<ParseError>;
 
 protected:
     virtual constexpr auto format_instruction() const -> std::string = 0;
@@ -50,6 +65,8 @@ class NIModeInstructionLine : public InstructionLine
 public:
     using InstructionLine::InstructionLine;
     constexpr auto address_mode() const  -> AddressMode override { return AddressMode::NI; }
+    constexpr auto serialize() const -> std::array<uint8_t, 1> { return {opcode()}; }
+
 protected:
     auto format_instruction() const -> std::string override
     {
@@ -62,6 +79,8 @@ class ImplicitInstructionLine : public InstructionLine
 public:
     using InstructionLine::InstructionLine;
     constexpr auto address_mode() const  -> AddressMode override { return AddressMode::IMPL; }
+    constexpr auto serialize() const -> std::array<uint8_t, 1> { return {opcode()}; }
+
 protected:
     auto format_instruction() const -> std::string override
     {
@@ -74,6 +93,7 @@ class AccInstructionLine : public InstructionLine
 public:
     using InstructionLine::InstructionLine;
     constexpr auto address_mode() const  -> AddressMode override { return AddressMode::A; }
+    constexpr auto serialize() const -> std::array<uint8_t, 1> { return {opcode()}; }
 protected:
     auto format_instruction() const -> std::string override
     {
@@ -111,7 +131,11 @@ class OneOperandInstructionLine : public NOperandInstructionLine
 public:
     using NOperandInstructionLine::NOperandInstructionLine;
     virtual ~OneOperandInstructionLine() = default;
-    virtual auto evaluate(const SymbolMap& symbol_map) -> std::optional<AsmError> override;
+    virtual auto evaluate(const SymbolMap& symbol_map) -> std::optional<ParseError> override;
+    constexpr auto serialize() const -> std::array<uint8_t, 2> {
+        return {opcode(), operand};
+    }
+
 protected:
     uint8_t operand = 0;
 };
@@ -121,7 +145,11 @@ class TwoOperandInstructionLine : public NOperandInstructionLine
 public:
     using NOperandInstructionLine::NOperandInstructionLine;
     virtual ~TwoOperandInstructionLine() = default;
-    virtual auto evaluate(const SymbolMap& symbol_map) -> std::optional<AsmError> override;
+    virtual auto evaluate(const SymbolMap& symbol_map) -> std::optional<ParseError> override;
+    constexpr auto serialize() const -> std::array<uint8_t, 3> {
+        return {opcode(), operand_1, operand_2};
+    }
+
 protected:
     uint8_t operand_1 = 0;
     uint8_t operand_2 = 0;
@@ -144,7 +172,7 @@ class RelativeInstructionLine : public OneOperandInstructionLine
 public:
     using OneOperandInstructionLine::OneOperandInstructionLine;
     constexpr auto address_mode() const  -> AddressMode override { return AddressMode::REL; }
-    virtual auto evaluate(const SymbolMap& symbol_map) -> std::optional<AsmError> override;
+    virtual auto evaluate(const SymbolMap& symbol_map) -> std::optional<ParseError> override;
 protected:
     auto format_instruction() const -> std::string override
     {
@@ -308,16 +336,27 @@ concept HasShiftAndMnemonic = requires(T t) {
     { t.shift() } -> std::same_as<asm6502Parser::ShiftContext*>;
 };
 
+using AsmLineBytes = std::variant<
+    std::array<uint8_t, 0>,
+    std::array<uint8_t, 1>,
+    std::array<uint8_t, 2>,
+    std::array<uint8_t, 3>,
+    std::vector<uint8_t>
+    >;
+
 class AsmInstructionLine {
 public:
     using ParseResult = Result<AsmInstructionLine, ParseError>;
     static auto make(asm6502Parser::LineContext* line, uint16_t pc) -> ParseResult;
 
-    auto evaluate(SymbolMap& symbol_map) -> std::optional<AsmError>;
+    auto evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>;
 
     auto format() const -> std::string;
+    auto serialize() const -> AsmLineBytes;
+
     auto has_label() const -> bool;
     auto get_label() const -> const std::string&;
+    auto program_counter() const -> uint16_t;
     auto size() const -> uint16_t;
 
 protected:
@@ -405,31 +444,19 @@ private:
     InstructionLineMode instruction = {};
 };
 
-/*
-struct Symbol
-{
-    std::string name = {};
-    ArithmeticExpression value = {};
-};
-*/
-
-enum class LineType {
-    Instruction,
-    Comment,
-    Label,
-    Assign,
-    Directive,
-    Empty,
-};
-
 struct LabelLine {
     using LabelResult = Result<LabelLine, ParseError>;
     static auto make(asm6502Parser::LineContext* line, uint16_t pc) -> LabelResult;
     auto format() const -> std::string;
+    constexpr auto serialize() const -> std::array<uint8_t, 0> { return {}; }
     constexpr auto has_label() const -> bool { return true; }
     constexpr auto get_label() const -> const std::string& { return label; }
+    constexpr auto program_counter() const -> uint16_t
+    {
+        return pc;
+    }
     constexpr auto size() const -> uint16_t { return 0; }
-    constexpr auto evaluate(SymbolMap& symbol_map) -> std::optional<AsmError>
+    constexpr auto evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>
     {
         return {};
     }
@@ -443,9 +470,14 @@ struct CommentLine {
     constexpr auto format() const -> std::string {
         return comment;
     }
+    constexpr auto serialize() const -> std::array<uint8_t, 0> { return {}; }
     constexpr auto has_label() const -> bool { return false; }
+    constexpr auto program_counter() const -> uint16_t
+    {
+        return pc;
+    }
     constexpr auto size() const -> uint16_t { return 0; }
-    constexpr auto evaluate(SymbolMap& symbol_map) -> std::optional<AsmError>
+    constexpr auto evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>
     {
         return {};
     }
@@ -461,9 +493,14 @@ public:
     constexpr auto format() const -> std::string {
         return std::format("{} EQU {}", name, value.value());
     }
+    constexpr auto serialize() const -> std::array<uint8_t, 0> { return {}; }
     constexpr auto has_label() const -> bool { return false; }
+    constexpr auto program_counter() const -> uint16_t
+    {
+        return pc;
+    }
     constexpr auto size() const -> uint16_t { return 0; }
-    auto evaluate(SymbolMap& symbol_map) -> std::optional<AsmError>;
+    auto evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>;
 
 private:
     std::string name;
@@ -476,11 +513,16 @@ private:
 struct EmptyLine {
     constexpr auto has_label() const -> bool { return false; }
     constexpr auto format() const -> std::string { return ""; };
+    constexpr auto program_counter() const -> uint16_t
+    {
+        return pc;
+    }
     constexpr auto size() const -> uint16_t { return 0; }
-    constexpr auto evaluate(SymbolMap& symbol_map) -> std::optional<AsmError>
+    constexpr auto evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>
     {
         return {};
     }
+    constexpr auto serialize() const -> std::array<uint8_t, 0> { return {}; }
     uint16_t pc = 0;
 };
 
@@ -498,9 +540,11 @@ public:
     static auto make(asm6502Parser::LineContext* line, uint16_t pc) -> ParseResult;
     auto has_label() const -> bool;
     auto get_label() const -> const std::string&;
+    auto program_counter() const -> uint16_t;
     auto size() const -> uint16_t;
-    auto evaluate(SymbolMap& symbol_map) -> std::optional<AsmError>;
+    auto evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>;
     auto format() const -> std::string;
+    auto serialize() const -> AsmLineBytes;
 private:
     AsmLineType line = EmptyLine{};
 };

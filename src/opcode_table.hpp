@@ -1006,6 +1006,170 @@ const std::map<AddressMode, OpSet> ADDRESS_MODE_MAP{
     {AddressMode::NI, JAM_OP_SET},
 };
 
+using OpMap = std::map<OpName, uint8_t>;
+
+const OpMap IMPLICIT_MAP{
+    {OpName::BRK, BRK_IMPL}, {OpName::PHP, PHP_IMPL}, {OpName::CLC, CLC_IMPL},
+    {OpName::PLP, PLP_IMPL}, {OpName::SEC, SEC_IMPL}, {OpName::RTI, RTI_IMPL},
+    {OpName::PHA, PHA_IMPL}, {OpName::CLI, CLI_IMPL}, {OpName::RTS, RTS_IMPL},
+    {OpName::PLA, PLA_IMPL}, {OpName::SEI, SEI_IMPL}, {OpName::DEY, DEY_IMPL},
+    {OpName::TXA, TXA_IMPL}, {OpName::TYA, TYA_IMPL}, {OpName::TXS, TXS_IMPL},
+    {OpName::TAY, TAY_IMPL}, {OpName::TAX, TAX_IMPL}, {OpName::CLV, CLV_IMPL},
+    {OpName::TSX, TSX_IMPL}, {OpName::INY, INY_IMPL}, {OpName::DEX, DEX_IMPL},
+    {OpName::CLD, CLD_IMPL}, {OpName::INX, INX_IMPL}, {OpName::SED, SED_IMPL},
+    {OpName::NOP, NOP_IMPL},
+};
+
+const OpMap ACC_MAP{
+    {OpName::ASL, ASL_A},
+    {OpName::ROL, ROL_A},
+    {OpName::LSR, LSR_A},
+    {OpName::ROR, ROR_A},
+};
+
+static constexpr uint8_t ANC_IMM = ANC_IMM1;
+static constexpr uint8_t NOP_IMM = NOP_IMM_1;
+const OpMap IMMEDIATE_MAP{
+    {OpName::ORA, ORA_IMM}, {OpName::ANC, ANC_IMM}, {OpName::AND, AND_IMM},
+    {OpName::EOR, EOR_IMM}, {OpName::ALR, ALR_IMM}, {OpName::ADC, ADC_IMM},
+    {OpName::ARR, ARR_IMM}, {OpName::NOP, NOP_IMM}, {OpName::ANE, ANE_IMM},
+    {OpName::LDY, LDY_IMM}, {OpName::LDX, LDX_IMM}, {OpName::LDA, LDA_IMM},
+    {OpName::LXA, LXA_IMM}, {OpName::CPY, CPY_IMM}, {OpName::CMP, CMP_IMM},
+    {OpName::SBX, SBX_IMM}, {OpName::CPX, CPX_IMM}, {OpName::SBC, SBC_IMM},
+};
+
+static constexpr uint8_t NOP_ABS = NOP_ABS_0;
+const OpMap ABSOLUTE_MAP{
+    {OpName::NOP, NOP_ABS}, {OpName::ORA, ORA_ABS}, {OpName::ASL, ASL_ABS},
+    {OpName::SLO, SLO_ABS}, {OpName::JSR, JSR_ABS}, {OpName::BIT, BIT_ABS},
+    {OpName::AND, AND_ABS}, {OpName::ROL, ROL_ABS}, {OpName::RLA, RLA_ABS},
+    {OpName::JMP, JMP_ABS}, {OpName::EOR, EOR_ABS}, {OpName::LSR, LSR_ABS},
+    {OpName::SRE, SRE_ABS}, {OpName::ADC, ADC_ABS}, {OpName::ROR, ROR_ABS},
+    {OpName::RRA, RRA_ABS}, {OpName::STY, STY_ABS}, {OpName::STA, STA_ABS},
+    {OpName::STX, STX_ABS}, {OpName::SAX, SAX_ABS}, {OpName::LDY, LDY_ABS},
+    {OpName::LDA, LDA_ABS}, {OpName::LDX, LDX_ABS}, {OpName::LAX, LAX_ABS},
+    {OpName::CPY, CPY_ABS}, {OpName::CMP, CMP_ABS}, {OpName::DEC, DEC_ABS},
+    {OpName::DCP, DCP_ABS}, {OpName::CPX, CPX_ABS}, {OpName::SBC, SBC_ABS},
+    {OpName::INC, INC_ABS}, {OpName::ISB, ISB_ABS},
+};
+
+static constexpr uint8_t NOP_ABS_X = NOP_ABSX1;
+const OpMap ABSOLUTE_X_MAP{
+    {OpName::NOP, NOP_ABS_X}, {OpName::ORA, ORA_ABS_X},
+    {OpName::ASL, ASL_ABS_X}, {OpName::SLO, SLO_ABS_X},
+    {OpName::AND, AND_ABS_X}, {OpName::ROL, ROL_ABS_X},
+    {OpName::RLA, RLA_ABS_X}, {OpName::EOR, EOR_ABS_X},
+    {OpName::LSR, LSR_ABS_X}, {OpName::SRE, SRE_ABS_X},
+    {OpName::ADC, ADC_ABS_X}, {OpName::ROR, ROR_ABS_X},
+    {OpName::RRA, RRA_ABS_X}, {OpName::SHY, SHY_ABS_X},
+    {OpName::STA, STA_ABS_X}, {OpName::LDY, LDY_ABS_X},
+    {OpName::LDA, LDA_ABS_X}, {OpName::CMP, CMP_ABS_X},
+    {OpName::DEC, DEC_ABS_X}, {OpName::DCP, DCP_ABS_X},
+    {OpName::SBC, SBC_ABS_X}, {OpName::INC, INC_ABS_X},
+    {OpName::ISB, ISB_ABS_X},
+};
+
+const OpMap ABSOLUTE_Y_MAP{
+    {OpName::ORA, ORA_ABS_Y}, {OpName::SLO, SLO_ABS_Y},
+    {OpName::AND, AND_ABS_Y}, {OpName::RLA, RLA_ABS_Y},
+    {OpName::EOR, EOR_ABS_Y}, {OpName::SRE, SRE_ABS_Y},
+    {OpName::ADC, ADC_ABS_Y}, {OpName::RRA, RRA_ABS_Y},
+    {OpName::STA, STA_ABS_Y}, {OpName::TAS, TAS_ABS_Y},
+    {OpName::SHX, SHX_ABS_Y}, {OpName::SHA, SHA_ABS_Y},
+    {OpName::LDA, LDA_ABS_Y}, {OpName::LAS, LAS_ABS_Y},
+    {OpName::LDX, LDX_ABS_Y}, {OpName::LAX, LAX_ABS_Y},
+    {OpName::CMP, CMP_ABS_Y}, {OpName::DCP, DCP_ABS_Y},
+    {OpName::SBC, SBC_ABS_Y}, {OpName::ISB, ISB_ABS_Y},
+};
+
+static constexpr uint8_t NOP_ZPG = NOP_ZPG_0;
+const OpMap ZPG_MAP{
+    {OpName::NOP, NOP_ZPG}, {OpName::ORA, ORA_ZPG}, {OpName::ASL, ASL_ZPG},
+    {OpName::SLO, SLO_ZPG}, {OpName::BIT, BIT_ZPG}, {OpName::AND, AND_ZPG},
+    {OpName::ROL, ROL_ZPG}, {OpName::RLA, RLA_ZPG}, {OpName::EOR, EOR_ZPG},
+    {OpName::LSR, LSR_ZPG}, {OpName::SRE, SRE_ZPG}, {OpName::ADC, ADC_ZPG},
+    {OpName::ROR, ROR_ZPG}, {OpName::RRA, RRA_ZPG}, {OpName::STY, STY_ZPG},
+    {OpName::STA, STA_ZPG}, {OpName::STX, STX_ZPG}, {OpName::SAX, SAX_ZPG},
+    {OpName::LDY, LDY_ZPG}, {OpName::LDA, LDA_ZPG}, {OpName::LDX, LDX_ZPG},
+    {OpName::LAX, LAX_ZPG}, {OpName::CPY, CPY_ZPG}, {OpName::CMP, CMP_ZPG},
+    {OpName::DEC, DEC_ZPG}, {OpName::DCP, DCP_ZPG}, {OpName::CPX, CPX_ZPG},
+    {OpName::SBC, SBC_ZPG}, {OpName::INC, INC_ZPG}, {OpName::ISB, ISB_ZPG},
+};
+
+static constexpr uint8_t NOP_ZPG_X = NOP_ZPX_1;
+const OpMap ZPG_X_MAP{
+    {OpName::NOP, NOP_ZPG_X}, {OpName::ORA, ORA_ZPG_X},
+    {OpName::ASL, ASL_ZPG_X}, {OpName::SLO, SLO_ZPG_X},
+    {OpName::AND, AND_ZPG_X}, {OpName::ROL, ROL_ZPG_X},
+    {OpName::RLA, RLA_ZPG_X}, {OpName::EOR, EOR_ZPG_X},
+    {OpName::LSR, LSR_ZPG_X}, {OpName::SRE, SRE_ZPG_X},
+    {OpName::ADC, ADC_ZPG_X}, {OpName::ROR, ROR_ZPG_X},
+    {OpName::RRA, RRA_ZPG_X}, {OpName::STY, STY_ZPG_X},
+    {OpName::STA, STA_ZPG_X}, {OpName::LDY, LDY_ZPG_X},
+    {OpName::LDA, LDA_ZPG_X}, {OpName::CMP, CMP_ZPG_X},
+    {OpName::DEC, DEC_ZPG_X}, {OpName::DCP, DCP_ZPG_X},
+    {OpName::SBC, SBC_ZPG_X}, {OpName::INC, INC_ZPG_X},
+    {OpName::ISB, ISB_ZPG_X},
+};
+
+const OpMap ZPG_Y_MAP{
+    {OpName::STX, STX_ZPG_Y},
+    {OpName::SAX, SAX_ZPG_Y},
+    {OpName::LDX, LDX_ZPG_Y},
+    {OpName::LAX, LAX_ZPG_Y},
+};
+
+const OpMap INDIRECT_MAP{{OpName::JMP, JMP_IND}};
+
+const OpMap X_INDIRECT_MAP{
+    {OpName::ORA, ORA_X_IND}, {OpName::SLO, SLO_X_IND},
+    {OpName::AND, AND_X_IND}, {OpName::RLA, RLA_X_IND},
+    {OpName::EOR, EOR_X_IND}, {OpName::SRE, SRE_X_IND},
+    {OpName::ADC, ADC_X_IND}, {OpName::RRA, RRA_X_IND},
+    {OpName::STA, STA_X_IND}, {OpName::SAX, SAX_X_IND},
+    {OpName::LDA, LDA_X_IND}, {OpName::LAX, LAX_X_IND},
+    {OpName::CMP, CMP_X_IND}, {OpName::DCP, DCP_X_IND},
+    {OpName::SBC, SBC_X_IND}, {OpName::ISB, ISB_X_IND},
+};
+
+const OpMap INDIRECT_Y_MAP{
+    {OpName::ORA, ORA_IND_Y}, {OpName::SLO, SLO_IND_Y},
+    {OpName::AND, AND_IND_Y}, {OpName::RLA, RLA_IND_Y},
+    {OpName::EOR, EOR_IND_Y}, {OpName::SRE, SRE_IND_Y},
+    {OpName::ADC, ADC_IND_Y}, {OpName::RRA, RRA_IND_Y},
+    {OpName::STA, STA_IND_Y}, {OpName::SHA, SHA_IND_Y},
+    {OpName::LDA, LDA_IND_Y}, {OpName::LAX, LAX_IND_Y},
+    {OpName::CMP, CMP_IND_Y}, {OpName::DCP, DCP_IND_Y},
+    {OpName::SBC, SBC_IND_Y}, {OpName::ISB, ISB_IND_Y},
+};
+
+const OpMap RELATIVE_MAP{
+    {OpName::BPL, BPL_REL}, {OpName::BMI, BMI_REL}, {OpName::BVC, BVC_REL},
+    {OpName::BVS, BVS_REL}, {OpName::BCC, BCC_REL}, {OpName::BCS, BCS_REL},
+    {OpName::BNE, BNE_REL}, {OpName::BEQ, BEQ_REL},
+};
+
+const OpMap JAM_MAP{
+    {OpName::JAM, JAM_X00}
+};
+
+const std::map<AddressMode, OpMap> OPCODE_MAP{
+    {AddressMode::IMPL, IMPLICIT_MAP},
+    {AddressMode::A, ACC_MAP},
+    {AddressMode::IMM, IMMEDIATE_MAP},
+    {AddressMode::ABS, ABSOLUTE_MAP},
+    {AddressMode::ABS_X, ABSOLUTE_X_MAP},
+    {AddressMode::ABS_Y, ABSOLUTE_Y_MAP},
+    {AddressMode::ZPG, ZPG_MAP},
+    {AddressMode::ZPG_X, ZPG_X_MAP},
+    {AddressMode::ZPG_Y, ZPG_Y_MAP},
+    {AddressMode::IND, INDIRECT_MAP},
+    {AddressMode::X_IND, X_INDIRECT_MAP},
+    {AddressMode::IND_Y, INDIRECT_Y_MAP},
+    {AddressMode::REL, RELATIVE_MAP},
+    {AddressMode::NI, JAM_MAP},
+};
+
 
 } // namespace mos6502
 

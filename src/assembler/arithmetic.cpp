@@ -192,9 +192,9 @@ auto ArithmeticExpression::has_words() const -> bool { return words_encountered;
 
 auto ArithmeticExpression::evaluate(
     const SymbolMap& symbol_map,
-    uint16_t pc) -> Result<int32_t, AsmError>
+    uint16_t pc) -> Result<int32_t, ParseError>
 {
-    using RetType = Result<int32_t, AsmError>;
+    using RetType = Result<int32_t, ParseError>;
     using AtomType = ArithAtomType;
 
     std::optional<UnaryOperator> unary_op{};
@@ -205,7 +205,7 @@ auto ArithmeticExpression::evaluate(
     size_t idx = 0;
     int32_t acc = 0;
 
-    auto evaluate_sub_expr = [&](const SExpr& sub_expr) -> std::optional<AsmError> {
+    auto evaluate_sub_expr = [&](const SExpr& sub_expr) -> std::optional<ParseError> {
         if (sub_expr.index() == 0)
         {
             const auto& atom = std::get<Atom>(sub_expr);
@@ -234,7 +234,7 @@ auto ArithmeticExpression::evaluate(
                 if (!symbol_map.contains(symbol))
                 {
                     logger::error("Undefined symbol {} ", symbol);
-                    return AsmError::SymbolUndefined;
+                    return ParseError::SymbolUndefined;
                 }
                 rhs = symbol_map.at(symbol);
                 break;
@@ -264,7 +264,7 @@ auto ArithmeticExpression::evaluate(
 
     if (binary_op != std::nullopt)
     {
-        return RetType::err(AsmError::BadEvaluation);
+        return RetType::err(ParseError::BadEvaluation);
     }
     if (unary_op != std::nullopt)
     {
@@ -277,7 +277,7 @@ auto ArithmeticExpression::evaluate(
         }
         if (rhs == std::nullopt)
         {
-            return RetType::err(AsmError::BadEvaluation);
+            return RetType::err(ParseError::BadEvaluation);
         }
         acc = unary_expr(unary_op.value(), rhs.value());
         unary_op = {};
@@ -302,7 +302,7 @@ auto ArithmeticExpression::evaluate(
 
         if (binary_op == std::nullopt)
         {
-            return RetType::err(AsmError::BadEvaluation);
+            return RetType::err(ParseError::BadEvaluation);
         }
 
         // next may either be a unary operator or a value
@@ -325,14 +325,14 @@ auto ArithmeticExpression::evaluate(
             }
             if (rhs == std::nullopt)
             {
-                return RetType::err(AsmError::BadEvaluation);
+                return RetType::err(ParseError::BadEvaluation);
             }
             rhs = unary_expr(unary_op.value(), rhs.value());
             unary_op = {};
         }
         if (rhs == std::nullopt)
         {
-            return RetType::err(AsmError::BadEvaluation);
+            return RetType::err(ParseError::BadEvaluation);
         }
 
         acc = binary_expr(acc, binary_op.value(), rhs.value());

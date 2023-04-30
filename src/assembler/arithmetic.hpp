@@ -94,7 +94,7 @@ public:
     auto has_symbols() const -> bool;
     auto has_words() const -> bool;
 
-    auto evaluate(const SymbolMap& symbol_map, uint16_t pc) -> Result<int32_t, AsmError>;
+    auto evaluate(const SymbolMap& symbol_map, uint16_t pc) -> Result<int32_t, ParseError>;
 
     using Atom = ArithmeticAtom;
     using Expr = ArithmeticExpression;

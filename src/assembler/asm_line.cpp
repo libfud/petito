@@ -25,22 +25,7 @@ constexpr auto InstructionLine::format() const -> std::string
     );
 }
 
-constexpr auto InstructionLine::has_label() const -> bool
-{
-    return label != std::nullopt;
-}
-
-constexpr auto InstructionLine::get_label() const -> const std::string&
-{
-    return label.value();
-}
-
-constexpr auto InstructionLine::size() const -> uint16_t
-{
-    return 1 + address_mode_num_bytes(address_mode());
-}
-
-auto InstructionLine::evaluate(const SymbolMap&) -> std::optional<AsmError>
+auto InstructionLine::evaluate(const SymbolMap&) -> std::optional<ParseError>
 {
     return {};
 }
@@ -56,7 +41,7 @@ NOperandInstructionLine::NOperandInstructionLine(
 {
 }
 
-auto OneOperandInstructionLine::evaluate(const SymbolMap& symbol_map) -> std::optional<AsmError>
+auto OneOperandInstructionLine::evaluate(const SymbolMap& symbol_map) -> std::optional<ParseError>
 {
     auto result = expression.evaluate(symbol_map, pc);
     if (result.is_err())
@@ -67,14 +52,14 @@ auto OneOperandInstructionLine::evaluate(const SymbolMap& symbol_map) -> std::op
     auto value = result.get_ok();
     if (value < 0 || value > 0xFF)
     {
-        return AsmError::InvalidRange;
+        return ParseError::InvalidRange;
     }
 
     operand = value;
     return {};
 }
 
-auto TwoOperandInstructionLine::evaluate(const SymbolMap& symbol_map) -> std::optional<AsmError>
+auto TwoOperandInstructionLine::evaluate(const SymbolMap& symbol_map) -> std::optional<ParseError>
 {
     auto result = expression.evaluate(symbol_map, pc);
     if (result.is_err())
@@ -85,7 +70,7 @@ auto TwoOperandInstructionLine::evaluate(const SymbolMap& symbol_map) -> std::op
     auto value = result.get_ok();
     if (value < 0 || value > 0xFFFF)
     {
-        return AsmError::InvalidRange;
+        return ParseError::InvalidRange;
     }
 
     operand_1 = value & 0xFF;
@@ -93,7 +78,7 @@ auto TwoOperandInstructionLine::evaluate(const SymbolMap& symbol_map) -> std::op
     return {};
 }
 
-auto RelativeInstructionLine::evaluate(const SymbolMap& symbol_map) -> std::optional<AsmError>
+auto RelativeInstructionLine::evaluate(const SymbolMap& symbol_map) -> std::optional<ParseError>
 {
     auto result = expression.evaluate(symbol_map, pc);
     if (result.is_err())
@@ -104,7 +89,7 @@ auto RelativeInstructionLine::evaluate(const SymbolMap& symbol_map) -> std::opti
     auto value = result.get_ok();
     if (value < 0 || value > 0xFFFF)
     {
-        return AsmError::InvalidRange;
+        return ParseError::InvalidRange;
     }
 
     // Target address is an absolute address, e.g. a label or a label
@@ -114,7 +99,7 @@ auto RelativeInstructionLine::evaluate(const SymbolMap& symbol_map) -> std::opti
     // Branch range has to fit in signed 8 bit integer.
     if (offset < -128 || offset > 127)
     {
-        return AsmError::InvalidRange;
+        return ParseError::InvalidRange;
     }
     operand = static_cast<uint8_t>(offset);
 
@@ -550,29 +535,40 @@ auto AsmInstructionLine::check_mnemonic(
     return RetType::ok(op_id);
 }
 
-auto AsmInstructionLine::evaluate(SymbolMap& symbol_map) -> std::optional<AsmError>
+auto AsmInstructionLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>
 {
     return std::visit([&](auto& v){return v.evaluate(symbol_map);}, instruction);
 }
 
 auto AsmInstructionLine::format() const -> std::string {
-    return std::visit([&](const auto& v){return v.format();}, instruction);
+    return std::visit([](const auto& v){return v.format();}, instruction);
+}
+
+auto AsmInstructionLine::serialize() const -> AsmLineBytes {
+    return std::visit(
+        [](const auto& v){return AsmLineBytes{v.serialize()};},
+        instruction);
 }
 
 auto AsmInstructionLine::has_label() const -> bool {
-    return std::visit([&](const auto& v){return v.has_label();}, instruction);
+    return std::visit([](const auto& v){return v.has_label();}, instruction);
 }
 
 auto AsmInstructionLine::get_label() const -> const std::string&
 {
     return std::visit(
-        [&](const auto& v)->const std::string& { return v.get_label(); },
+        [](const auto& v)->const std::string& { return v.get_label(); },
         instruction);
+}
+
+auto AsmInstructionLine::program_counter() const -> uint16_t
+{
+    return std::visit([](const auto& v){return v.program_counter();}, instruction);
 }
 
 auto AsmInstructionLine::size() const -> uint16_t
 {
-    return std::visit([&](const auto& v){return v.size();}, instruction);
+    return std::visit([](const auto& v){return v.size();}, instruction);
 }
 
 auto LabelLine::make(asm6502Parser::LineContext* context, uint16_t pc) -> LabelResult
@@ -613,11 +609,11 @@ auto AssignLine::make(asm6502Parser::LineContext* context, uint16_t pc) -> Assig
     return AssignResult::ok(assign_line);
 }
 
-auto AssignLine::evaluate(SymbolMap& symbol_map) -> std::optional<AsmError>
+auto AssignLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>
 {
     if (symbol_map.contains(name))
     {
-        return AsmError::SymbolRedefined;
+        return ParseError::SymbolRedefined;
     }
     else
     {
@@ -698,7 +694,7 @@ auto AsmLine::make(asm6502Parser::LineContext* line, uint16_t pc) -> ParseResult
 }
 
 auto AsmLine::has_label() const -> bool {
-    return std::visit([&](const auto& v){return v.has_label();}, line);
+    return std::visit([](const auto& v){return v.has_label();}, line);
 }
 
 auto AsmLine::get_label() const -> const std::string&
@@ -718,18 +714,29 @@ auto AsmLine::get_label() const -> const std::string&
     }
 }
 
-auto AsmLine::size() const -> uint16_t
+auto AsmLine::program_counter() const -> uint16_t
 {
-    return std::visit([&](const auto& v){return v.size();}, line);
+    return std::visit([](const auto& v){return v.program_counter();}, line);
 }
 
-auto AsmLine::evaluate(SymbolMap &symbol_map) -> std::optional<AsmError>
+auto AsmLine::size() const -> uint16_t
+{
+    return std::visit([](const auto& v){return v.size();}, line);
+}
+
+auto AsmLine::evaluate(SymbolMap &symbol_map) -> std::optional<ParseError>
 {
     return std::visit([&](auto& v){return v.evaluate(symbol_map);}, line);
 }
 
 auto AsmLine::format() const -> std::string {
-    return std::visit([&](const auto& v){return v.format();}, line);
+    return std::visit([](const auto& v){return v.format();}, line);
+}
+
+auto AsmLine::serialize() const -> AsmLineBytes {
+    return std::visit(
+        [](const auto& v) {return AsmLineBytes{v.serialize()};},
+        line);
 }
 
 } // namespace mos6502
