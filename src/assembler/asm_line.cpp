@@ -102,12 +102,19 @@ auto RelativeInstructionLine::evaluate(const SymbolMap& symbol_map) -> std::opti
     }
 
     auto value = result.get_ok();
-    if (value < -127 || value > 128)
+    if (value < 0 || value > 0xFFFF)
     {
         return AsmError::InvalidRange;
     }
-    // ((lambda (x) (if (> x 127) (- (- 256 x)) x)) #xF4)
-    operand = value & 0xFF;
+
+    target_address = value;
+    int32_t offset = target_address - (pc + size());
+    if (offset < -128 || offset > 127)
+    {
+        return AsmError::InvalidRange;
+    }
+    int8_t offset_8_bit = offset;
+    operand = *reinterpret_cast<const int8_t*>(&offset_8_bit);
 
     return {};
 }
@@ -541,524 +548,179 @@ auto AsmInstructionLine::check_mnemonic(
     return RetType::ok(op_id);
 }
 
-auto AsmInstructionLine::complete_decode(SymbolMap& symbol_map) -> std::optional<ParseError>
+auto AsmInstructionLine::evaluate(SymbolMap& symbol_map) -> std::optional<AsmError>
 {
+    return std::visit([&](auto& v){return v.evaluate(symbol_map);}, instruction);
+}
+
+auto AsmInstructionLine::format() const -> std::string {
+    return std::visit([&](const auto& v){return v.format();}, instruction);
+}
+
+auto AsmInstructionLine::has_label() const -> bool {
+    return std::visit([&](const auto& v){return v.has_label();}, instruction);
+}
+
+auto AsmInstructionLine::get_label() const -> const std::string&
+{
+    return std::visit(
+        [&](const auto& v)->const std::string& { return v.get_label(); },
+        instruction);
+}
+
+auto AsmInstructionLine::size() const -> uint16_t
+{
+    return std::visit([&](const auto& v){return v.size();}, instruction);
+}
+
+auto LabelLine::make(asm6502Parser::LineContext* context, uint16_t pc) -> LabelResult
+{
+    LabelLine label_line{};
+    label_line.label = context->label()->SYMBOL()->getText();
+    label_line.pc = pc;
+    if (context->comment())
+    {
+        label_line.comment = context->comment()->COMMENT()->getText();
+    }
+    return LabelResult::ok(label_line);
+}
+
+auto AssignLine::make(asm6502Parser::LineContext* context, uint16_t pc) -> AssignResult
+{
+    auto expr_result = ArithmeticExpression::make(context->assign()->expression());
+    if (expr_result.is_err())
+    {
+        return AssignResult::err(ParseError::BadAssign);
+    }
+    AssignLine assign_line{};
+    assign_line.expression = expr_result.get_ok();
+    assign_line.name = context->assign()->SYMBOL()->getText();
+    if (context->comment())
+    {
+        assign_line.comment = context->comment()->COMMENT()->getText();
+    }
+    assign_line.pc = pc;
+
+    return AssignResult::ok(assign_line);
+}
+
+auto AssignLine::evaluate(SymbolMap& symbol_map) -> std::optional<AsmError>
+{
+    if (symbol_map.contains(name))
+    {
+        return AsmError::SymbolRedefined;
+    }
+    else
+    {
+        auto result = expression.evaluate(symbol_map, pc);
+        if (result.is_err())
+        {
+            return result.get_err();
+        }
+        value = result.get_ok();
+        symbol_map[name] = *reinterpret_cast<uint16_t*>(&value.value());
+    }
     return {};
 }
 
-auto Line::make(asm6502Parser::LineContext* line) -> LineResult
+auto AsmLine::make(asm6502Parser::LineContext* line, uint16_t pc) -> ParseResult
 {
-    Line instruction;
-
     auto* label_rule = line->label();
     auto* comment_rule = line->comment();
     auto* instruction_rule = line->instruction();
     auto* assign_rule = line->assign();
 
-    if (comment_rule != nullptr)
+    if (instruction_rule != nullptr)
     {
-        auto* comment_token = comment_rule->COMMENT();
-        auto comment_text = comment_token->getText();
-        instruction.comment = comment_text;
-        instruction.line_type = LineType::Comment;
+        if (assign_rule != nullptr)
+        {
+            return ParseResult::err(ParseError::LogicError);
+        }
+        auto instruction_result = AsmInstructionLine::make(line, pc);
+        if (instruction_result.is_err())
+        {
+            return ParseResult::err(instruction_result.get_err());
+        }
+        AsmLine asm_line{};
+        asm_line.line = instruction_result.get_ok();
+        return ParseResult::ok(asm_line);
     }
 
     if (assign_rule != nullptr)
     {
-
-        auto expr_result = ArithmeticExpression::make(assign_rule->expression());
-        if (expr_result.is_err())
+        if (label_rule != nullptr)
         {
-            return LineResult::err(AsmError::BadAssign);
+            return ParseResult::err(ParseError::LogicError);
         }
-        instruction.arithmetic_expression = expr_result.get_ok();
-        instruction.symbol = assign_rule->SYMBOL()->getText();
-        instruction.line_type = LineType::Assign;
-        return LineResult::ok(instruction);
+
+        auto assign_result = AssignLine::make(line, pc);
+        if (assign_result.is_err())
+        {
+            return ParseResult::err(assign_result.get_err());
+        }
+        AsmLine asm_line{};
+        asm_line.line = assign_result.get_ok();
+        return ParseResult::ok(asm_line);
     }
 
     if (label_rule != nullptr)
     {
-        instruction.label = label_rule->getText();
-        instruction.line_type = LineType::Label;
-    }
-
-    if (instruction_rule != nullptr)
-    {
-        auto res = instruction.handle_instruction_rule(instruction_rule);
-        if (res != std::nullopt)
+        auto label_result = LabelLine::make(line, pc);
+        if (label_result.is_err())
         {
-            return LineResult::err(AsmError::BadParse);
+            return ParseResult::err(label_result.get_err());
         }
-        instruction.line_type = LineType::Instruction;
+        AsmLine asm_line{};
+        asm_line.line = label_result.get_ok();
+        return ParseResult::ok(asm_line);
     }
 
-    return LineResult::ok(instruction);
+    if (comment_rule != nullptr)
+    {
+        CommentLine comment_line{comment_rule->COMMENT()->getText(), pc};
+        AsmLine asm_line{};
+        asm_line.line = comment_line;
+        return ParseResult::ok(asm_line);
+    }
+
+    AsmLine asm_line{};
+    asm_line.line = EmptyLine{pc};
+    return ParseResult::ok(asm_line);
 }
 
-auto Line::has_label() const -> bool { return label != std::nullopt; }
-
-auto Line::get_label() const -> const std::string&
-{
-    return label.value();
+auto AsmLine::has_label() const -> bool {
+    return std::visit([&](const auto& v){return v.has_label();}, line);
 }
 
-auto Line::size() const -> uint16_t
+auto AsmLine::get_label() const -> const std::string&
 {
-    switch (line_type)
+    if (std::holds_alternative<AsmInstructionLine>(line))
     {
-    case LineType::Instruction:
-        return address_mode_num_bytes(address_mode.value());
-    case LineType::Directive:
-    case LineType::Label:
-    case LineType::Assign:
-    case LineType::Comment:
-    case LineType::Empty:
-    default:
-        return 0;
+        return std::get<AsmInstructionLine>(line).get_label();
     }
-}
-
-auto Line::complete_decode(
-    SymbolMap& symbol_map,
-    uint16_t pc) -> std::optional<AsmError>
-{
-    if (arithmetic_expression == std::nullopt)
+    else if (std::holds_alternative<LabelLine>(line))
     {
-        return {};
-    }
-
-    auto set_operands = [&](int32_t min_val, int32_t max_val) -> std::optional<AsmError> {
-        auto result = arithmetic_expression.value().evaluate(symbol_map, pc);
-        if (result.is_err())
-        {
-            return result.get_err();
-        }
-        auto value = result.get_ok();
-        if (value < min_val || value > max_val)
-        {
-            return AsmError::InvalidRange;
-        }
-        operands.push_back(value & 0xFF);
-        operands.push_back((value >> 8) & 0xFF);
-        return {};
-    };
-
-    switch (line_type)
-    {
-    case LineType::Instruction:
-        switch (address_mode.value())
-        {
-        case AddressMode::IMPL:
-        case AddressMode::NI:
-        case AddressMode::A:
-            break;
-        case AddressMode::ABS:
-        case AddressMode::IND:
-        case AddressMode::ABS_X:
-        case AddressMode::ABS_Y:
-            return set_operands(0, 0xFFFF);
-        case AddressMode::REL:
-            return set_operands(-128, 127);
-        case AddressMode::X_IND:
-        case AddressMode::IND_Y:
-        case AddressMode::IMM:
-        case AddressMode::ZPG:
-        case AddressMode::ZPG_X:
-        case AddressMode::ZPG_Y:
-            return set_operands(0, 0xFF);
-        }
-        return {};
-    case LineType::Assign:
-        if (symbol_map.contains(symbol.value()))
-        {
-            return AsmError::SymbolRedefined;
-        }
-        else
-        {
-            auto result = arithmetic_expression.value().evaluate(symbol_map, pc);
-            if (result.is_err())
-            {
-                return result.get_err();
-            }
-            symbol_map[symbol.value()] = result.get_ok();
-            symbol_value = symbol_map[symbol.value()];
-        }
-        return {};
-    case LineType::Directive:
-    case LineType::Label:
-        if (symbol_map.contains(symbol.value()))
-        {
-            return AsmError::SymbolRedefined;
-        }
-        {
-            symbol_map[label.value()] = pc;
-            symbol_value.value() = symbol_map[symbol.value()];
-        }
-        return {};
-    case LineType::Comment:
-    case LineType::Empty:
-    default:
-        return {};
-    }
-}
-
-auto Line::handle_instruction_rule(
-    asm6502Parser::InstructionContext* rule) -> BuilderResult
-{
-    if (rule->nop())
-    {
-        op_id = OpName::NOP;
-        address_mode = AddressMode::IMPL;
-        return {};
-    }
-
-    if (rule->implicit())
-    {
-        auto* implicit_rule = rule->implicit();
-        std::string implicit_name{implicit_rule->getText()};
-        auto invalid_mnemonic = check_mnemonic(implicit_name, AddressMode::IMPL);
-        if (invalid_mnemonic != std::nullopt)
-        {
-            return invalid_mnemonic;
-        }
-
-        return {};
-    }
-
-    if (rule->acc())
-    {
-        auto* acc_rule = rule->acc();
-        std::string acc_name{acc_rule->shift()->SHIFT()->getText()};
-        auto invalid_mnemonic = check_mnemonic(acc_name, AddressMode::A);
-        if (invalid_mnemonic != std::nullopt)
-        {
-            return invalid_mnemonic;
-        }
-        return {};
-    }
-
-    if (rule->immediate())
-    {
-        return handle_immediate_rule(rule->immediate());
-    }
-
-    if (rule->x_index())
-    {
-        return handle_x_index_rule(rule->x_index());
-    }
-
-    if (rule->y_index())
-    {
-        return handle_y_index_rule(rule->y_index());
-    }
-
-    if (rule->x_indirect())
-    {
-        return helper(rule->x_indirect(), AddressMode::X_IND);
-    }
-
-    if (rule->indirect_y())
-    {
-        return helper(rule->indirect_y(), AddressMode::IND_Y);
-    }
-
-    if (rule->absolute())
-    {
-        return helper(rule->absolute(), AddressMode::ABS);
-    }
-
-    if (rule->relative())
-    {
-        return handle_relative_rule(rule->relative());
-    }
-
-    if (rule->jump())
-    {
-        return handle_jump_rule(rule->jump());
-    }
-
-    if (rule->jsr())
-    {
-        return handle_jsr_rule(rule->jsr());
-    }
-
-    return {};
-}
-
-auto Line::handle_immediate_rule(
-    asm6502Parser::ImmediateContext* rule) -> BuilderResult
-{
-    std::string imm_name{rule->mnemonic()->MNEMONIC()->getText()};
-
-    auto invalid_mnemonic = check_mnemonic(imm_name, AddressMode::IMM);
-    if (invalid_mnemonic != std::nullopt)
-    {
-        return invalid_mnemonic;
-    }
-
-    auto arith_result = handle_arithmetic(rule);
-    if (arith_result != std::nullopt)
-    {
-        return arith_result;
-    }
-
-    return {};
-}
-
-auto Line::handle_x_index_rule(
-    asm6502Parser::X_indexContext* rule) -> BuilderResult
-{
-    std::string name;
-    if (rule->mnemonic())
-    {
-        name = rule->mnemonic()->MNEMONIC()->getText();
+        return std::get<LabelLine>(line).get_label();
     }
     else
     {
-        name = rule->shift()->SHIFT()->getText();
+        throw std::logic_error(
+            std::format("Line (index {}) can not have a label", line.index()));
     }
-
-    auto zpx_invalid_mnemonic = check_mnemonic(name, AddressMode::ZPG_X);
-    auto abs_x_invalid_mnemonic = check_mnemonic(name, AddressMode::ABS_X);
-
-    if (zpx_invalid_mnemonic != std::nullopt && abs_x_invalid_mnemonic != std::nullopt)
-    {
-        return zpx_invalid_mnemonic;
-    }
-
-    auto arith_result = handle_arithmetic(rule);
-    if (arith_result != std::nullopt)
-    {
-        return arith_result;
-    }
-
-    if (!(arithmetic_expression.value().has_symbols()) ||
-        arithmetic_expression.value().has_words() ||
-        zpx_invalid_mnemonic != std::nullopt)
-    {
-        SymbolMap empty_map{};
-        auto res = arithmetic_expression.value().evaluate(empty_map, 0);
-        if (res.is_err())
-        {
-            return ParseError::BadArithmetic;
-        }
-        if (res.get_ok() < 0xFF)
-        {
-            address_mode = AddressMode::ZPG_X;
-        }
-    }
-
-    return {};
 }
 
-auto Line::handle_y_index_rule(
-    asm6502Parser::Y_indexContext* rule) -> BuilderResult
+auto AsmLine::size() const -> uint16_t
 {
-    std::string name;
-    if (rule->mnemonic())
-    {
-        name = rule->mnemonic()->MNEMONIC()->getText();
-    }
-    else
-    {
-        name = rule->shift()->SHIFT()->getText();
-    }
-
-    auto zpy_invalid_mnemonic = check_mnemonic(name, AddressMode::ZPG_Y);
-    auto abs_y_invalid_mnemonic = check_mnemonic(name, AddressMode::ABS_Y);
-
-    if (zpy_invalid_mnemonic != std::nullopt && abs_y_invalid_mnemonic != std::nullopt)
-    {
-        return zpy_invalid_mnemonic;
-    }
-
-    auto arith_result = handle_arithmetic(rule);
-    if (arith_result != std::nullopt)
-    {
-        return arith_result;
-    }
-
-    if (!(arithmetic_expression.value().has_symbols()) ||
-        arithmetic_expression.value().has_words() ||
-        zpy_invalid_mnemonic != std::nullopt)
-    {
-        SymbolMap empty_map{};
-        auto res = arithmetic_expression.value().evaluate(empty_map, 0);
-        if (res.is_err())
-        {
-            return ParseError::BadArithmetic;
-        }
-        if (res.get_ok() < 0xFF)
-        {
-            address_mode = AddressMode::ZPG_Y;
-        }
-    }
-
-    return {};
+    return std::visit([&](const auto& v){return v.size();}, line);
 }
 
-auto Line::handle_relative_rule(
-    asm6502Parser::RelativeContext* rule) -> BuilderResult
+auto AsmLine::evaluate(SymbolMap &symbol_map) -> std::optional<AsmError>
 {
-    std::string name{rule->BRANCH()->getText()};
-
-    auto invalid_mnemonic = check_mnemonic(name, AddressMode::REL);
-
-    if (invalid_mnemonic != std::nullopt)
-    {
-        return invalid_mnemonic;
-    }
-
-    auto arith_result = handle_arithmetic(rule);
-    if (arith_result != std::nullopt)
-    {
-        return arith_result;
-    }
-
-    return {};
+    return std::visit([&](auto& v){return v.evaluate(symbol_map);}, line);
 }
 
-auto Line::handle_jump_rule(
-    asm6502Parser::JumpContext* rule) -> BuilderResult
-{
-    op_id = OpName::JMP;
-    address_mode = AddressMode::ABS;
-    if (rule->LPAREN())
-    {
-        address_mode = AddressMode::IND;
-    }
-
-    auto arith_result = handle_arithmetic(rule);
-    if (arith_result != std::nullopt)
-    {
-        return arith_result;
-    }
-
-    return {};
-}
-
-auto Line::handle_jsr_rule(
-    asm6502Parser::JsrContext* rule) -> BuilderResult
-{
-    op_id = OpName::JSR;
-    address_mode = AddressMode::ABS;
-
-    auto arith_result = handle_arithmetic(rule);
-    if (arith_result != std::nullopt)
-    {
-        return arith_result;
-    }
-
-    return {};
-}
-
-auto Line::check_mnemonic(const std::string& name, AddressMode mode) -> BuilderResult
-{
-    if (!MNEMONIC_MAP.contains(name))
-    {
-        logger::error("Mnemonic {} not in MNEMONIC_MAP", name);
-        return ParseError::InvalidOpIdParse;
-    }
-    op_id = MNEMONIC_MAP.at(name);
-    if (!ADDRESS_MODE_MAP.at(mode).contains(op_id.value()))
-    {
-        logger::error(
-            "Address mode {} does not have {}",
-            static_cast<uint8_t>(mode),
-            name);
-        return ParseError::InvalidOpIdParse;
-    }
-
-    address_mode = mode;
-    return {};
-}
-
-auto Line::format() const -> std::string
-{
-    switch (line_type)
-    {
-    case LineType::Instruction:
-        return instruction_format();
-    case LineType::Comment:
-        return comment.value();
-    case LineType::Label:
-        return std::format("{}", label.value());
-    case LineType::Assign:
-        return std::format("{} EQU ${:02X}", symbol.value(), symbol_value.value());
-    case LineType::Directive:
-    case LineType::Empty:
-    default:
-        break;
-    }
-    return "";
-}
-
-auto Line::instruction_format() const -> std::string
-{
-    switch (address_mode.value())
-    {
-    case AddressMode::IMPL:
-    case AddressMode::NI:
-    case AddressMode::A:
-        return std::format("{}", opid_to_name(op_id.value()));
-    case AddressMode::ABS:
-        return std::format(
-            "{} ${:02X}{:02X}",
-            opid_to_name(op_id.value()),
-            operands[1],
-            operands[0]);
-    case AddressMode::IND:
-        return std::format(
-            "{} (${:02X}{:02X})",
-            opid_to_name(op_id.value()),
-            operands[1],
-            operands[0]);
-    case AddressMode::X_IND:
-        return std::format(
-            "{} ({:02X},X)",
-            opid_to_name(op_id.value()),
-            operands[0]);
-    case AddressMode::IND_Y:
-        return std::format(
-            "{} (${:02X}),Y",
-            opid_to_name(op_id.value()),
-            operands[0]);
-    case AddressMode::ABS_X:
-        return std::format(
-            "{} ${:02X}{:02X},X",
-            opid_to_name(op_id.value()),
-            operands[1],
-            operands[0]);
-    case AddressMode::ABS_Y:
-        return std::format(
-            "{} ${:02X}{:02X},Y",
-            opid_to_name(op_id.value()),
-            operands[1],
-            operands[0]);
-    case AddressMode::REL:
-    case AddressMode::ZPG:
-        return std::format(
-            "{} ${:02X}",
-            opid_to_name(op_id.value()),
-            operands[0]);
-    case AddressMode::IMM:
-        return std::format(
-            "{} #${:02X}",
-            opid_to_name(op_id.value()),
-            operands[0]);
-    case AddressMode::ZPG_X:
-        return std::format(
-            "{} ${:02X},X",
-            opid_to_name(op_id.value()),
-            operands[0]);
-    case AddressMode::ZPG_Y:
-    default:
-        return std::format(
-            "{} ${:02X},Y",
-            opid_to_name(op_id.value()),
-            operands[0]);
-    }
+auto AsmLine::format() const -> std::string {
+    return std::visit([&](const auto& v){return v.format();}, line);
 }
 
 } // namespace mos6502

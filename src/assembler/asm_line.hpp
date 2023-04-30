@@ -19,23 +19,6 @@ namespace mos6502 {
 
 using result::Result;
 
-/*
-struct Symbol
-{
-    std::string name = {};
-    ArithmeticExpression value = {};
-};
-*/
-
-enum class LineType {
-    Instruction,
-    Comment,
-    Label,
-    Assign,
-    Directive,
-    Empty,
-};
-
 class InstructionLine {
 public:
     constexpr InstructionLine() = default;
@@ -165,11 +148,10 @@ public:
 protected:
     auto format_instruction() const -> std::string override
     {
-        int8_t offset = static_cast<int8_t>(
-            operand > 127 ? (-(256 - operand)) & 0xFF : operand & 0x7F);
-        uint16_t new_pc = pc + offset;
-        return std::format("{} ${:04X}", opid_to_name(op_id), new_pc);
+        return std::format("{} ${:04X} (${:02X})", opid_to_name(op_id), target_address, operand);
     }
+private:
+    uint16_t target_address = 0;
 };
 
 class ZeroPageInstructionLine : public OneOperandInstructionLine
@@ -331,11 +313,12 @@ public:
     using ParseResult = Result<AsmInstructionLine, ParseError>;
     static auto make(asm6502Parser::LineContext* line, uint16_t pc) -> ParseResult;
 
-    auto complete_decode(SymbolMap& symbol_map) -> std::optional<ParseError>;
+    auto evaluate(SymbolMap& symbol_map) -> std::optional<AsmError>;
 
+    auto format() const -> std::string;
     auto has_label() const -> bool;
     auto get_label() const -> const std::string&;
-    constexpr auto size() const -> uint16_t;
+    auto size() const -> uint16_t;
 
 protected:
     using BuilderResult = std::optional<ParseError>;
@@ -422,99 +405,108 @@ private:
     InstructionLineMode instruction = {};
 };
 
+/*
+struct Symbol
+{
+    std::string name = {};
+    ArithmeticExpression value = {};
+};
+*/
+
+enum class LineType {
+    Instruction,
+    Comment,
+    Label,
+    Assign,
+    Directive,
+    Empty,
+};
+
 struct LabelLine {
-    auto format() const -> std::string;
+    using LabelResult = Result<LabelLine, ParseError>;
+    static auto make(asm6502Parser::LineContext* line, uint16_t pc) -> LabelResult;
+    constexpr auto format() const -> std::string {
+        const auto comment_str = comment == std::nullopt ?
+            "" : std::format("\t;{}", comment.value());
+        return std::format("{}:{}", label, comment_str);
+    }
+    constexpr auto has_label() const -> bool { return true; }
+    constexpr auto get_label() const -> const std::string& { return label; }
+    constexpr auto size() const -> uint16_t { return 0; }
+    constexpr auto evaluate(SymbolMap& symbol_map) -> std::optional<AsmError>
+    {
+        return {};
+    }
+
     std::string label;
     uint16_t pc;
     std::optional<std::string> comment;
 };
 
-class Line {
-public:
-    using LineResult = Result<Line, AsmError>;
-    using BuilderResult = std::optional<ParseError>;
-    static auto make(asm6502Parser::LineContext* line) -> LineResult;
-    auto has_label() const -> bool;
-    auto get_label() const -> const std::string&;
-    auto size() const -> uint16_t;
-    auto complete_decode(SymbolMap& symbol_map, uint16_t pc) -> std::optional<AsmError>;
-    auto format() const -> std::string;
-    auto instruction_format() const -> std::string;
-
-private:
-    using InstructionContext = asm6502Parser::InstructionContext;
-    using ImmediateContext = asm6502Parser::ImmediateContext;
-    using XIndexContext = asm6502Parser::X_indexContext;
-    using YIndexContext = asm6502Parser::Y_indexContext;
-    using RelativeContext = asm6502Parser::RelativeContext;
-    using JumpContext = asm6502Parser::JumpContext;
-    using JsrContext = asm6502Parser::JsrContext;
-
-    auto handle_instruction_rule(InstructionContext* rule) -> BuilderResult;
-    auto handle_immediate_rule(ImmediateContext* rule) -> BuilderResult;
-    auto handle_x_index_rule(XIndexContext* rule) -> BuilderResult;
-    auto handle_y_index_rule(YIndexContext* rule) -> BuilderResult;
-    auto handle_relative_rule(RelativeContext* rule) -> BuilderResult;
-    auto handle_jump_rule(JumpContext* rule) -> BuilderResult;
-    auto handle_jsr_rule(JsrContext* rule) -> BuilderResult;
-    auto check_mnemonic(const std::string& name, AddressMode mode) -> BuilderResult;
-    template <typename T>
-    auto helper(T* rule, AddressMode mode) -> BuilderResult
-        requires(HasShiftAndMnemonic<T>)
+struct CommentLine {
+    constexpr auto format() const -> std::string {
+        return comment;
+    }
+    constexpr auto has_label() const -> bool { return false; }
+    constexpr auto size() const -> uint16_t { return 0; }
+    constexpr auto evaluate(SymbolMap& symbol_map) -> std::optional<AsmError>
     {
-        std::string name;
-        if (rule->mnemonic())
-        {
-            name = rule->mnemonic()->MNEMONIC()->getText();
-        }
-        else
-        {
-            name = rule->shift()->SHIFT()->getText();
-        }
-
-        auto invalid_mnemonic = check_mnemonic(name, mode);
-
-        if (invalid_mnemonic != std::nullopt)
-        {
-            std::cout << "Invalid mnemonic!\n";
-            return invalid_mnemonic;
-        }
-
-        auto arith_result = handle_arithmetic(rule);
-        if (arith_result != std::nullopt)
-        {
-            std::cout << "Invalid arithmetic!\n";
-            return arith_result;
-        }
-
         return {};
     }
 
-    template <typename T>
-    auto handle_arithmetic(T* parent_context) -> BuilderResult
-        requires(HasExpression<T>)
-    {
-        auto* context = parent_context->expression();
-        auto result = ArithmeticExpression::make(context);
-        if (result.is_ok())
-        {
-            arithmetic_expression = result.get_ok();
-            return {};
-        }
-        std::cerr << "Error: " << context->getText() << "\n";
-        return result.get_err();
-    }
+    std::string comment;
+    uint16_t pc;
+};
 
-    std::optional<std::string> label = {};
-    std::optional<std::string> comment = {};
-    std::optional<OpName> op_id = {};
-    std::optional<AddressMode> address_mode = {};
-    std::optional<ArithmeticExpression> arithmetic_expression = {};
-    std::vector<uint8_t> operands = {};
-    std::optional<std::string> symbol = {};
-    std::optional<uint16_t> symbol_value = {};
-    LineType line_type = LineType::Empty;
-    bool complete = false;
+class AssignLine {
+public:
+    using AssignResult = Result<AssignLine, ParseError>;
+    static auto make(asm6502Parser::LineContext* line, uint16_t pc) -> AssignResult;
+    constexpr auto format() const -> std::string {
+        return std::format("{} EQU {}", name, value.value());
+    }
+    constexpr auto has_label() const -> bool { return false; }
+    constexpr auto size() const -> uint16_t { return 0; }
+    auto evaluate(SymbolMap& symbol_map) -> std::optional<AsmError>;
+
+private:
+    std::string name;
+    uint16_t pc = 0;
+    ArithmeticExpression expression = {};
+    std::optional<int16_t> value;
+    std::optional<std::string> comment;
+};
+
+struct EmptyLine {
+    constexpr auto has_label() const -> bool { return false; }
+    constexpr auto format() const -> std::string { return ""; };
+    constexpr auto size() const -> uint16_t { return 0; }
+    constexpr auto evaluate(SymbolMap& symbol_map) -> std::optional<AsmError>
+    {
+        return {};
+    }
+    uint16_t pc = 0;
+};
+
+using AsmLineType = std::variant<
+    EmptyLine,
+    AsmInstructionLine,
+    CommentLine,
+    LabelLine,
+    AssignLine
+    >;
+
+class AsmLine {
+public:
+    using ParseResult = Result<AsmLine, ParseError>;
+    static auto make(asm6502Parser::LineContext* line, uint16_t pc) -> ParseResult;
+    auto has_label() const -> bool;
+    auto get_label() const -> const std::string&;
+    auto size() const -> uint16_t;
+    auto evaluate(SymbolMap& symbol_map) -> std::optional<AsmError>;
+    auto format() const -> std::string;
+private:
+    AsmLineType line = EmptyLine{};
 };
 
 } // namespace mos6502

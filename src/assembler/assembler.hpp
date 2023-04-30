@@ -34,7 +34,7 @@ private:
     std::optional<std::string> file_name = {};
     std::map<std::string, std::set<size_t>> label_lines = {};
     SymbolMap symbols = {};
-    std::vector<Line> program = {};
+    std::vector<AsmLine> program = {};
     std::vector<size_t> program_counter_lines = {};
 };
 

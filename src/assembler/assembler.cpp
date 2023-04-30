@@ -41,7 +41,7 @@ auto Assembler::from_file_name(std::string&& name) -> AssemblerResult
     size_t pc = 0;
     for (auto idx = 0; idx < lines.size(); ++idx)
     {
-        auto instruction_result = Line::make(lines[idx]);
+        auto instruction_result = AsmLine::make(lines[idx], pc);
         if (instruction_result.is_err())
         {
             return RetType::err(AsmError::BadParse);
@@ -55,9 +55,9 @@ auto Assembler::from_file_name(std::string&& name) -> AssemblerResult
                 return RetType::err(AsmError::SymbolRedefined);
             }
             assembler.symbols[label] = pc;
-            if (label.ends_with(":"))
+            if (label.ends_with(":") && label.size() > 1)
             {
-                assembler.symbols[label.substr(0, label.size() - 1)] = pc;
+                assembler.symbols[label.substr(0, label.size() - 2)] = pc;
             }
         }
         auto size = instruction.size();
@@ -68,8 +68,7 @@ auto Assembler::from_file_name(std::string&& name) -> AssemblerResult
     for (auto idx = 0; idx < assembler.program.size(); ++idx)
     {
         auto& instruction = assembler.program[idx];
-        auto pc_line = assembler.program_counter_lines[idx];
-        auto res = instruction.complete_decode(assembler.symbols, pc_line);
+        auto res = instruction.evaluate(assembler.symbols);
         if (res != std::nullopt)
         {
             logger::error(
