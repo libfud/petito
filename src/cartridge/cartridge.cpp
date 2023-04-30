@@ -80,7 +80,8 @@ bool Cartridge::load(const std::string& rom_name)
     if (header.uses_trainer())
     {
         trainer.resize(TRAINER_SIZE);
-        std::copy(buffer.begin() + position, buffer.begin() + TRAINER_SIZE, trainer.begin());
+        // std::copy(buffer.begin() + position, buffer.begin() + TRAINER_SIZE, trainer.begin());
+        std::copy(buffer.data() + position, buffer.data() + TRAINER_SIZE, trainer.begin());
         position += TRAINER_SIZE;
     }
 
@@ -96,14 +97,14 @@ bool Cartridge::load(const std::string& rom_name)
         "Reading 0x{:04X} bytes into prg_rom, starting at 0x{:04X}.",
         prg_rom_size,
         position);
-    std::copy_n(buffer.begin() + position, prg_rom_size, std::back_inserter(prg_rom));
+    std::copy_n(buffer.data() + position, prg_rom_size, std::back_inserter(prg_rom));
     position += prg_rom_size;
 
     logger::debug(
         "Reading 0x{:04X} bytes into chr_rom, starting at 0x{:04X}.",
         chr_rom_size,
         position);
-    std::copy_n(buffer.begin() + position, chr_rom_size, std::back_inserter(chr_rom));
+    std::copy_n(buffer.data() + position, chr_rom_size, std::back_inserter(chr_rom));
 
     mapper_number = header.mapper();
     logger::debug("Using mapper number {}", mapper_number);
