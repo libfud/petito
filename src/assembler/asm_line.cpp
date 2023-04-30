@@ -116,8 +116,7 @@ auto RelativeInstructionLine::evaluate(const SymbolMap& symbol_map) -> std::opti
     {
         return AsmError::InvalidRange;
     }
-    int8_t offset_8_bit = static_cast<int8_t>(offset);
-    operand = static_cast<const uint8_t>(offset_8_bit);
+    operand = static_cast<uint8_t>(offset);
 
     return {};
 }
