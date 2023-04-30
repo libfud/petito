@@ -107,8 +107,15 @@ auto RelativeInstructionLine::evaluate(const SymbolMap& symbol_map) -> std::opti
         return AsmError::InvalidRange;
     }
 
+    // Target address is an absolute address, e.g. a label or a label
+    // and an offset evaluated to an address.
     target_address = value;
     int32_t offset = target_address - (pc + size());
+    // Branch range has to fit in signed 8 bit integer.
+    if (offset < -128 || offset > 127)
+    {
+        return AsmError::InvalidRange;
+    }
     int8_t offset_8_bit = static_cast<int8_t>(offset);
     operand = static_cast<const uint8_t>(offset_8_bit);
 
