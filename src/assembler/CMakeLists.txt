@@ -2,7 +2,6 @@ add_library(asm_lib assembler.cpp
     assembler_types.cpp
     arithmetic.cpp
     asm_line.cpp
-    tokenizer.cpp
     ../opcode_table.cpp)
 target_include_directories(asm_lib PRIVATE .. /usr/include/antlr4-runtime)
 add_subdirectory(gen)

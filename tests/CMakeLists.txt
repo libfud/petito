@@ -24,7 +24,7 @@ gtest_add_tests(
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     EXTRA_ARGS --gtest_output=xml:${CMAKE_BINARY_DIR}/Test${ModuleName}.xml)
 
-add_executable(test_asm test_assembler.cpp test_tokenizer.cpp)
+add_executable(test_asm test_assembler.cpp)
 target_include_directories(test_asm PRIVATE ../src ../src/assembler /usr/include/antlr4-runtime)
 target_link_libraries(test_asm
     PRIVATE
