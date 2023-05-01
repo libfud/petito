@@ -243,4 +243,22 @@ TEST(TestArithmetic, MakeWord)
     ASSERT_EQ(error, ParseError::BadNumber);
 }
 
+TEST(TestArithmetic, UnknownSymbol)
+{
+    ArithmeticExpression expression_1{};
+    std::string test_symbol{"test"};
+    expression_1.add_atom(ArithmeticAtom{test_symbol});
+    ArithmeticExpression expression_2 = expression_1;
+
+    SymbolMap map{};
+    auto result_1 = expression_1.evaluate(map, 0);
+    map[test_symbol] = 5;
+    auto result_2 = expression_2.evaluate(map, 0);
+
+    ASSERT_TRUE(result_1.is_err());
+    EXPECT_EQ(result_1.get_err(), ParseError::SymbolUndefined);
+    ASSERT_TRUE(result_2.is_ok());
+    EXPECT_EQ(result_2.get_ok(), map[test_symbol]);
+}
+
 } // namespace mos6502

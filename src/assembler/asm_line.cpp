@@ -52,6 +52,7 @@ auto OneOperandInstructionLine::evaluate(const SymbolMap& symbol_map) -> std::op
     auto value = result.get_ok();
     if (value < 0 || value > 0xFF)
     {
+        std::cerr << "Out of range: " << value << "\n";
         return ParseError::InvalidRange;
     }
 

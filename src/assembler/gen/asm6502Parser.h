@@ -366,6 +366,7 @@ public:
     std::vector<ExpressionContext *> expression();
     ExpressionContext* expression(size_t i);
     antlr4::tree::TerminalNode *RBRACKET();
+    Unary_opContext *unary_op();
     AtomContext *atom();
     Binary_opContext *binary_op();
 

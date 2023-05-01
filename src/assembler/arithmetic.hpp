@@ -114,6 +114,7 @@ public:
     using NumberContext = asm6502Parser::AtomContext;
     using BinaryOpContext = asm6502Parser::Binary_opContext;
     using UnaryOpContext = asm6502Parser::Unary_opContext;
+
 private:
     auto unary_expr(UnaryOperator op, uint16_t rhs) -> int32_t;
     auto binary_expr(int32_t acc, BinaryOperator op, uint16_t rhs) -> int32_t;

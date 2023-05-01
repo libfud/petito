@@ -263,7 +263,7 @@ jsr :
 
 expression :
         expression binary_op expression
-    |   LBRACKET expression RBRACKET
+    |   unary_op? LBRACKET expression RBRACKET
     |   atom
     ;
 

@@ -468,6 +468,16 @@ auto ArithmeticExpression::make(Context* context) -> ExprResult
         {
             return ExprResult::err(expect_one.value());
         }
+
+        if (context->unary_op())
+        {
+            auto unary_res = expression.handle_unary_op(context->unary_op());
+            if (unary_res != std::nullopt)
+            {
+                return ExprResult::err(unary_res.value());
+            }
+        }
+
         const auto& sub_expression_vec = context->expression();
 
         auto expr_1_res = add_sub_expression(sub_expression_vec[0]);
