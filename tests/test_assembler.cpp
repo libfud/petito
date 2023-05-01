@@ -80,12 +80,6 @@ TEST(TestAssembler, LDA_IMM_EXPR)
     result = Assembler::from_text(input);
     ASSERT_TRUE(result.is_ok());
     assembler = result.get_ok();
-    /*
-    EXPECT_EQ(assembler.format(),
-              std::format("\t{} #${:02X}\n",
-                          opid_to_name(op_id),
-                          5 * value));
-    */
     EXPECT_EQ(assembler.size(), 2);
     prog_bytes = assembler.serialize();
     ASSERT_EQ(prog_bytes.size(), 2);
@@ -100,15 +94,26 @@ TEST(TestAssembler, ASSIGN_LDA_ABS)
     const std::string symbol{"FOO"};
     uint16_t symbol_value = 0x200;
     uint8_t value = 42;
-    std::string line_1 = std::format("{} EQU ${:04X}", symbol, symbol_value);
-    std::string line_2 = std::format(
+    std::string line_1 = std::format("{} EQU ${:04X}\n", symbol, symbol_value);
+    std::string line_2 = "NOP\n";
+    std::string line_3 = std::format(
         "\t{} {}-*\n",
         op_name,
         symbol,
         value);
-    std::string input = line_1 + line_2;
+    std::string input = line_1 + line_2 + line_3;
     auto result = Assembler::from_text(input);
     ASSERT_TRUE(result.is_ok());
+    auto assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), 4);
+    auto prog_bytes = assembler.serialize();
+    ASSERT_EQ(prog_bytes.size(), 4);
+    std::cout << assembler.format();
+    EXPECT_EQ(prog_bytes[0], NOP_IMPL);
+    EXPECT_EQ(prog_bytes[1], LDA_ABS);
+    auto expected_value = symbol_value  - 1;
+    EXPECT_EQ(prog_bytes[2], expected_value & 0xFF);
+    EXPECT_EQ(prog_bytes[3], (expected_value >> 8) & 0xFF);
 }
 
 } // namespace mos6502

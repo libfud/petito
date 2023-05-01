@@ -246,9 +246,10 @@ TEST(TestArithmetic, MakeWord)
 TEST(TestArithmetic, UnknownSymbol)
 {
     ArithmeticExpression expression_1{};
+    ArithmeticExpression expression_2{};
     std::string test_symbol{"test"};
     expression_1.add_atom(ArithmeticAtom{test_symbol});
-    ArithmeticExpression expression_2 = expression_1;
+    expression_2 = expression_1;
 
     SymbolMap map{};
     auto result_1 = expression_1.evaluate(map, 0);
