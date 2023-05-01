@@ -38,4 +38,22 @@ TEST(TestAssembler, Nop)
     EXPECT_EQ(prog_bytes[0], NOP_IMPL);
 }
 
+TEST(TestAssembler, LDA_IMM)
+{
+    OpName op_id = OpName::LDA;
+    uint8_t value = 42;
+    const std::string input = std::format("\t{} #${:02X}\n", opid_to_name(op_id), value);
+
+    auto result = Assembler::from_text(input);
+    ASSERT_TRUE(result.is_ok());
+    auto assembler = result.get_ok();
+    EXPECT_EQ(assembler.format(), input);
+    EXPECT_EQ(assembler.size(), 2);
+    auto prog_bytes = assembler.serialize();
+    ASSERT_EQ(prog_bytes.size(), 2);
+    EXPECT_EQ(prog_bytes[0], LDA_IMM);
+    EXPECT_EQ(prog_bytes[1], value);
+}
+
+
 } // namespace mos6502

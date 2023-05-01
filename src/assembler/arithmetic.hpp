@@ -77,6 +77,15 @@ private:
     ArithAtomV value;
 };
 
+auto make_number(
+    Base base,
+    int start_idx,
+    const std::string &input) -> Result<int32_t, ParseError>;
+auto make_byte(asm6502Parser::ByteContext* byte_context)
+    -> Result<ArithmeticAtom, ParseError>;
+auto make_word(asm6502Parser::MultibyteContext* word_context)
+    -> Result<ArithmeticAtom, ParseError>;
+
 class ArithmeticExpression
 {
 public:

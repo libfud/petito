@@ -93,7 +93,7 @@ fragment DECIMAL_ID :
 DECIMAL_BYTE :
         DECIMAL_ID? DIGIT (DIGIT DIGIT?)? ;
 DECIMAL_NUMBER :
-        DECIMAL_BYTE DIGIT DIGIT DIGIT DIGIT+ ;
+        DECIMAL_ID? DIGIT DIGIT DIGIT DIGIT+ ;
 
 fragment BINARY_ID :
         ('0b' | '%') ;
@@ -186,7 +186,7 @@ line :
         WHITESPACE? label WHITESPACE instruction WHITESPACE? NEWLINE |
         WHITESPACE? label WHITESPACE? comment NEWLINE |
         WHITESPACE? label WHITESPACE? NEWLINE |
-        WHITESPACE? (label WHITESPACE)? assign |
+        WHITESPACE? (label WHITESPACE)? assign NEWLINE |
         WHITESPACE? instruction WHITESPACE? comment NEWLINE |
         WHITESPACE? instruction WHITESPACE? NEWLINE |
         WHITESPACE? comment? NEWLINE |
