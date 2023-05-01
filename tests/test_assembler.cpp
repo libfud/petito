@@ -108,7 +108,6 @@ TEST(TestAssembler, ASSIGN_LDA_ABS)
     EXPECT_EQ(assembler.size(), 4);
     auto prog_bytes = assembler.serialize();
     ASSERT_EQ(prog_bytes.size(), 4);
-    std::cout << assembler.format();
     EXPECT_EQ(prog_bytes[0], NOP_IMPL);
     EXPECT_EQ(prog_bytes[1], LDA_ABS);
     auto expected_value = symbol_value  - 1;

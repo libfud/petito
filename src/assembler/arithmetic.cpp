@@ -195,98 +195,48 @@ auto ArithmeticExpression::evaluate(
     uint16_t pc) -> Result<int32_t, ParseError>
 {
     using RetType = Result<int32_t, ParseError>;
-    using AtomType = ArithAtomType;
 
-    std::optional<UnaryOperator> unary_op{};
-    std::optional<BinaryOperator> binary_op{};
-    std::optional<uint16_t> rhs{};
-    std::string symbol;
+    ArithmeticContext context{};
+    context.pc = pc;
 
     size_t idx = 0;
     int32_t acc = 0;
 
-    auto evaluate_sub_expr = [&](const SExpr& sub_expr) -> std::optional<ParseError> {
-        if (sub_expr.index() == 0)
-        {
-            const auto& atom = std::get<Atom>(sub_expr);
-            switch (atom.get_type())
-            {
-            case AtomType::BinaryOp:
-                binary_op = atom.get<BinaryOperator>();
-                break;
-            case AtomType::UnaryOp:
-                unary_op = atom.get<UnaryOperator>();
-                break;
-            case AtomType::Byte:
-                rhs = atom.get<uint8_t>();
-                break;
-            case AtomType::Word:
-                rhs = atom.get<uint16_t>();
-                break;
-            case AtomType::Character:
-                rhs = static_cast<uint8_t>(atom.get<char>());
-                break;
-            case AtomType::PcStar:
-                rhs = pc;
-                break;
-            case AtomType::Symbol:
-                symbol = atom.get<std::string>();
-                if (!symbol_map.contains(symbol))
-                {
-                    logger::error("Undefined symbol {} ", symbol);
-                    return ParseError::SymbolUndefined;
-                }
-                rhs = symbol_map.at(symbol);
-                break;
-            }
-        }
-        else
-        {
-            auto result = std::get<std::unique_ptr<Expr>>(sub_expr)->evaluate(symbol_map, pc);
-            if (result.is_err())
-            {
-                return result.get_err();
-            }
-            rhs = result.get_ok();
-        }
-        return {};
-    };
-
     {
         const auto& sub_expr = expression[idx];
         idx++;
-        const auto res = evaluate_sub_expr(sub_expr);
+        const auto res = evaluate_sub_expr(sub_expr, context, symbol_map);
         if (res != std::nullopt)
         {
             return RetType::err(res.value());
         }
     }
 
-    if (binary_op != std::nullopt)
+    if (context.binary_op != std::nullopt)
     {
         return RetType::err(ParseError::BadEvaluation);
     }
-    if (unary_op != std::nullopt)
+    if (context.unary_op != std::nullopt)
     {
         const auto& sub_expr = expression[idx];
         idx++;
-        const auto res = evaluate_sub_expr(sub_expr);
+        const auto res = evaluate_sub_expr(sub_expr, context, symbol_map);
         if (res != std::nullopt)
         {
             return RetType::err(res.value());
         }
-        if (rhs == std::nullopt)
+        if (context.rhs == std::nullopt)
         {
             return RetType::err(ParseError::BadEvaluation);
         }
-        acc = unary_expr(unary_op.value(), rhs.value());
-        unary_op = {};
-        rhs = {};
+        acc = unary_expr(context.unary_op.value(), context.rhs.value());
+        context.unary_op = {};
+        context.rhs = {};
     }
     else
     {
-        acc = rhs.value();
-        rhs = {};
+        acc = context.rhs.value();
+        context.rhs = {};
     }
 
     while (idx < expression.size())
@@ -294,13 +244,13 @@ auto ArithmeticExpression::evaluate(
         // expect a binary expression
         const auto& binary_op_expr = expression[idx];
         idx++;
-        auto res = evaluate_sub_expr(binary_op_expr);
+        auto res = evaluate_sub_expr(binary_op_expr, context, symbol_map);
         if (res != std::nullopt)
         {
             return RetType::err(res.value());
         }
 
-        if (binary_op == std::nullopt)
+        if (context.binary_op == std::nullopt)
         {
             return RetType::err(ParseError::BadEvaluation);
         }
@@ -308,39 +258,92 @@ auto ArithmeticExpression::evaluate(
         // next may either be a unary operator or a value
         const auto& sub_expr_0 = expression[idx];
         idx++;
-        res = evaluate_sub_expr(sub_expr_0);
+        res = evaluate_sub_expr(sub_expr_0, context, symbol_map);
         if (res != std::nullopt)
         {
             return RetType::err(res.value());
         }
-        if (unary_op != std::nullopt)
+        if (context.unary_op != std::nullopt)
         {
             // next must be a value
             const auto& sub_expr = expression[idx];
             idx++;
-            const auto res = evaluate_sub_expr(sub_expr);
+            const auto res = evaluate_sub_expr(sub_expr, context, symbol_map);
             if (res != std::nullopt)
             {
                 return RetType::err(res.value());
             }
-            if (rhs == std::nullopt)
+            if (context.rhs == std::nullopt)
             {
                 return RetType::err(ParseError::BadEvaluation);
             }
-            rhs = unary_expr(unary_op.value(), rhs.value());
-            unary_op = {};
+            context.rhs = unary_expr(context.unary_op.value(), context.rhs.value());
+            context.unary_op = {};
         }
-        if (rhs == std::nullopt)
+        if (context.rhs == std::nullopt)
         {
             return RetType::err(ParseError::BadEvaluation);
         }
 
-        acc = binary_expr(acc, binary_op.value(), rhs.value());
-        binary_op = {};
-        rhs = {};
+        acc = binary_expr(acc, context.binary_op.value(), context.rhs.value());
+        context.binary_op = {};
+        context.rhs = {};
     }
 
     return RetType::ok(acc);
+}
+
+auto ArithmeticExpression::evaluate_sub_expr(
+        const SExpr& sub_expr,
+        ArithmeticContext& context,
+        const SymbolMap& symbol_map) -> std::optional<ParseError>
+{
+    using AtomType = ArithAtomType;
+
+    if (sub_expr.index() == 0)
+    {
+        const auto& atom = std::get<Atom>(sub_expr);
+        switch (atom.get_type())
+        {
+        case AtomType::BinaryOp:
+            context.binary_op = atom.get<BinaryOperator>();
+            break;
+        case AtomType::UnaryOp:
+            context.unary_op = atom.get<UnaryOperator>();
+            break;
+        case AtomType::Byte:
+            context.rhs = atom.get<uint8_t>();
+            break;
+        case AtomType::Word:
+            context.rhs = atom.get<uint16_t>();
+            break;
+        case AtomType::Character:
+            context.rhs = static_cast<uint8_t>(atom.get<char>());
+            break;
+        case AtomType::PcStar:
+            context.rhs = context.pc;
+            break;
+        case AtomType::Symbol:
+            context.symbol = atom.get<std::string>();
+            if (!symbol_map.contains(context.symbol))
+            {
+                logger::error("Undefined symbol {} ", context.symbol);
+                return ParseError::SymbolUndefined;
+            }
+            context.rhs = symbol_map.at(context.symbol);
+            break;
+        }
+    }
+    else
+    {
+        auto result = std::get<std::unique_ptr<Expr>>(sub_expr)->evaluate(symbol_map, context.pc);
+        if (result.is_err())
+        {
+            return result.get_err();
+        }
+        context.rhs = result.get_ok();
+    }
+    return {};
 }
 
 auto ArithmeticExpression::unary_expr(UnaryOperator op, uint16_t rhs) -> int32_t

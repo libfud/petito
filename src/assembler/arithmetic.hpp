@@ -116,6 +116,19 @@ public:
     using UnaryOpContext = asm6502Parser::Unary_opContext;
 
 private:
+    struct ArithmeticContext
+    {
+        std::optional<uint16_t> rhs;
+        std::optional<BinaryOperator> binary_op;
+        std::optional<UnaryOperator> unary_op;
+        std::string symbol;
+        uint16_t pc;
+    };
+    auto evaluate_sub_expr(
+        const SExpr& sub_expr,
+        ArithmeticContext& context,
+        const SymbolMap& symbol_map) -> std::optional<ParseError>;
+
     auto unary_expr(UnaryOperator op, uint16_t rhs) -> int32_t;
     auto binary_expr(int32_t acc, BinaryOperator op, uint16_t rhs) -> int32_t;
     auto handle_atom(Context* context) -> std::optional<ParseError>;
