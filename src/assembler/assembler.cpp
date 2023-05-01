@@ -129,7 +129,6 @@ auto Assembler::evaluate() -> std::optional<ParseError>
             [&](const auto& v){ program_bytes.insert(program_bytes.end(), v.begin(), v.end()); },
             instruction.serialize());
     }
-
     return {};
 }
 

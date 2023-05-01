@@ -200,44 +200,12 @@ auto ArithmeticExpression::evaluate(
     context.pc = pc;
 
     size_t idx = 0;
-    int32_t acc = 0;
-
+    auto init_result = evaluate_init(idx, context, symbol_map);
+    if (init_result.is_err())
     {
-        const auto& sub_expr = expression[idx];
-        idx++;
-        const auto res = evaluate_sub_expr(sub_expr, context, symbol_map);
-        if (res != std::nullopt)
-        {
-            return RetType::err(res.value());
-        }
+        return init_result;
     }
-
-    if (context.binary_op != std::nullopt)
-    {
-        return RetType::err(ParseError::BadEvaluation);
-    }
-    if (context.unary_op != std::nullopt)
-    {
-        const auto& sub_expr = expression[idx];
-        idx++;
-        const auto res = evaluate_sub_expr(sub_expr, context, symbol_map);
-        if (res != std::nullopt)
-        {
-            return RetType::err(res.value());
-        }
-        if (context.rhs == std::nullopt)
-        {
-            return RetType::err(ParseError::BadEvaluation);
-        }
-        acc = unary_expr(context.unary_op.value(), context.rhs.value());
-        context.unary_op = {};
-        context.rhs = {};
-    }
-    else
-    {
-        acc = context.rhs.value();
-        context.rhs = {};
-    }
+    int32_t acc = init_result.get_ok();
 
     while (idx < expression.size())
     {
@@ -293,10 +261,62 @@ auto ArithmeticExpression::evaluate(
     return RetType::ok(acc);
 }
 
+auto ArithmeticExpression::evaluate_init(
+    size_t& idx,
+    ArithmeticContext& context,
+    const SymbolMap& symbol_map) -> Result<int32_t, ParseError>
+{
+    using RetType = Result<int32_t, ParseError>;
+    int32_t acc = 0;
+
+    // Get the first atom.
+    idx = 0;
+    const auto first_sub_expr_res = evaluate_sub_expr(expression[idx], context, symbol_map);
+    idx = 1;
+    if (first_sub_expr_res != std::nullopt)
+    {
+        return RetType::err(first_sub_expr_res.value());
+    }
+
+    // A leading binary operation is illegal as there is no LHS (accumulator) yet.
+    if (context.binary_op != std::nullopt)
+    {
+        return RetType::err(ParseError::BadEvaluation);
+    }
+    // A leading unary operation is legal if the next atom is a value.
+    if (context.unary_op != std::nullopt)
+    {
+        const auto& sub_expr = expression[idx];
+        idx++;
+        const auto res = evaluate_sub_expr(sub_expr, context, symbol_map);
+        if (res != std::nullopt)
+        {
+            return RetType::err(res.value());
+        }
+        // No value found - no viable evaluation is possible.
+        if (context.rhs == std::nullopt)
+        {
+            return RetType::err(ParseError::BadEvaluation);
+        }
+        acc = unary_expr(context.unary_op.value(), context.rhs.value());
+        // Clear the operands.
+        context.unary_op = {};
+        context.rhs = {};
+    }
+    // No unary operation - set acc to RHS and clear RHS.
+    else
+    {
+        acc = context.rhs.value();
+        context.rhs = {};
+    }
+
+    return RetType::ok(acc);
+}
+
 auto ArithmeticExpression::evaluate_sub_expr(
-        const SExpr& sub_expr,
-        ArithmeticContext& context,
-        const SymbolMap& symbol_map) -> std::optional<ParseError>
+    const SExpr& sub_expr,
+    ArithmeticContext& context,
+    const SymbolMap& symbol_map) -> std::optional<ParseError>
 {
     using AtomType = ArithAtomType;
 
@@ -324,6 +344,7 @@ auto ArithmeticExpression::evaluate_sub_expr(
             context.rhs = context.pc;
             break;
         case AtomType::Symbol:
+        default:
             context.symbol = atom.get<std::string>();
             if (!symbol_map.contains(context.symbol))
             {
@@ -346,14 +367,14 @@ auto ArithmeticExpression::evaluate_sub_expr(
     return {};
 }
 
-auto ArithmeticExpression::unary_expr(UnaryOperator op, uint16_t rhs) -> int32_t
+auto ArithmeticExpression::unary_expr(UnaryOperator op, int32_t rhs) -> int32_t
 {
     switch (op)
     {
     case UnaryOperator::Plus:
         return rhs;
     case UnaryOperator::Minus:
-        return -static_cast<int32_t>(rhs);
+        return -rhs;
     case UnaryOperator::LowByte:
         return rhs & 0xFF;
     case UnaryOperator::HighByte:
@@ -362,7 +383,7 @@ auto ArithmeticExpression::unary_expr(UnaryOperator op, uint16_t rhs) -> int32_t
     }
 }
 
-auto ArithmeticExpression::binary_expr(int32_t acc, BinaryOperator op, uint16_t rhs) -> int32_t
+auto ArithmeticExpression::binary_expr(int32_t acc, BinaryOperator op, int32_t rhs) -> int32_t
 {
     switch (op)
     {
@@ -376,6 +397,23 @@ auto ArithmeticExpression::binary_expr(int32_t acc, BinaryOperator op, uint16_t 
     default:
         return acc / rhs;
     }
+}
+
+auto ArithmeticExpression::format() const -> std::string
+{
+    std::string output{};
+    for (const auto& elt : expression)
+    {
+        if (elt.index() == 0)
+        {
+            output += std::get<Atom>(elt).format();
+        }
+        else
+        {
+            output += std::format("[{}]", std::get<std::unique_ptr<Expr>>(elt)->format());
+        }
+    }
+    return output;
 }
 
 auto ArithmeticExpression::add_atom(Atom&& atom) -> void

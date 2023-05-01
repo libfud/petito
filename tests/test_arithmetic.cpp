@@ -262,4 +262,45 @@ TEST(TestArithmetic, UnknownSymbol)
     EXPECT_EQ(result_2.get_ok(), map[test_symbol]);
 }
 
+TEST(TestArithmetic, Nesting)
+{
+    // -[-[42*1]+-[42/2]]
+    using Atom = ArithmeticExpression::Atom;
+    uint8_t lue = 42;
+    uint8_t one = 1;
+    uint8_t two = 2;
+
+    // [42*1] = se2;
+    ArithmeticExpression sub_expression_2{};
+    sub_expression_2.add_atom(Atom{lue});
+    sub_expression_2.add_atom(Atom{BinaryOperator::Multiply});
+    sub_expression_2.add_atom(Atom{one});
+
+    // [42/2] = se3;
+    ArithmeticExpression sub_expression_3{};
+    sub_expression_3.add_atom(Atom{lue});
+    sub_expression_3.add_atom(Atom{BinaryOperator::Divide});
+    sub_expression_3.add_atom(Atom{two});
+
+    // [-se2+-se3] = se1
+    ArithmeticExpression sub_expression_1{};
+    sub_expression_1.add_atom(Atom{UnaryOperator::Minus});
+    sub_expression_1.add_expression(std::move(sub_expression_2));
+    sub_expression_1.add_atom(Atom{BinaryOperator::Add});
+    sub_expression_1.add_atom(Atom{UnaryOperator::Minus});
+    sub_expression_1.add_expression(std::move(sub_expression_3));
+
+    // -[se1] = expression
+    ArithmeticExpression expression{};
+    expression.add_atom(Atom{UnaryOperator::Minus});
+    expression.add_expression(std::move(sub_expression_1));
+    std::cout << expression.format() << "\n";
+
+    SymbolMap empty_map{};
+    auto expression_res = expression.evaluate(empty_map, 0);
+    ASSERT_TRUE(expression_res.is_ok());
+    auto expression_value = expression_res.get_ok();
+    EXPECT_EQ(expression_value, -(-(lue*one)+-(lue/two)));
+}
+
 } // namespace mos6502

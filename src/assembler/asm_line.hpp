@@ -436,6 +436,11 @@ protected:
         AddressMode zpg_mode,
         AddressMode abs_mode) -> Result<OpInfo, ParseError>;
 
+    auto parse_xy_index_2(
+        InstructionContext* rule,
+        AddressMode zpg_mode,
+        AddressMode abs_mode) -> Result<OpInfo, ParseError>;
+
     auto check_mnemonic(
         const std::string& name,
         AddressMode mode) -> Result<OpName, ParseError>;

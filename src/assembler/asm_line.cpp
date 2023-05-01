@@ -205,7 +205,7 @@ auto AsmInstructionLine::parse(
         return parse_jsr(rule, pc, std::move(label), std::move(comment));
     }
 
-    return {};
+    return ParseError::LogicError;
 }
 
 auto AsmInstructionLine::parse_implicit(
@@ -345,25 +345,48 @@ auto AsmInstructionLine::parse_xy_index(
 {
     using RetType = Result<OpInfo, ParseError>;
     std::string name;
-    auto* context = rule->x_index();
-    if (context->mnemonic())
+    auto zpg_invalid_mnemonic = Result<OpName, ParseError>::err(ParseError::LogicError);
+    auto abs_invalid_mnemonic = Result<OpName, ParseError>::err(ParseError::LogicError);
+    asm6502Parser::ExpressionContext* expression_context = nullptr;
+    asm6502Parser::MnemonicContext* mnemonic_context = nullptr;
+    asm6502Parser::ShiftContext* shift_context = nullptr;
+    if (zpg_mode == AddressMode::ZPG_X && abs_mode == AddressMode::ABS_X)
     {
-        name = context->mnemonic()->MNEMONIC()->getText();
+        auto* context = rule->x_index();
+        mnemonic_context = context->mnemonic();
+        shift_context = context->shift();
+        expression_context = context->expression();
+    }
+    else if (zpg_mode == AddressMode::ZPG_Y && abs_mode == AddressMode::ABS_Y)
+    {
+        auto* context = rule->y_index();
+        mnemonic_context = context->mnemonic();
+        shift_context = context->shift();
+        expression_context = context->expression();
     }
     else
     {
-        name = context->shift()->SHIFT()->getText();
+        return RetType::err(ParseError::LogicError);
     }
 
-    auto zpg_invalid_mnemonic = check_mnemonic(name, zpg_mode);
-    auto abs_invalid_mnemonic = check_mnemonic(name, abs_mode);
+    if (mnemonic_context)
+    {
+        name = mnemonic_context->MNEMONIC()->getText();
+    }
+    else
+    {
+        name = shift_context->SHIFT()->getText();
+    }
+
+    zpg_invalid_mnemonic = check_mnemonic(name, zpg_mode);
+    abs_invalid_mnemonic = check_mnemonic(name, abs_mode);
 
     if (zpg_invalid_mnemonic.is_err() && abs_invalid_mnemonic.is_err())
     {
         return RetType::err(zpg_invalid_mnemonic.get_err());
     }
 
-    auto arith_result = ArithmeticExpression::make(context->expression());
+    auto arith_result = ArithmeticExpression::make(expression_context);
     if (arith_result.is_err())
     {
         return RetType::err(arith_result.get_err());
@@ -375,16 +398,19 @@ auto AsmInstructionLine::parse_xy_index(
     {
         SymbolMap empty_map{};
         auto res = expression.evaluate(empty_map, 0);
-        if (res.is_err())
+        if (res.is_err() && res.get_err() != ParseError::SymbolUndefined)
         {
-            return RetType::err(ParseError::BadArithmetic);
+            return RetType::err(res.get_err());
         }
-        if (res.get_ok() < 0xFF)
+        else if (res.is_ok() && res.get_ok() < 0xFF)
         {
             return RetType::ok({zpg_invalid_mnemonic.get_ok(), zpg_mode, expression});
         }
     }
-
+    if (zpg_invalid_mnemonic.is_ok() && abs_invalid_mnemonic.is_err())
+    {
+        return RetType::ok({zpg_invalid_mnemonic.get_ok(), zpg_mode, expression});
+    }
     return RetType::ok({abs_invalid_mnemonic.get_ok(), abs_mode, expression});
 }
 
@@ -624,7 +650,7 @@ auto AssignLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>
             return result.get_err();
         }
         value = result.get_ok();
-        symbol_map[name] = *reinterpret_cast<uint16_t*>(&value.value());
+        symbol_map[name] = value.value();
     }
     return {};
 }
