@@ -1,5 +1,5 @@
 
-// Generated from asm6502.g4 by ANTLR 4.10.1
+// Generated from asm6502Lexer.g4 by ANTLR 4.10.1
 
 #pragma once
 
@@ -12,19 +12,28 @@
 class  asm6502Lexer : public antlr4::Lexer {
 public:
   enum {
-    COMMENT = 1, WHITESPACE = 2, NEWLINE = 3, UNDERSCORE = 4, PLUS = 5, 
-    MINUS = 6, STAR = 7, SLASH = 8, LOW_BYTE_VALUE = 9, HIGH_BYTE_VALUE = 10, 
-    LBRACKET = 11, RBRACKET = 12, LPAREN = 13, RPAREN = 14, HASH = 15, COLON = 16, 
-    AT = 17, X_INDEX = 18, Y_INDEX = 19, OCTAL_BYTE = 20, OCTAL_NUMBER = 21, 
-    HEX_BYTE = 22, HEX_NUMBER = 23, DECIMAL_BYTE = 24, DECIMAL_NUMBER = 25, 
-    BINARY_BYTE = 26, BINARY_NUMBER = 27, CHARACTER = 28, ORG = 29, EQU = 30, 
-    NOP = 31, IMPLIED = 32, BRANCH = 33, SHIFT = 34, JUMP = 35, JSR = 36, 
-    MNEMONIC = 37, ILLEGAL = 38, ACC = 39, SYMBOL = 40
+    COMMENT = 1, WHITESPACE = 2, NEWLINE = 3, PLUS = 4, MINUS = 5, STAR = 6, 
+    SLASH = 7, LOW_BYTE_VALUE = 8, HIGH_BYTE_VALUE = 9, LBRACKET = 10, RBRACKET = 11, 
+    LPAREN = 12, RPAREN = 13, HASH = 14, COLON = 15, AT = 16, FORCED_BYTE = 17, 
+    FORCED_WORD = 18, COMMA = 19, X_INDEX = 20, Y_INDEX = 21, OCTAL_BYTE = 22, 
+    OCTAL_NUMBER = 23, HEX_BYTE = 24, HEX_NUMBER = 25, DECIMAL_BYTE = 26, 
+    DECIMAL_NUMBER = 27, BINARY_BYTE = 28, BINARY_NUMBER = 29, DORG = 30, 
+    DBYTE = 31, DDBYTE = 32, DWORD = 33, DTEXT = 34, DALIGN = 35, DFILL = 36, 
+    DREPEAT = 37, CHARACTER = 38, EQU = 39, NOP = 40, IMPLIED = 41, BRANCH = 42, 
+    SHIFT = 43, JUMP = 44, JSR = 45, MNEMONIC = 46, ILLEGAL = 47, ACC = 48, 
+    SYMBOL = 49, DQUOTE = 50, TEXT = 51, ESCAPE_SEQUENCE = 52
+  };
+
+  enum {
+    IN_STRING = 1
   };
 
   explicit asm6502Lexer(antlr4::CharStream *input);
 
   ~asm6502Lexer() override;
+
+
+      int nesting = 0;
 
 
   std::string getGrammarFileName() const override;

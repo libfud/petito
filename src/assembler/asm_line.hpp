@@ -45,7 +45,7 @@ public:
     {
         return 1 + address_mode_num_bytes(address_mode());
     }
-    constexpr auto opcode() const -> uint8_t
+    auto opcode() const -> uint8_t
     {
         return OPCODE_MAP.at(address_mode()).at(op_id);
     }
@@ -65,7 +65,7 @@ class NIModeInstructionLine : public InstructionLine
 public:
     using InstructionLine::InstructionLine;
     constexpr auto address_mode() const  -> AddressMode override { return AddressMode::NI; }
-    constexpr auto serialize() const -> std::array<uint8_t, 1> { return {opcode()}; }
+    auto serialize() const -> std::array<uint8_t, 1> { return {opcode()}; }
 
 protected:
     auto format_instruction() const -> std::string override
@@ -79,7 +79,7 @@ class ImplicitInstructionLine : public InstructionLine
 public:
     using InstructionLine::InstructionLine;
     constexpr auto address_mode() const  -> AddressMode override { return AddressMode::IMPL; }
-    constexpr auto serialize() const -> std::array<uint8_t, 1> { return {opcode()}; }
+    auto serialize() const -> std::array<uint8_t, 1> { return {opcode()}; }
 
 protected:
     auto format_instruction() const -> std::string override
@@ -93,7 +93,7 @@ class AccInstructionLine : public InstructionLine
 public:
     using InstructionLine::InstructionLine;
     constexpr auto address_mode() const  -> AddressMode override { return AddressMode::A; }
-    constexpr auto serialize() const -> std::array<uint8_t, 1> { return {opcode()}; }
+    auto serialize() const -> std::array<uint8_t, 1> { return {opcode()}; }
 protected:
     auto format_instruction() const -> std::string override
     {
@@ -132,7 +132,7 @@ public:
     using NOperandInstructionLine::NOperandInstructionLine;
     virtual ~OneOperandInstructionLine() = default;
     virtual auto evaluate(const SymbolMap& symbol_map) -> std::optional<ParseError> override;
-    constexpr auto serialize() const -> std::array<uint8_t, 2> {
+    auto serialize() const -> std::array<uint8_t, 2> {
         return {opcode(), operand};
     }
 
@@ -146,7 +146,7 @@ public:
     using NOperandInstructionLine::NOperandInstructionLine;
     virtual ~TwoOperandInstructionLine() = default;
     virtual auto evaluate(const SymbolMap& symbol_map) -> std::optional<ParseError> override;
-    constexpr auto serialize() const -> std::array<uint8_t, 3> {
+    auto serialize() const -> std::array<uint8_t, 3> {
         return {opcode(), operand_1, operand_2};
     }
 
@@ -376,6 +376,7 @@ protected:
     DEF_PARSE_RULE(parse_implicit);
     DEF_PARSE_RULE(parse_acc);
     DEF_PARSE_RULE(parse_immediate);
+    DEF_PARSE_RULE(parse_zero_page);
     DEF_PARSE_RULE(parse_x_index);
     DEF_PARSE_RULE(parse_y_index);
     DEF_PARSE_RULE(parse_x_indirect);
@@ -515,6 +516,30 @@ private:
     std::optional<std::string> comment;
 };
 
+class DirectiveLine {
+public:
+    using DirectiveResult = Result<DirectiveLine, ParseError>;
+    static auto make(asm6502Parser::LineContext* line, uint16_t pc) -> DirectiveResult;
+    constexpr auto format() const -> std::string {
+        return std::format("{} EQU {}", name, value.value());
+    }
+    constexpr auto serialize() const -> std::array<uint8_t, 0> { return {}; }
+    constexpr auto has_label() const -> bool { return false; }
+    constexpr auto program_counter() const -> uint16_t
+    {
+        return pc;
+    }
+    constexpr auto size() const -> uint16_t { return 0; }
+    auto evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>;
+
+private:
+    std::string name;
+    uint16_t pc = 0;
+    ArithmeticExpression expression = {};
+    std::optional<int16_t> value;
+    std::optional<std::string> comment;
+};
+
 struct EmptyLine {
     constexpr auto has_label() const -> bool { return false; }
     constexpr auto format() const -> std::string { return ""; };
@@ -536,7 +561,8 @@ using AsmLineType = std::variant<
     AsmInstructionLine,
     CommentLine,
     LabelLine,
-    AssignLine
+    AssignLine,
+    DirectiveLine
     >;
 
 class AsmLine {

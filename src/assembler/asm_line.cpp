@@ -165,6 +165,11 @@ auto AsmInstructionLine::parse(
         return parse_immediate(rule, pc, std::move(label), std::move(comment));
     }
 
+    if (rule->zero_page())
+    {
+        return parse_immediate(rule, pc, std::move(label), std::move(comment));
+    }
+
     if (rule->x_index())
     {
         return parse_x_index(rule, pc, std::move(label), std::move(comment));
@@ -272,12 +277,51 @@ auto AsmInstructionLine::parse_immediate(
     return {};
 }
 
+auto AsmInstructionLine::parse_zero_page(
+        InstructionContext* rule,
+        uint16_t pc,
+        std::optional<std::string>&& label,
+        std::optional<std::string>&& comment) -> BuilderResult
+{
+    auto* context = rule->zero_page();
+    return parse_helper(
+        instruction_line_wrapper<ZeroPageInstructionLine>,
+        context,
+        AddressMode::ZPG,
+        pc,
+        std::move(label),
+        std::move(comment));
+}
+
 auto AsmInstructionLine::parse_x_index(
         InstructionContext* rule,
         uint16_t pc,
         std::optional<std::string>&& label,
         std::optional<std::string>&& comment) -> BuilderResult
 {
+    if (rule->x_index()->FORCED_BYTE())
+    {
+        auto* context = rule->x_index();
+        return parse_helper(
+            instruction_line_wrapper<ZeroPageXInstructionLine>,
+            context,
+            AddressMode::ZPG_X,
+            pc,
+            std::move(label),
+            std::move(comment));
+    }
+    if (rule->x_index()->FORCED_WORD())
+    {
+        auto* context = rule->x_index();
+        return parse_helper(
+            instruction_line_wrapper<AbsoluteXInstructionLine>,
+            context,
+            AddressMode::ABS_X,
+            pc,
+            std::move(label),
+            std::move(comment));
+    }
+
     auto opcode_info_result = parse_xy_index(rule, AddressMode::ZPG_X, AddressMode::ABS_X);
     if (opcode_info_result.is_err())
     {
@@ -311,6 +355,29 @@ auto AsmInstructionLine::parse_y_index(
         std::optional<std::string>&& label,
         std::optional<std::string>&& comment) -> BuilderResult
 {
+    if (rule->y_index()->FORCED_BYTE())
+    {
+        auto* context = rule->y_index();
+        return parse_helper(
+            instruction_line_wrapper<ZeroPageYInstructionLine>,
+            context,
+            AddressMode::ZPG_Y,
+            pc,
+            std::move(label),
+            std::move(comment));
+    }
+    if (rule->y_index()->FORCED_WORD())
+    {
+        auto* context = rule->y_index();
+        return parse_helper(
+            instruction_line_wrapper<AbsoluteYInstructionLine>,
+            context,
+            AddressMode::ABS_Y,
+            pc,
+            std::move(label),
+            std::move(comment));
+    }
+
     auto opcode_info_result = parse_xy_index(rule, AddressMode::ZPG_Y, AddressMode::ABS_Y);
     if (opcode_info_result.is_err())
     {
@@ -652,6 +719,11 @@ auto AssignLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>
         value = result.get_ok();
         symbol_map[name] = value.value();
     }
+    return {};
+}
+
+auto DirectiveLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>
+{
     return {};
 }
 
