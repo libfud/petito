@@ -11,6 +11,24 @@
 
 namespace mos6502 {
 
+TEST(TestArithmetic, Copy)
+{
+    using Atom = ArithmeticExpression::Atom;
+    ArithmeticExpression expression_1{};
+    ArithmeticExpression sub_expression{};
+    uint8_t value = 42;
+    sub_expression.add_atom(Atom{UnaryOperator::Minus});
+    sub_expression.add_atom(Atom{value});
+    sub_expression.add_atom(Atom{BinaryOperator::Add});
+    sub_expression.add_atom(Atom{value});
+    expression_1.add_expression(std::move(sub_expression));
+    ArithmeticExpression expression_2{expression_1};
+    ArithmeticExpression expression_3 = {expression_1};
+    expression_1 = expression_1;
+    ASSERT_EQ(expression_1.format(), expression_2.format());
+    ASSERT_EQ(expression_1.format(), expression_3.format());
+}
+
 TEST(TestArithmetic, MakeNumber)
 {
     using RetType = Result<int32_t, ParseError>;
