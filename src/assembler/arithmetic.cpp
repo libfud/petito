@@ -5,15 +5,10 @@
 
 namespace mos6502 {
 
-auto ArithmeticAtom::get_type() const -> ArithAtomType
-{
-    return static_cast<ArithAtomType>(value.index());
-}
-
 auto make_number(Base base, int start_idx, const std::string &input) -> Result<int32_t, ParseError>
 {
     using RetType = Result<int32_t, ParseError>;
-    const std::map<char, int8_t>& char_map = BASE_MAP.at(base);
+    const auto& char_map = BASE_MAP.at(base);
 
     int32_t acc = 0;
     for (int idx = start_idx; idx < input.length(); ++idx)

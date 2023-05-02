@@ -65,7 +65,10 @@ public:
         : value(value)
     {}
 
-    auto get_type() const -> ArithAtomType;
+    constexpr auto get_type() const -> ArithAtomType
+    {
+        return static_cast<ArithAtomType>(value.index());
+    }
 
     template <typename T>
     const T& get() const
@@ -113,6 +116,7 @@ public:
         case ArithAtomType::PcStar:
             return "*";
         case ArithAtomType::Symbol:
+        default:
             return std::get<std::string>(value);
         }
     }

@@ -3,10 +3,10 @@
 
 #include <array>
 #include <cstdint>
-#include <map>
 #include <set>
 #include <string>
 #include <type_traits>
+#include <unordered_map>
 
 namespace mos6502 {
 
@@ -464,7 +464,7 @@ constexpr std::array<std::string, static_cast<uint8_t>(OpName::SED) + 1> OP_NAME
 
 const std::string& opid_to_name(OpName opid);
 
-static const std::map<std::string, OpName> MNEMONIC_MAP{
+static const std::unordered_map<std::string, OpName> MNEMONIC_MAP{
     {"BRK", OpName::BRK},
     {"ORA", OpName::ORA},
     {"JAM", OpName::JAM},
@@ -989,7 +989,7 @@ const OpSet RELATIVE_OP_SET{
 
 const OpSet JAM_OP_SET{OpName::JAM};
 
-const std::map<AddressMode, OpSet> ADDRESS_MODE_MAP{
+const std::unordered_map<AddressMode, OpSet> ADDRESS_MODE_MAP{
     {AddressMode::IMPL, IMPLICIT_OP_SET},
     {AddressMode::A, ACC_OP_SET},
     {AddressMode::IMM, IMMEDIATE_OP_SET},
@@ -1006,7 +1006,7 @@ const std::map<AddressMode, OpSet> ADDRESS_MODE_MAP{
     {AddressMode::NI, JAM_OP_SET},
 };
 
-using OpMap = std::map<OpName, uint8_t>;
+using OpMap = std::unordered_map<OpName, uint8_t>;
 
 const OpMap IMPLICIT_MAP{
     {OpName::BRK, BRK_IMPL}, {OpName::PHP, PHP_IMPL}, {OpName::CLC, CLC_IMPL},
@@ -1153,7 +1153,7 @@ const OpMap JAM_MAP{
     {OpName::JAM, JAM_X00}
 };
 
-const std::map<AddressMode, OpMap> OPCODE_MAP{
+const std::unordered_map<AddressMode, OpMap> OPCODE_MAP{
     {AddressMode::IMPL, IMPLICIT_MAP},
     {AddressMode::A, ACC_MAP},
     {AddressMode::IMM, IMMEDIATE_MAP},

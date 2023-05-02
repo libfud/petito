@@ -11,22 +11,29 @@
 
 namespace mos6502 {
 
-TEST(TestArithmetic, Copy)
+TEST(TestArithmetic, CopyMove)
 {
     using Atom = ArithmeticExpression::Atom;
     ArithmeticExpression expression_1{};
     ArithmeticExpression sub_expression{};
+    ArithmeticExpression nested_expression{};
     uint8_t value = 42;
     sub_expression.add_atom(Atom{UnaryOperator::Minus});
     sub_expression.add_atom(Atom{value});
     sub_expression.add_atom(Atom{BinaryOperator::Add});
-    sub_expression.add_atom(Atom{value});
+    nested_expression.add_atom(Atom{value});
+    sub_expression.add_expression(std::move(nested_expression));
     expression_1.add_expression(std::move(sub_expression));
     ArithmeticExpression expression_2{expression_1};
-    ArithmeticExpression expression_3 = {expression_1};
+    ArithmeticExpression expression_3{};
+    expression_3 = expression_1;
     expression_1 = expression_1;
     ASSERT_EQ(expression_1.format(), expression_2.format());
     ASSERT_EQ(expression_1.format(), expression_3.format());
+    auto expression_4 = std::move(expression_2);
+    auto expression_5{std::move(expression_3)};
+    ASSERT_EQ(expression_1.format(), expression_4.format());
+    ASSERT_EQ(expression_1.format(), expression_5.format());
 }
 
 TEST(TestArithmetic, MakeNumber)
@@ -195,6 +202,20 @@ TEST(TestArithmetic, MakeByte)
     ASSERT_TRUE(make_byte_result.is_err());
     auto error = make_byte_result.get_err();
     ASSERT_EQ(error, ParseError::BadNumber);
+
+    class TestByteContext : public asm6502Parser::ByteContext {
+    public:
+        TestByteContext() : ByteContext{nullptr, 0} {}
+        auto HEX_BYTE() -> antlr4::tree::TerminalNode* { return nullptr; }
+        auto DECIMAL_BYTE() -> antlr4::tree::TerminalNode* { return nullptr; }
+        auto OCTAL_BYTE() -> antlr4::tree::TerminalNode* { return nullptr; }
+        auto BINARY_BYTE() -> antlr4::tree::TerminalNode* { return nullptr; }
+    };
+
+    TestByteContext context{};
+    make_byte_result = make_byte(&context);
+    ASSERT_TRUE(make_byte_result.is_err());
+    ASSERT_EQ(make_byte_result.get_err(), ParseError::LogicError);
 }
 
 TEST(TestArithmetic, MakeWord)
@@ -259,6 +280,20 @@ TEST(TestArithmetic, MakeWord)
     ASSERT_TRUE(make_word_result.is_err());
     auto error = make_word_result.get_err();
     ASSERT_EQ(error, ParseError::BadNumber);
+
+    class TestWordContext : public asm6502Parser::MultibyteContext {
+    public:
+        TestWordContext() : MultibyteContext{nullptr, 0} {}
+        auto HEX_BYTE() -> antlr4::tree::TerminalNode* { return nullptr; }
+        auto DECIMAL_BYTE() -> antlr4::tree::TerminalNode* { return nullptr; }
+        auto OCTAL_BYTE() -> antlr4::tree::TerminalNode* { return nullptr; }
+        auto BINARY_BYTE() -> antlr4::tree::TerminalNode* { return nullptr; }
+    };
+
+    TestWordContext context{};
+    make_word_result = make_word(&context);
+    ASSERT_TRUE(make_word_result.is_err());
+    ASSERT_EQ(make_word_result.get_err(), ParseError::LogicError);
 }
 
 TEST(TestArithmetic, UnknownSymbol)
@@ -319,6 +354,79 @@ TEST(TestArithmetic, Nesting)
     ASSERT_TRUE(expression_res.is_ok());
     auto expression_value = expression_res.get_ok();
     EXPECT_EQ(expression_value, -(-(lue*one)+-(lue/two)));
+}
+
+TEST(TestArithmetic, ByteOps)
+{
+    using Atom = ArithmeticExpression::Atom;
+    uint8_t lue = 42;
+    uint8_t two = 2;
+    uint16_t combined = lue << 8 | two;
+    SymbolMap empty_map{};
+
+    ArithmeticExpression expression{};
+    expression.add_atom(Atom{UnaryOperator::LowByte});
+    expression.add_atom(Atom{combined});
+    auto expression_result = expression.evaluate(empty_map, 0);
+    ASSERT_TRUE(expression_result.is_ok());
+    EXPECT_EQ(expression_result.get_ok(), two);
+
+    expression = {};
+    expression.add_atom(Atom{UnaryOperator::HighByte});
+    expression.add_atom(Atom{combined});
+    expression_result = expression.evaluate(empty_map, 0);
+    ASSERT_TRUE(expression_result.is_ok());
+    EXPECT_EQ(expression_result.get_ok(), lue);
+
+    expression = {};
+    expression.add_atom(Atom{UnaryOperator::Plus});
+    expression.add_atom(Atom{lue});
+    expression_result = expression.evaluate(empty_map, 0);
+    ASSERT_TRUE(expression_result.is_ok());
+    EXPECT_EQ(expression_result.get_ok(), lue);
+
+    expression = {};
+    expression.add_atom(Atom{UnaryOperator::Minus});
+    expression.add_atom(Atom{lue});
+    expression_result = expression.evaluate(empty_map, 0);
+    ASSERT_TRUE(expression_result.is_ok());
+    EXPECT_EQ(expression_result.get_ok(), -lue);
+}
+
+TEST(TestArithmetic, MissingBinaryOp)
+{
+    // -[-[42*1]+-[42/2]]
+    using Atom = ArithmeticExpression::Atom;
+    uint8_t lue = 42;
+    uint8_t one = 1;
+    uint8_t two = 2;
+    SymbolMap empty_map{};
+
+    ArithmeticExpression expression{};
+    expression.add_atom(Atom{lue});
+    expression.add_atom(Atom{one});
+    auto expression_result = expression.evaluate(empty_map, 0);
+    ASSERT_TRUE(expression_result.is_err());
+    ASSERT_EQ(expression_result.get_err(), ParseError::BadEvaluation);
+
+    expression = {};
+    expression.add_atom(Atom{lue});
+    expression.add_atom(Atom{BinaryOperator::Multiply});
+    expression.add_atom(Atom{UnaryOperator::Minus});
+
+    expression_result = expression.evaluate(empty_map, 0);
+    ASSERT_TRUE(expression_result.is_err());
+    ASSERT_EQ(expression_result.get_err(), ParseError::BadEvaluation);
+
+    expression = {};
+    expression.add_atom(Atom{lue});
+    expression.add_atom(Atom{BinaryOperator::Multiply});
+    expression.add_atom(Atom{one});
+    expression.add_atom(Atom{BinaryOperator::Divide});
+
+    expression_result = expression.evaluate(empty_map, 0);
+    ASSERT_TRUE(expression_result.is_err());
+    ASSERT_EQ(expression_result.get_err(), ParseError::BadEvaluation);
 }
 
 } // namespace mos6502

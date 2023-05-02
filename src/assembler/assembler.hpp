@@ -2,7 +2,6 @@
 #define ASSEMBLER_HPP
 
 #include <cstdint>
-#include <map>
 #include <string>
 #include <optional>
 #include <variant>
