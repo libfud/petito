@@ -140,15 +140,15 @@ fragment ARITH : ('ADC' | 'SBC') ;
 
 fragment INC : ('INC' | 'DEC') ;
 
-MNEMONIC : (LOAD | STORE | COMPARE | LOGIC | ARITH | INC) ;
-
-ILLEGAL :
+fragment ILLEGAL :
         ( 'JAM' | 'SLO' | 'ANC' | 'RLA' | 'SRE'
         | 'ALR' | 'RRA' | 'ARR' | 'SAX' | 'ANE'
         | 'SHA' | 'TAS' | 'SHY' | 'SHX' | 'LAX'
         | 'LXA' | 'LAS' | 'DCP' | 'SBX' | 'ISB'
         | 'USB'
         ) ;
+
+MNEMONIC : (LOAD | STORE | COMPARE | LOGIC | ARITH | INC) ;
 
 ACC: 'A' ;
 

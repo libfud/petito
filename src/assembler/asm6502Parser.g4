@@ -54,7 +54,7 @@ immediate : mnemonic WHITESPACE HASH expression ;
 
 zero_page :
         (shift | mnemonic) FORCED_BYTE WHITESPACE expression |
-        (shift | mnemonic) WHITESPACE (byte | character) ;
+        (shift | mnemonic) WHITESPACE byte ;
 
 x_index :
         (shift | mnemonic) (FORCED_BYTE | FORCED_WORD)? WHITESPACE expression X_INDEX
@@ -65,11 +65,11 @@ y_index :
     ;
 
 x_indirect :
-        LPAREN (shift | mnemonic) WHITESPACE expression X_INDEX RPAREN
+        (shift | mnemonic) WHITESPACE LPAREN expression X_INDEX RPAREN
     ;
 
 indirect_y :
-        LPAREN (shift | mnemonic) WHITESPACE expression RPAREN Y_INDEX
+        (shift | mnemonic) WHITESPACE LPAREN expression RPAREN Y_INDEX
     ;
 
 absolute :

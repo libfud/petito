@@ -3,10 +3,10 @@
 
 #include <array>
 #include <cstdint>
-#include <set>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace mos6502 {
 
@@ -891,9 +891,15 @@ struct OpDecode
 
 static_assert(std::is_trivial<OpDecode>::value);
 
-constexpr size_t foo_size = sizeof(OPCODE_INFO_TABLE);
+using OpSet = std::unordered_set<OpName>;
 
-using OpSet = std::set<OpName>;
+const OpSet ILLEGAL_OP_SET{
+    OpName::JAM, OpName::SLO, OpName::ANC, OpName::RLA, OpName::SRE,
+    OpName::ALR, OpName::RRA, OpName::ARR, OpName::SAX, OpName::ANE,
+    OpName::SHA, OpName::TAS, OpName::SHY, OpName::SHX, OpName::LAX,
+    OpName::LXA, OpName::LAS, OpName::DCP, OpName::SBX, OpName::ISB,
+    OpName::USB
+};
 
 const OpSet IMPLICIT_OP_SET{
     OpName::BRK, OpName::PHP, OpName::CLC, OpName::PLP, OpName::SEC,

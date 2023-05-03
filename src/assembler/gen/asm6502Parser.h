@@ -247,7 +247,6 @@ public:
     ShiftContext *shift();
     MnemonicContext *mnemonic();
     ByteContext *byte();
-    CharacterContext *character();
 
    
   };
@@ -292,8 +291,8 @@ public:
   public:
     X_indirectContext(antlr4::ParserRuleContext *parent, size_t invokingState);
     virtual size_t getRuleIndex() const override;
-    antlr4::tree::TerminalNode *LPAREN();
     antlr4::tree::TerminalNode *WHITESPACE();
+    antlr4::tree::TerminalNode *LPAREN();
     ExpressionContext *expression();
     antlr4::tree::TerminalNode *X_INDEX();
     antlr4::tree::TerminalNode *RPAREN();
@@ -309,8 +308,8 @@ public:
   public:
     Indirect_yContext(antlr4::ParserRuleContext *parent, size_t invokingState);
     virtual size_t getRuleIndex() const override;
-    antlr4::tree::TerminalNode *LPAREN();
     antlr4::tree::TerminalNode *WHITESPACE();
+    antlr4::tree::TerminalNode *LPAREN();
     ExpressionContext *expression();
     antlr4::tree::TerminalNode *RPAREN();
     antlr4::tree::TerminalNode *Y_INDEX();

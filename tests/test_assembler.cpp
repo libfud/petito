@@ -2,6 +2,7 @@
 #include <gmock/gmock.h>
 
 #include <format>
+#include <numeric>
 #include <string>
 
 #include "assembler.hpp"
@@ -192,7 +193,6 @@ TEST(TestAssembler, STA_INDEX_Y_UNARY_EXPR)
         value,
         value);
     std::string input = line_1;
-    std::cout << "input is\n" << input << "\n";
     auto result = Assembler::from_text(input);
     ASSERT_TRUE(result.is_ok());
     auto assembler = result.get_ok();
@@ -204,8 +204,152 @@ TEST(TestAssembler, STA_INDEX_Y_UNARY_EXPR)
     std::array<uint8_t, 2> expected_bytes{
         STX_ZPG_Y, expected_byte
     };
-    EXPECT_EQ(std::memcmp(prog_bytes.data(), expected_bytes.data(), prog_bytes.size()), 0);
     EXPECT_TRUE(std::equal(prog_bytes.begin(), prog_bytes.end(), expected_bytes.begin()));
+}
+
+TEST(TestAssembler, AllAddressModes)
+{
+    std::string input;
+    std::vector<uint8_t> test_program{};
+    auto op_set_size = [](size_t acc, const auto& pair) -> size_t {
+        return acc + (1 + address_mode_num_bytes(pair.first)) * pair.second.size();
+    };
+    using std::accumulate;
+    constexpr auto& map = ADDRESS_MODE_MAP;
+
+    for (auto mnemonic : IMPLICIT_OP_SET)
+    {
+        if (!ILLEGAL_OP_SET.contains(mnemonic))
+        {
+            test_program.push_back(IMPLICIT_MAP.at(mnemonic));
+            input += std::format("\t{}\n", opid_to_name(mnemonic));
+        }
+    }
+    for (auto mnemonic : ACC_OP_SET)
+    {
+        if (mnemonic != OpName::NOP && !ILLEGAL_OP_SET.contains(mnemonic))
+        {
+            test_program.push_back(ACC_MAP.at(mnemonic));
+            input += std::format("\t{} A\n", opid_to_name(mnemonic));
+        }
+    }
+    for (auto mnemonic : IMMEDIATE_OP_SET)
+    {
+        if (mnemonic != OpName::NOP && !ILLEGAL_OP_SET.contains(mnemonic))
+        {
+            test_program.push_back(IMMEDIATE_MAP.at(mnemonic));
+            test_program.push_back(0);
+            input += std::format("\t{} #$00\n", opid_to_name(mnemonic));
+        }
+    }
+    for (auto mnemonic : ABSOLUTE_OP_SET)
+    {
+        if (mnemonic != OpName::NOP && !ILLEGAL_OP_SET.contains(mnemonic))
+        {
+            test_program.push_back(ABSOLUTE_MAP.at(mnemonic));
+            test_program.push_back(0);
+            test_program.push_back(3);
+            input += std::format("\t{} $0300\n", opid_to_name(mnemonic));
+        }
+    }
+    for (auto mnemonic : ABSOLUTE_X_OP_SET)
+    {
+        if (mnemonic != OpName::NOP && !ILLEGAL_OP_SET.contains(mnemonic))
+        {
+            test_program.push_back(ABSOLUTE_X_MAP.at(mnemonic));
+            test_program.push_back(0);
+            test_program.push_back(3);
+            input += std::format("\t{} $0300,X\n", opid_to_name(mnemonic));
+        }
+    }
+    for (auto mnemonic : ABSOLUTE_Y_OP_SET)
+    {
+        if (mnemonic != OpName::NOP && !ILLEGAL_OP_SET.contains(mnemonic))
+        {
+            test_program.push_back(ABSOLUTE_Y_MAP.at(mnemonic));
+            test_program.push_back(0);
+            test_program.push_back(3);
+            input += std::format("\t{} $0300,Y\n", opid_to_name(mnemonic));
+        }
+    }
+    for (auto mnemonic : ZPG_OP_SET)
+    {
+        if (mnemonic != OpName::NOP && !ILLEGAL_OP_SET.contains(mnemonic))
+        {
+            test_program.push_back(ZPG_MAP.at(mnemonic));
+            test_program.push_back(0);
+            input += std::format("\t{}.b $00\n", opid_to_name(mnemonic));
+        }
+    }
+    for (auto mnemonic : ZPG_X_OP_SET)
+    {
+        if (mnemonic != OpName::NOP && !ILLEGAL_OP_SET.contains(mnemonic))
+        {
+            test_program.push_back(ZPG_X_MAP.at(mnemonic));
+            test_program.push_back(0);
+            input += std::format("\t{}.b $00,X\n", opid_to_name(mnemonic));
+        }
+    }
+    for (auto mnemonic : ZPG_Y_OP_SET)
+    {
+        if (mnemonic != OpName::NOP && !ILLEGAL_OP_SET.contains(mnemonic))
+        {
+            test_program.push_back(ZPG_Y_MAP.at(mnemonic));
+            test_program.push_back(0);
+            input += std::format("\t{}.b $00,Y\n", opid_to_name(mnemonic));
+        }
+    }
+    for (auto mnemonic : INDIRECT_OP_SET)
+    {
+        if (mnemonic != OpName::NOP && !ILLEGAL_OP_SET.contains(mnemonic))
+        {
+            test_program.push_back(INDIRECT_MAP.at(mnemonic));
+            test_program.push_back(0);
+            test_program.push_back(0);
+            input += std::format("\t{} ($0000)\n", opid_to_name(mnemonic));
+        }
+    }
+    for (auto mnemonic : X_INDIRECT_OP_SET)
+    {
+        if (mnemonic != OpName::NOP && !ILLEGAL_OP_SET.contains(mnemonic))
+        {
+            test_program.push_back(X_INDIRECT_MAP.at(mnemonic));
+            test_program.push_back(0);
+            input += std::format("\t{} ($00,X)\n", opid_to_name(mnemonic));
+        }
+    }
+    for (auto mnemonic : INDIRECT_Y_OP_SET)
+    {
+        if (mnemonic != OpName::NOP && !ILLEGAL_OP_SET.contains(mnemonic))
+        {
+            test_program.push_back(INDIRECT_Y_MAP.at(mnemonic));
+            test_program.push_back(0);
+            input += std::format("\t{} ($0000),Y\n", opid_to_name(mnemonic));
+        }
+    }
+    size_t branch_label_idx = 0;
+    for (auto mnemonic : RELATIVE_OP_SET)
+    {
+        if (mnemonic != OpName::NOP && !ILLEGAL_OP_SET.contains(mnemonic))
+        {
+            test_program.push_back(RELATIVE_MAP.at(mnemonic));
+            test_program.push_back(-2);
+            input += std::format(
+                "BRNCH{}: {} BRNCH{}\n",
+                branch_label_idx,
+                opid_to_name(mnemonic),
+                branch_label_idx);
+            branch_label_idx++;
+        }
+    }
+
+    auto result = Assembler::from_text(input);
+    ASSERT_TRUE(result.is_ok());
+    auto assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    auto prog_bytes = assembler.serialize();
+    ASSERT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_TRUE(std::equal(prog_bytes.begin(), prog_bytes.end(), test_program.begin()));
 }
 
 } // namespace mos6502
