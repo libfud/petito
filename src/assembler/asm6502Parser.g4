@@ -16,6 +16,7 @@ line :
         WHITESPACE? instruction WHITESPACE? NEWLINE |
         WHITESPACE? assign comment? NEWLINE |
         WHITESPACE? directive comment? NEWLINE |
+        WHITESPACE? repeat_directive comment? NEWLINE |
         WHITESPACE? comment? NEWLINE
     ;
 
@@ -105,6 +106,10 @@ byte : (HEX_BYTE | DECIMAL_BYTE | OCTAL_BYTE | BINARY_BYTE) ;
 multibyte : (HEX_NUMBER | DECIMAL_NUMBER | OCTAL_NUMBER | BINARY_NUMBER) ;
 character : CHARACTER ;
 
+repeat_directive :
+        DREPEAT WHITESPACE (byte | multibyte) WHITESPACE (directive | instruction)
+    ;
+
 directive :
         org |
         byte_directive |
@@ -112,8 +117,7 @@ directive :
         word_directive |
         text_directive |
         align_directive |
-        fill_directive |
-        repeat_directive
+        fill_directive
     ;
 
 org : DORG WHITESPACE (EQU WHITESPACE)? expression ;
@@ -126,15 +130,12 @@ word_directive : DWORD byte_directive_value+ ;
 
 text_directive : DTEXT WHITESPACE string ;
 
+align_directive : DALIGN (WHITESPACE expression (WHITESPACE expression)?)? ;
+
+fill_directive : DFILL WHITESPACE expression (WHITESPACE expression)? ;
+
 byte_directive_value :  WHITESPACE expression COMMA? ;
 
 string : DQUOTE stringContents* DQUOTE ;
 
 stringContents : TEXT | ESCAPE_SEQUENCE ;
-
-align_directive : DALIGN (WHITESPACE expression)? ;
-
-fill_directive : DFILL WHITESPACE expression (WHITESPACE expression)? ;
-
-repeat_directive :
-        DFILL WHITESPACE (byte | multibyte) WHITESPACE (directive | instruction) ;

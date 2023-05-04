@@ -31,10 +31,10 @@ public:
     RuleIndirect_y = 14, RuleAbsolute = 15, RuleRelative = 16, RuleMnemonic = 17, 
     RuleShift = 18, RuleJump = 19, RuleJsr = 20, RuleExpression = 21, RuleBinary_op = 22, 
     RuleUnary_op = 23, RuleAtom = 24, RuleByte = 25, RuleMultibyte = 26, 
-    RuleCharacter = 27, RuleDirective = 28, RuleOrg = 29, RuleByte_directive = 30, 
-    RuleDbyte_directive = 31, RuleWord_directive = 32, RuleText_directive = 33, 
-    RuleByte_directive_value = 34, RuleString = 35, RuleStringContents = 36, 
-    RuleAlign_directive = 37, RuleFill_directive = 38, RuleRepeat_directive = 39
+    RuleCharacter = 27, RuleRepeat_directive = 28, RuleDirective = 29, RuleOrg = 30, 
+    RuleByte_directive = 31, RuleDbyte_directive = 32, RuleWord_directive = 33, 
+    RuleText_directive = 34, RuleAlign_directive = 35, RuleFill_directive = 36, 
+    RuleByte_directive_value = 37, RuleString = 38, RuleStringContents = 39
   };
 
   explicit asm6502Parser(antlr4::TokenStream *input);
@@ -82,18 +82,18 @@ public:
   class ByteContext;
   class MultibyteContext;
   class CharacterContext;
+  class Repeat_directiveContext;
   class DirectiveContext;
   class OrgContext;
   class Byte_directiveContext;
   class Dbyte_directiveContext;
   class Word_directiveContext;
   class Text_directiveContext;
-  class Byte_directive_valueContext;
-  class StringContext;
-  class StringContentsContext;
   class Align_directiveContext;
   class Fill_directiveContext;
-  class Repeat_directiveContext; 
+  class Byte_directive_valueContext;
+  class StringContext;
+  class StringContentsContext; 
 
   class  ProgramContext : public antlr4::ParserRuleContext {
   public:
@@ -120,6 +120,7 @@ public:
     antlr4::tree::TerminalNode *NEWLINE();
     AssignContext *assign();
     DirectiveContext *directive();
+    Repeat_directiveContext *repeat_directive();
 
    
   };
@@ -499,6 +500,23 @@ public:
 
   CharacterContext* character();
 
+  class  Repeat_directiveContext : public antlr4::ParserRuleContext {
+  public:
+    Repeat_directiveContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    antlr4::tree::TerminalNode *DREPEAT();
+    std::vector<antlr4::tree::TerminalNode *> WHITESPACE();
+    antlr4::tree::TerminalNode* WHITESPACE(size_t i);
+    ByteContext *byte();
+    MultibyteContext *multibyte();
+    DirectiveContext *directive();
+    InstructionContext *instruction();
+
+   
+  };
+
+  Repeat_directiveContext* repeat_directive();
+
   class  DirectiveContext : public antlr4::ParserRuleContext {
   public:
     DirectiveContext(antlr4::ParserRuleContext *parent, size_t invokingState);
@@ -510,7 +528,6 @@ public:
     Text_directiveContext *text_directive();
     Align_directiveContext *align_directive();
     Fill_directiveContext *fill_directive();
-    Repeat_directiveContext *repeat_directive();
 
    
   };
@@ -584,6 +601,36 @@ public:
 
   Text_directiveContext* text_directive();
 
+  class  Align_directiveContext : public antlr4::ParserRuleContext {
+  public:
+    Align_directiveContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    antlr4::tree::TerminalNode *DALIGN();
+    std::vector<antlr4::tree::TerminalNode *> WHITESPACE();
+    antlr4::tree::TerminalNode* WHITESPACE(size_t i);
+    std::vector<ExpressionContext *> expression();
+    ExpressionContext* expression(size_t i);
+
+   
+  };
+
+  Align_directiveContext* align_directive();
+
+  class  Fill_directiveContext : public antlr4::ParserRuleContext {
+  public:
+    Fill_directiveContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    antlr4::tree::TerminalNode *DFILL();
+    std::vector<antlr4::tree::TerminalNode *> WHITESPACE();
+    antlr4::tree::TerminalNode* WHITESPACE(size_t i);
+    std::vector<ExpressionContext *> expression();
+    ExpressionContext* expression(size_t i);
+
+   
+  };
+
+  Fill_directiveContext* fill_directive();
+
   class  Byte_directive_valueContext : public antlr4::ParserRuleContext {
   public:
     Byte_directive_valueContext(antlr4::ParserRuleContext *parent, size_t invokingState);
@@ -622,51 +669,6 @@ public:
   };
 
   StringContentsContext* stringContents();
-
-  class  Align_directiveContext : public antlr4::ParserRuleContext {
-  public:
-    Align_directiveContext(antlr4::ParserRuleContext *parent, size_t invokingState);
-    virtual size_t getRuleIndex() const override;
-    antlr4::tree::TerminalNode *DALIGN();
-    antlr4::tree::TerminalNode *WHITESPACE();
-    ExpressionContext *expression();
-
-   
-  };
-
-  Align_directiveContext* align_directive();
-
-  class  Fill_directiveContext : public antlr4::ParserRuleContext {
-  public:
-    Fill_directiveContext(antlr4::ParserRuleContext *parent, size_t invokingState);
-    virtual size_t getRuleIndex() const override;
-    antlr4::tree::TerminalNode *DFILL();
-    std::vector<antlr4::tree::TerminalNode *> WHITESPACE();
-    antlr4::tree::TerminalNode* WHITESPACE(size_t i);
-    std::vector<ExpressionContext *> expression();
-    ExpressionContext* expression(size_t i);
-
-   
-  };
-
-  Fill_directiveContext* fill_directive();
-
-  class  Repeat_directiveContext : public antlr4::ParserRuleContext {
-  public:
-    Repeat_directiveContext(antlr4::ParserRuleContext *parent, size_t invokingState);
-    virtual size_t getRuleIndex() const override;
-    antlr4::tree::TerminalNode *DFILL();
-    std::vector<antlr4::tree::TerminalNode *> WHITESPACE();
-    antlr4::tree::TerminalNode* WHITESPACE(size_t i);
-    ByteContext *byte();
-    MultibyteContext *multibyte();
-    DirectiveContext *directive();
-    InstructionContext *instruction();
-
-   
-  };
-
-  Repeat_directiveContext* repeat_directive();
 
 
   bool sempred(antlr4::RuleContext *_localctx, size_t ruleIndex, size_t predicateIndex) override;

@@ -9,6 +9,7 @@
 
 #include "assembler_types.hpp"
 #include "asm_instruction.hpp"
+#include "asm_directive.hpp"
 #include "arithmetic.hpp"
 #include "gen/asm6502Parser.h"
 #include "result/result.hpp"
@@ -63,30 +64,6 @@ class AssignLine {
 public:
     using AssignResult = Result<AssignLine, ParseError>;
     static auto make(asm6502Parser::LineContext* line, uint16_t pc) -> AssignResult;
-    constexpr auto format() const -> std::string {
-        return std::format("{} EQU {}", name, value.value());
-    }
-    constexpr auto serialize() const -> std::array<uint8_t, 0> { return {}; }
-    constexpr auto has_label() const -> bool { return false; }
-    constexpr auto program_counter() const -> uint16_t
-    {
-        return pc;
-    }
-    constexpr auto size() const -> uint16_t { return 0; }
-    auto evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>;
-
-private:
-    std::string name;
-    uint16_t pc = 0;
-    ArithmeticExpression expression = {};
-    std::optional<int16_t> value;
-    std::optional<std::string> comment;
-};
-
-class DirectiveLine {
-public:
-    using DirectiveResult = Result<DirectiveLine, ParseError>;
-    static auto make(asm6502Parser::LineContext* line, uint16_t pc) -> DirectiveResult;
     constexpr auto format() const -> std::string {
         return std::format("{} EQU {}", name, value.value());
     }

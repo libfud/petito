@@ -3,6 +3,7 @@ add_library(asm_lib assembler.cpp
     arithmetic.cpp
     asm_line.cpp
     asm_instruction.cpp
+    asm_directive.cpp
     ../opcode_table.cpp)
 target_include_directories(asm_lib PRIVATE .. /usr/include/antlr4-runtime)
 add_subdirectory(gen)

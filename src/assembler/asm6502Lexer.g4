@@ -104,6 +104,8 @@ DFILL : DOT 'FILL' ;
 
 DREPEAT : DOT 'REPEAT' ;
 
+REPEAT_VAR : 'R%' ;
+
 CHARACTER : QUOTE PRINTABLE ;
 
 EQU : ('EQU' | '=') ;
