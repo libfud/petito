@@ -6,10 +6,8 @@ auto LabelLine::make(LineContext* context, uint16_t pc, SymbolMap& symbol_map) -
 {
     LabelLine label_line{};
     auto label = context->label()->SYMBOL()->getText();
-    std::cout << "LABEL is " << label << "\n";
     if (symbol_map.contains(label))
     {
-        std::cerr << "Redefined " << label << "\n";
         return LabelResult::err(ParseError::SymbolRedefined);
     }
     symbol_map[label] = pc;
@@ -24,8 +22,7 @@ auto LabelLine::make(LineContext* context, uint16_t pc, SymbolMap& symbol_map) -
 
 auto LabelLine::format() const -> std::string
 {
-    const auto comment_str = comment == std::nullopt ?
-        "" : std::format("\t;{}", comment.value());
+    const auto comment_str = comment == std::nullopt ? "" : std::format("\t;{}", comment.value());
     return std::format("{}:{}", label, comment_str);
 }
 
@@ -34,7 +31,7 @@ auto AssignLine::make(LineContext* context, uint16_t pc, SymbolMap& symbol_map) 
     auto expr_result = ArithmeticExpression::make(context->assign()->expression());
     if (expr_result.is_err())
     {
-        return AssignResult::err(ParseError::BadAssign);
+        return AssignResult::err(expr_result.get_err());
     }
     AssignLine assign_line{};
     assign_line.expression = expr_result.get_ok();
@@ -62,7 +59,6 @@ auto AssignLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>
 
     if (symbol_map.contains(name))
     {
-        std::cerr << "Redefined " << name << "\n";
         return ParseError::SymbolRedefined;
     }
     else
@@ -80,70 +76,86 @@ auto AssignLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>
 
 auto AsmLine::make(LineContext* line, uint16_t pc, SymbolMap& symbol_map) -> ParseResult
 {
-    auto* label_rule = line->label();
     auto* comment_rule = line->comment();
     auto* assign_rule = line->assign();
 
-    if (line->instruction() != nullptr)
-    {
-        if (assign_rule != nullptr)
-        {
-            return ParseResult::err(ParseError::LogicError);
-        }
-        auto instruction_result = AsmInstructionLine::make(line, pc, symbol_map);
-        if (instruction_result.is_err())
-        {
-            return ParseResult::err(instruction_result.get_err());
-        }
-        AsmLine asm_line{};
-        asm_line.line = instruction_result.get_ok();
-        return ParseResult::ok(asm_line);
-    }
+    if (line->instruction() != nullptr) { return make_instruction(line, pc, symbol_map); }
 
-    if (assign_rule != nullptr)
-    {
-        if (label_rule != nullptr)
-        {
-            return ParseResult::err(ParseError::LogicError);
-        }
+    if (assign_rule != nullptr) { return make_assign(line, pc, symbol_map); }
 
-        auto assign_result = AssignLine::make(line, pc, symbol_map);
-        if (assign_result.is_err())
-        {
-            return ParseResult::err(assign_result.get_err());
-        }
-        AsmLine asm_line{};
-        asm_line.line = assign_result.get_ok();
-        return ParseResult::ok(asm_line);
-    }
+    if (line->label() != nullptr) { return make_label(line, pc, symbol_map); }
 
-    if (label_rule != nullptr)
-    {
-        auto label_result = LabelLine::make(line, pc, symbol_map);
-        if (label_result.is_err())
-        {
-            return ParseResult::err(label_result.get_err());
-        }
-        AsmLine asm_line{};
-        asm_line.line = label_result.get_ok();
-        return ParseResult::ok(asm_line);
-    }
+    if (line->directive() != nullptr) { return make_directive(line, pc, symbol_map); }
 
-    if (line->directive() != nullptr)
-    {
-        auto directive_result = DirectiveLine::make(line, pc);
-    }
-
-    if (comment_rule != nullptr)
-    {
-        CommentLine comment_line{comment_rule->COMMENT()->getText(), pc};
-        AsmLine asm_line{};
-        asm_line.line = comment_line;
-        return ParseResult::ok(asm_line);
-    }
+    if (comment_rule != nullptr) { return make_comment(line, pc, symbol_map); }
 
     AsmLine asm_line{};
     asm_line.line = EmptyLine{pc};
+    return ParseResult::ok(asm_line);
+}
+
+auto AsmLine::make_instruction(LineContext* line, uint16_t pc, SymbolMap& symbol_map) -> ParseResult
+{
+    if (line->assign() != nullptr)
+    {
+        return ParseResult::err(ParseError::LogicError);
+    }
+    auto instruction_result = AsmInstructionLine::make(line, pc, symbol_map);
+    if (instruction_result.is_err())
+    {
+        return ParseResult::err(instruction_result.get_err());
+    }
+    AsmLine asm_line{};
+    asm_line.line = instruction_result.get_ok();
+    return ParseResult::ok(asm_line);
+}
+
+auto AsmLine::make_assign(LineContext* line, uint16_t pc, SymbolMap& symbol_map) -> ParseResult
+{
+    if (line->label() != nullptr)
+    {
+        return ParseResult::err(ParseError::LogicError);
+    }
+
+    auto assign_result = AssignLine::make(line, pc, symbol_map);
+    if (assign_result.is_err())
+    {
+        return ParseResult::err(assign_result.get_err());
+    }
+    AsmLine asm_line{};
+    asm_line.line = assign_result.get_ok();
+    return ParseResult::ok(asm_line);
+}
+
+auto AsmLine::make_label(LineContext* line, uint16_t pc, SymbolMap& symbol_map) -> ParseResult
+{
+    auto label_result = LabelLine::make(line, pc, symbol_map);
+    if (label_result.is_err())
+    {
+        return ParseResult::err(label_result.get_err());
+    }
+    AsmLine asm_line{};
+    asm_line.line = label_result.get_ok();
+    return ParseResult::ok(asm_line);
+}
+
+auto AsmLine::make_directive(LineContext* line, uint16_t pc, SymbolMap& symbol_map) -> ParseResult
+{
+    auto directive_result = DirectiveLine::make(line, pc, symbol_map);
+    if (directive_result.is_err())
+    {
+        return ParseResult::err(directive_result.get_err());
+    }
+    AsmLine asm_line{};
+    asm_line.line = directive_result.get_ok();
+    return ParseResult::ok(asm_line);
+}
+
+auto AsmLine::make_comment(LineContext* line, uint16_t pc, SymbolMap& symbol_map) -> ParseResult
+{
+    CommentLine comment_line{line->comment()->COMMENT()->getText(), pc};
+    AsmLine asm_line{};
+    asm_line.line = comment_line;
     return ParseResult::ok(asm_line);
 }
 

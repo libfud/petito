@@ -18,7 +18,8 @@ using result::Result;
 class OrgLine {
 public:
     using OrgResult = Result<OrgLine, ParseError>;
-    static auto make(asm6502Parser::OrgContext* line, uint16_t pc) -> OrgResult;
+    using OrgContext = asm6502Parser::OrgContext;
+    static auto make(OrgContext* line, uint16_t pc, const SymbolMap& symbol_map) -> OrgResult;
     auto format() const -> std::string {
         return std::format(".ORG ${:04X}", pc);
     }
@@ -27,7 +28,7 @@ public:
     constexpr auto program_counter() const -> uint16_t { return pc; }
     auto evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>;
 private:
-    uint16_t pc;
+    uint16_t pc = 0;
 };
 
 
@@ -145,7 +146,11 @@ using DirectiveType = std::variant<
 class DirectiveLine {
 public:
     using DirectiveResult = Result<DirectiveLine, ParseError>;
-    static auto make(asm6502Parser::LineContext* line, uint16_t pc) -> DirectiveResult;
+    using LineContext = asm6502Parser::LineContext;
+    static auto make(
+        LineContext* line,
+        uint16_t pc,
+        const SymbolMap& symbol_map) -> DirectiveResult;
     auto format() const -> std::string;
     auto serialize() const -> std::vector<uint8_t>;
     constexpr auto has_label() const -> bool { return false; }

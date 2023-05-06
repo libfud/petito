@@ -4,9 +4,27 @@
 
 namespace mos6502 {
 
-auto OrgLine::make(asm6502Parser::OrgContext* line, uint16_t pc) -> OrgResult
+auto OrgLine::make(OrgContext* line, uint16_t pc, const SymbolMap& symbol_map) -> OrgResult
 {
-    return OrgResult::err(ParseError::LogicError);
+    OrgLine directive{};
+    auto expr_result = ArithmeticExpression::make(line->expression());
+    if (expr_result.is_err())
+    {
+        return OrgResult::err(expr_result.get_err());
+    }
+    auto expression = expr_result.get_ok();
+    auto eval_result = expression.evaluate(symbol_map, pc);
+    if (eval_result.is_err())
+    {
+        return OrgResult::err(expr_result.get_err());
+    }
+    auto value = eval_result.get_ok();
+    if (value > 0xFFFF)
+    {
+        return Result<OrgLine, ParseError>::err(ParseError::InvalidRange);
+    }
+    directive.pc = static_cast<uint16_t>(value);
+    return OrgResult::ok(directive);
 }
 
 auto ByteDirectiveLine::make(
@@ -145,7 +163,10 @@ auto FillDirectiveLine::format() const -> std::string
     return std::format(".FILL ${:04X} ${:02X}", count, fill);
 }
 
-auto DirectiveLine::make(asm6502Parser::LineContext* line, uint16_t pc) -> DirectiveResult
+auto DirectiveLine::make(
+    LineContext* line,
+    uint16_t pc,
+    const SymbolMap& symbol_map) -> DirectiveResult
 {
     DirectiveLine directive_line{};
     auto directive = line->directive();
@@ -165,7 +186,17 @@ auto DirectiveLine::make(asm6502Parser::LineContext* line, uint16_t pc) -> Direc
         return DirectiveResult::ok(directive_line);                     \
     }
 
-    HANDLE_RULE(org, OrgLine);
+    if (directive->org())
+    {
+        auto result = OrgLine::make(directive->org(), pc, symbol_map);
+        if (result.is_err())
+        {
+            return DirectiveResult::err(result.get_err());
+        }
+        directive_line.directive = result.get_ok();
+        return DirectiveResult::ok(directive_line);
+    }
+
     HANDLE_RULE(byte_directive, ByteDirectiveLine);
     HANDLE_RULE(dbyte_directive, DByteDirectiveLine);
     HANDLE_RULE(word_directive, WordDirectiveLine);

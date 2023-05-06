@@ -38,7 +38,7 @@ auto OneOperandInstructionLine::evaluate(const SymbolMap& symbol_map) -> std::op
     auto value = result.get_ok();
     if (value < 0 || value > 0xFF)
     {
-        std::cerr << "Out of range: " << value << "\n";
+        logger::error("Out of range: {}", value);
         return ParseError::InvalidRange;
     }
 
@@ -118,10 +118,8 @@ auto AsmInstructionLine::make(
     if (line->label())
     {
         auto label = line->label()->SYMBOL()->getText();
-        std::cout << "LABEL is " << label << "\n";
         if (symbol_map.contains(label))
         {
-            std::cerr << "Redefined " << label << "\n";
             return ParseResult::err(ParseError::SymbolRedefined);
         }
         symbol_map[label] = pc;
@@ -546,8 +544,8 @@ auto AsmInstructionLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseE
 
 auto AsmInstructionLine::format() const -> std::string {
     return std::format(
-        "{}{}{}",
-        label != std::nullopt ? std::format("{}:\t", label.value()) : "",
+        "{}\t{}{}",
+        label != std::nullopt ? std::format("{}:", label.value()) : "",
         std::visit([](const auto& v){return v.format();}, instruction),
         comment != std::nullopt ? std::format("\t;{}", comment.value()) : ""
     );

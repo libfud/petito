@@ -125,7 +125,7 @@ auto Assembler::format() const -> std::string {
 
     for (const auto& instruction : program)
     {
-        output += std::format("\t{}\n", instruction.format());
+        output += std::format("{}\n", instruction.format());
     }
 
     return output;

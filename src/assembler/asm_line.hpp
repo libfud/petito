@@ -121,6 +121,27 @@ public:
     auto evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>;
     auto format() const -> std::string;
     auto serialize() const -> AsmLineBytes;
+protected:
+    static auto make_instruction(
+        LineContext* line,
+        uint16_t pc,
+        SymbolMap& symbol_map) -> ParseResult;
+    static auto make_assign(
+        LineContext* line,
+        uint16_t pc,
+        SymbolMap& symbol_map) -> ParseResult;
+    static auto make_label(
+        LineContext* line,
+        uint16_t pc,
+        SymbolMap& symbol_map) -> ParseResult;
+    static auto make_directive(
+        LineContext* line,
+        uint16_t pc,
+        SymbolMap& symbol_map) -> ParseResult;
+    static auto make_comment(
+        LineContext* line,
+        uint16_t pc,
+        SymbolMap& symbol_map) -> ParseResult;
 private:
     AsmLineType line = EmptyLine{};
 };

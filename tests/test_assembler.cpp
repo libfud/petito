@@ -352,12 +352,12 @@ TEST(TestAssembler, AllAddressModes)
     EXPECT_TRUE(std::equal(prog_bytes.begin(), prog_bytes.end(), test_program.begin()));
 }
 
-#if 0
 TEST(TestAssembler, OrgDirective)
 {
-    std::string input{std::format(".ORG 0x400\n")};
+    std::string input{std::format(".ORG $0400\n")};
     std::vector<uint8_t> test_program{};
     auto result = Assembler::from_text(input);
+    if (result.is_err()) { logger::error("Error is {}", static_cast<uint8_t>(result.get_err())); }
     ASSERT_TRUE(result.is_ok());
     auto assembler = result.get_ok();
     EXPECT_EQ(assembler.size(), test_program.size());
@@ -367,7 +367,7 @@ TEST(TestAssembler, OrgDirective)
     EXPECT_EQ(assembler.format(), input);
 
     input = std::format(
-        ".ORG 0x400\n",
+        ".ORG $0400\n",
         "\tNOP\n");
     test_program = std::vector{NOP_IMPL};
     result = Assembler::from_text(input);
@@ -379,5 +379,5 @@ TEST(TestAssembler, OrgDirective)
     EXPECT_TRUE(std::equal(prog_bytes.begin(), prog_bytes.end(), test_program.begin()));
 
 }
-#endif
+
 } // namespace mos6502
