@@ -73,6 +73,7 @@ auto Assembler::from_stream(std::istream& stream) -> std::optional<ParseError>
             static_cast<uint32_t>(evaluate_result.value()),
             line_index + 1,
             program_file->line(line_index)->getText());
+        return evaluate_result;
     }
 
     return {};
@@ -86,25 +87,12 @@ auto Assembler::make_lines(ProgramContext* program_file) -> std::optional<ParseE
     size_t pc = 0;
     for (size_t idx = 0; idx < lines.size(); ++idx)
     {
-        auto instruction_result = AsmLine::make(lines[idx], pc);
+        auto instruction_result = AsmLine::make(lines[idx], pc, symbols);
         if (instruction_result.is_err())
         {
             return instruction_result.get_err();
         }
         auto instruction = instruction_result.get_ok();
-        if (instruction.has_label())
-        {
-            auto label = instruction.get_label();
-            if (symbols.contains(label))
-            {
-                return ParseError::SymbolRedefined;
-            }
-            symbols[label] = pc;
-            if (label.ends_with(":") && label.size() > 1)
-            {
-                symbols[label.substr(0, label.size() - 2)] = pc;
-            }
-        }
         auto size = instruction.size();
         pc += size;
         program.push_back(std::move(instruction));

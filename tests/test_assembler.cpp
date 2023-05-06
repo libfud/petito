@@ -352,4 +352,32 @@ TEST(TestAssembler, AllAddressModes)
     EXPECT_TRUE(std::equal(prog_bytes.begin(), prog_bytes.end(), test_program.begin()));
 }
 
+#if 0
+TEST(TestAssembler, OrgDirective)
+{
+    std::string input{std::format(".ORG 0x400\n")};
+    std::vector<uint8_t> test_program{};
+    auto result = Assembler::from_text(input);
+    ASSERT_TRUE(result.is_ok());
+    auto assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    auto prog_bytes = assembler.serialize();
+    ASSERT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_TRUE(std::equal(prog_bytes.begin(), prog_bytes.end(), test_program.begin()));
+    EXPECT_EQ(assembler.format(), input);
+
+    input = std::format(
+        ".ORG 0x400\n",
+        "\tNOP\n");
+    test_program = std::vector{NOP_IMPL};
+    result = Assembler::from_text(input);
+    ASSERT_TRUE(result.is_ok());
+    assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    prog_bytes = assembler.serialize();
+    ASSERT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_TRUE(std::equal(prog_bytes.begin(), prog_bytes.end(), test_program.begin()));
+
+}
+#endif
 } // namespace mos6502

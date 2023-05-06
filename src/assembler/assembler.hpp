@@ -19,8 +19,6 @@ using result::Result;
 
 class Assembler {
 public:
-
-    using AssemblerResult = Result<Assembler, AsmError>;
     using AsmParseResult = Result<Assembler, ParseError>;
 
     static auto from_file_name(const std::string& name) -> AsmParseResult;

@@ -16,11 +16,12 @@
 
 namespace mos6502 {
 
+using LineContext = asm6502Parser::LineContext;
 using result::Result;
 
 struct LabelLine {
     using LabelResult = Result<LabelLine, ParseError>;
-    static auto make(asm6502Parser::LineContext* line, uint16_t pc) -> LabelResult;
+    static auto make(LineContext* line, uint16_t pc, SymbolMap& symbol_map) -> LabelResult;
     auto format() const -> std::string;
     constexpr auto serialize() const -> std::array<uint8_t, 0> { return {}; }
     constexpr auto has_label() const -> bool { return true; }
@@ -63,8 +64,8 @@ struct CommentLine {
 class AssignLine {
 public:
     using AssignResult = Result<AssignLine, ParseError>;
-    static auto make(asm6502Parser::LineContext* line, uint16_t pc) -> AssignResult;
-    constexpr auto format() const -> std::string {
+    static auto make(LineContext* line, uint16_t pc, SymbolMap& symbol_map) -> AssignResult;
+    auto format() const -> std::string {
         return std::format("{} EQU {}", name, value.value());
     }
     constexpr auto serialize() const -> std::array<uint8_t, 0> { return {}; }
@@ -112,9 +113,9 @@ using AsmLineType = std::variant<
 class AsmLine {
 public:
     using ParseResult = Result<AsmLine, ParseError>;
-    static auto make(asm6502Parser::LineContext* line, uint16_t pc) -> ParseResult;
+    static auto make(LineContext* line, uint16_t pc, SymbolMap& symbols) -> ParseResult;
     auto has_label() const -> bool;
-    auto get_label() const -> const std::string&;
+    auto get_label() const -> std::string;
     auto program_counter() const -> uint16_t;
     auto size() const -> uint16_t;
     auto evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>;

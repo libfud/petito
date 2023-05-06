@@ -2,10 +2,18 @@
 
 namespace mos6502 {
 
-auto LabelLine::make(asm6502Parser::LineContext* context, uint16_t pc) -> LabelResult
+auto LabelLine::make(LineContext* context, uint16_t pc, SymbolMap& symbol_map) -> LabelResult
 {
     LabelLine label_line{};
-    label_line.label = context->label()->SYMBOL()->getText();
+    auto label = context->label()->SYMBOL()->getText();
+    std::cout << "LABEL is " << label << "\n";
+    if (symbol_map.contains(label))
+    {
+        std::cerr << "Redefined " << label << "\n";
+        return LabelResult::err(ParseError::SymbolRedefined);
+    }
+    symbol_map[label] = pc;
+    label_line.label = label;
     label_line.pc = pc;
     if (context->comment())
     {
@@ -21,7 +29,7 @@ auto LabelLine::format() const -> std::string
     return std::format("{}:{}", label, comment_str);
 }
 
-auto AssignLine::make(asm6502Parser::LineContext* context, uint16_t pc) -> AssignResult
+auto AssignLine::make(LineContext* context, uint16_t pc, SymbolMap& symbol_map) -> AssignResult
 {
     auto expr_result = ArithmeticExpression::make(context->assign()->expression());
     if (expr_result.is_err())
@@ -36,14 +44,25 @@ auto AssignLine::make(asm6502Parser::LineContext* context, uint16_t pc) -> Assig
         assign_line.comment = context->comment()->COMMENT()->getText();
     }
     assign_line.pc = pc;
+    auto eval_res = assign_line.evaluate(symbol_map);
+    if (eval_res)
+    {
+        return AssignResult::err(eval_res.value());
+    }
 
     return AssignResult::ok(assign_line);
 }
 
 auto AssignLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>
 {
+    if (value != std::nullopt)
+    {
+        return {};
+    }
+
     if (symbol_map.contains(name))
     {
+        std::cerr << "Redefined " << name << "\n";
         return ParseError::SymbolRedefined;
     }
     else
@@ -59,25 +78,19 @@ auto AssignLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>
     return {};
 }
 
-auto DirectiveLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>
-{
-    return {};
-}
-
-auto AsmLine::make(asm6502Parser::LineContext* line, uint16_t pc) -> ParseResult
+auto AsmLine::make(LineContext* line, uint16_t pc, SymbolMap& symbol_map) -> ParseResult
 {
     auto* label_rule = line->label();
     auto* comment_rule = line->comment();
-    auto* instruction_rule = line->instruction();
     auto* assign_rule = line->assign();
 
-    if (instruction_rule != nullptr)
+    if (line->instruction() != nullptr)
     {
         if (assign_rule != nullptr)
         {
             return ParseResult::err(ParseError::LogicError);
         }
-        auto instruction_result = AsmInstructionLine::make(line, pc);
+        auto instruction_result = AsmInstructionLine::make(line, pc, symbol_map);
         if (instruction_result.is_err())
         {
             return ParseResult::err(instruction_result.get_err());
@@ -94,7 +107,7 @@ auto AsmLine::make(asm6502Parser::LineContext* line, uint16_t pc) -> ParseResult
             return ParseResult::err(ParseError::LogicError);
         }
 
-        auto assign_result = AssignLine::make(line, pc);
+        auto assign_result = AssignLine::make(line, pc, symbol_map);
         if (assign_result.is_err())
         {
             return ParseResult::err(assign_result.get_err());
@@ -106,7 +119,7 @@ auto AsmLine::make(asm6502Parser::LineContext* line, uint16_t pc) -> ParseResult
 
     if (label_rule != nullptr)
     {
-        auto label_result = LabelLine::make(line, pc);
+        auto label_result = LabelLine::make(line, pc, symbol_map);
         if (label_result.is_err())
         {
             return ParseResult::err(label_result.get_err());
@@ -114,6 +127,11 @@ auto AsmLine::make(asm6502Parser::LineContext* line, uint16_t pc) -> ParseResult
         AsmLine asm_line{};
         asm_line.line = label_result.get_ok();
         return ParseResult::ok(asm_line);
+    }
+
+    if (line->directive() != nullptr)
+    {
+        auto directive_result = DirectiveLine::make(line, pc);
     }
 
     if (comment_rule != nullptr)
@@ -133,7 +151,7 @@ auto AsmLine::has_label() const -> bool {
     return std::visit([](const auto& v){return v.has_label();}, line);
 }
 
-auto AsmLine::get_label() const -> const std::string&
+auto AsmLine::get_label() const -> std::string
 {
     if (std::holds_alternative<AsmInstructionLine>(line))
     {

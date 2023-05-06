@@ -3,26 +3,15 @@
 
 namespace mos6502 {
 
-constexpr InstructionLine::InstructionLine(
-    uint16_t pc,
-    OpName op_id,
-    std::optional<std::string>&& label,
-    std::optional<std::string>&& comment)
+constexpr InstructionLine::InstructionLine(uint16_t pc, OpName op_id)
     :
     pc{pc},
-    op_id{op_id},
-    label{label},
-    comment{comment}
+    op_id{op_id}
 {}
 
 constexpr auto InstructionLine::format() const -> std::string
 {
-    return std::format(
-        "{}{}{}",
-        label != std::nullopt ? std::format("{}:\t", label.value()) : "",
-        format_instruction(),
-        comment != std::nullopt ? std::format("\t;{}", comment.value()) : ""
-    );
+    return format_instruction();
 }
 
 auto InstructionLine::evaluate(const SymbolMap&) -> std::optional<ParseError>
@@ -33,11 +22,8 @@ auto InstructionLine::evaluate(const SymbolMap&) -> std::optional<ParseError>
 NOperandInstructionLine::NOperandInstructionLine(
     uint16_t pc,
     OpName op_id,
-    std::optional<std::string>&& label,
-    std::optional<std::string>&& comment,
     ArithmeticExpression&& expression)
-    : InstructionLine{pc, op_id, std::move(label), std::move(comment)},
-      expression{std::move(expression)}
+    : InstructionLine{pc, op_id}, expression{std::move(expression)}
 {
 }
 
@@ -107,7 +93,10 @@ auto RelativeInstructionLine::evaluate(const SymbolMap& symbol_map) -> std::opti
     return {};
 }
 
-auto AsmInstructionLine::make(asm6502Parser::LineContext* line, uint16_t pc) -> ParseResult
+auto AsmInstructionLine::make(
+    asm6502Parser::LineContext* line,
+    uint16_t pc,
+    SymbolMap& symbol_map) -> ParseResult
 {
     if (line->assign() != nullptr)
     {
@@ -120,104 +109,68 @@ auto AsmInstructionLine::make(asm6502Parser::LineContext* line, uint16_t pc) -> 
         return ParseResult::err(ParseError::LogicError);
     }
 
-    std::optional<std::string> label{};
+    AsmInstructionLine instruction{};
+    auto parse_result = instruction.parse(instruction_rule, pc);
+    if (parse_result != std::nullopt)
+    {
+        return ParseResult::err(parse_result.value());
+    }
     if (line->label())
     {
-        label = line->label()->SYMBOL()->getText();
+        auto label = line->label()->SYMBOL()->getText();
+        std::cout << "LABEL is " << label << "\n";
+        if (symbol_map.contains(label))
+        {
+            std::cerr << "Redefined " << label << "\n";
+            return ParseResult::err(ParseError::SymbolRedefined);
+        }
+        symbol_map[label] = pc;
+        instruction.label = label;
     }
-    std::optional<std::string> comment{};
     if (line->comment())
     {
-        comment = line->comment()->COMMENT()->getText();
+        instruction.comment = line->comment()->COMMENT()->getText();
     }
-
-    AsmInstructionLine instruction{};
-    instruction.parse(instruction_rule, pc, std::move(label), std::move(comment));
 
     return ParseResult::ok(instruction);
 }
 
-auto AsmInstructionLine::parse(
-        InstructionContext* rule,
-        uint16_t pc,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment) -> BuilderResult
+auto AsmInstructionLine::parse(InstructionContext* rule, uint16_t pc) -> BuilderResult
 {
     if (rule->nop())
     {
-        instruction = ImplicitInstructionLine{
-            pc, OpName::NOP, std::move(label), std::move(comment)};
+        instruction = ImplicitInstructionLine{pc, OpName::NOP};
         return {};
     }
 
-    if (rule->implicit())
-    {
-        return parse_implicit(rule, pc, std::move(label), std::move(comment));
-    }
+    if (rule->implicit()) { return parse_implicit(rule, pc); }
 
-    if (rule->acc())
-    {
-        return parse_acc(rule, pc, std::move(label), std::move(comment));
-    }
+    if (rule->acc()) { return parse_acc(rule, pc); }
 
-    if (rule->immediate())
-    {
-        return parse_immediate(rule, pc, std::move(label), std::move(comment));
-    }
+    if (rule->immediate()) { return parse_immediate(rule, pc); }
 
-    if (rule->zero_page())
-    {
-        return parse_zero_page(rule, pc, std::move(label), std::move(comment));
-    }
+    if (rule->zero_page()) { return parse_zero_page(rule, pc); }
 
-    if (rule->x_index())
-    {
-        return parse_x_index(rule, pc, std::move(label), std::move(comment));
-    }
+    if (rule->x_index()) { return parse_x_index(rule, pc); }
 
-    if (rule->y_index())
-    {
-        return parse_y_index(rule, pc, std::move(label), std::move(comment));
-    }
+    if (rule->y_index()) { return parse_y_index(rule, pc); }
 
-    if (rule->x_indirect())
-    {
-        return parse_x_indirect(rule, pc, std::move(label), std::move(comment));
-    }
+    if (rule->x_indirect()) { return parse_x_indirect(rule, pc); }
 
-    if (rule->indirect_y())
-    {
-        return parse_indirect_y(rule, pc, std::move(label), std::move(comment));
-    }
+    if (rule->indirect_y()) { return parse_indirect_y(rule, pc); }
 
-    if (rule->absolute())
-    {
-        return parse_absolute(rule, pc, std::move(label), std::move(comment));
-    }
+    if (rule->absolute()) { return parse_absolute(rule, pc); }
 
-    if (rule->relative())
-    {
-        return parse_relative(rule, pc, std::move(label), std::move(comment));
-    }
+    if (rule->relative()) { return parse_relative(rule, pc); }
 
-    if (rule->jump())
-    {
-        return parse_jump(rule, pc, std::move(label), std::move(comment));
-    }
+    if (rule->jump()) { return parse_jump(rule, pc); }
 
-    if (rule->jsr())
-    {
-        return parse_jsr(rule, pc, std::move(label), std::move(comment));
-    }
+    if (rule->jsr()) { return parse_jsr(rule, pc); }
 
     return ParseError::LogicError;
 }
 
-auto AsmInstructionLine::parse_implicit(
-        InstructionContext* rule,
-        uint16_t pc,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment) -> BuilderResult
+auto AsmInstructionLine::parse_implicit(InstructionContext* rule, uint16_t pc) -> BuilderResult
 {
     auto* implicit_rule = rule->implicit();
     std::string implicit_name{implicit_rule->getText()};
@@ -228,15 +181,11 @@ auto AsmInstructionLine::parse_implicit(
     }
     auto op_id = invalid_mnemonic.get_ok();
 
-    instruction = ImplicitInstructionLine{pc, op_id, std::move(label), std::move(comment)};
+    instruction = ImplicitInstructionLine{pc, op_id};
     return {};
 }
 
-auto AsmInstructionLine::parse_acc(
-        InstructionContext* rule,
-        uint16_t pc,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment) -> BuilderResult
+auto AsmInstructionLine::parse_acc(InstructionContext* rule, uint16_t pc) -> BuilderResult
 {
     auto* acc_rule = rule->acc();
     std::string acc_name{acc_rule->shift()->SHIFT()->getText()};
@@ -246,15 +195,11 @@ auto AsmInstructionLine::parse_acc(
         return invalid_mnemonic.get_err();
     }
     auto op_id = invalid_mnemonic.get_ok();
-    instruction = AccInstructionLine{pc, op_id, std::move(label), std::move(comment)};
+    instruction = AccInstructionLine{pc, op_id};
     return {};
 }
 
-auto AsmInstructionLine::parse_immediate(
-        InstructionContext* rule,
-        uint16_t pc,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment) -> BuilderResult
+auto AsmInstructionLine::parse_immediate(InstructionContext* rule, uint16_t pc) -> BuilderResult
 {
     auto* context = rule->immediate();
     std::string imm_name{context->mnemonic()->MNEMONIC()->getText()};
@@ -271,17 +216,12 @@ auto AsmInstructionLine::parse_immediate(
     {
         return arith_result.get_err();
     }
-    instruction = ImmediateInstructionLine{
-        pc, op_id, std::move(label), std::move(comment), arith_result.get_ok()};
+    instruction = ImmediateInstructionLine{pc, op_id, arith_result.get_ok()};
 
     return {};
 }
 
-auto AsmInstructionLine::parse_zero_page(
-        InstructionContext* rule,
-        uint16_t pc,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment) -> BuilderResult
+auto AsmInstructionLine::parse_zero_page(InstructionContext* rule, uint16_t pc) -> BuilderResult
 {
     auto* context = rule->zero_page();
 
@@ -291,9 +231,7 @@ auto AsmInstructionLine::parse_zero_page(
             instruction_line_wrapper<ZeroPageInstructionLine>,
             context,
             AddressMode::ZPG,
-            pc,
-            std::move(label),
-            std::move(comment));
+            pc);
     }
 
     auto byte_result = make_byte(context->byte());
@@ -319,20 +257,11 @@ auto AsmInstructionLine::parse_zero_page(
     auto op_id = invalid_mnemonic.get_ok();
     ArithmeticExpression expression{};
     expression.add_atom(std::move(byte));
-    instruction = ZeroPageInstructionLine(
-        pc,
-        op_id,
-        std::move(label),
-        std::move(comment),
-        std::move(expression));
+    instruction = ZeroPageInstructionLine(pc, op_id, std::move(expression));
     return {};
 }
 
-auto AsmInstructionLine::parse_x_index(
-        InstructionContext* rule,
-        uint16_t pc,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment) -> BuilderResult
+auto AsmInstructionLine::parse_x_index(InstructionContext* rule, uint16_t pc) -> BuilderResult
 {
     if (rule->x_index()->FORCED_BYTE())
     {
@@ -341,9 +270,7 @@ auto AsmInstructionLine::parse_x_index(
             instruction_line_wrapper<ZeroPageXInstructionLine>,
             context,
             AddressMode::ZPG_X,
-            pc,
-            std::move(label),
-            std::move(comment));
+            pc);
     }
     if (rule->x_index()->FORCED_WORD())
     {
@@ -352,9 +279,7 @@ auto AsmInstructionLine::parse_x_index(
             instruction_line_wrapper<AbsoluteXInstructionLine>,
             context,
             AddressMode::ABS_X,
-            pc,
-            std::move(label),
-            std::move(comment));
+            pc);
     }
 
     auto opcode_info_result = parse_xy_index(rule, AddressMode::ZPG_X, AddressMode::ABS_X);
@@ -368,8 +293,6 @@ auto AsmInstructionLine::parse_x_index(
         instruction = ZeroPageXInstructionLine{
             pc,
             opcode_info.op_id,
-            std::move(label),
-            std::move(comment),
             std::move(opcode_info.expression)};
     }
     else
@@ -377,18 +300,12 @@ auto AsmInstructionLine::parse_x_index(
         instruction = AbsoluteXInstructionLine{
             pc,
             opcode_info.op_id,
-            std::move(label),
-            std::move(comment),
             std::move(opcode_info.expression)};
     }
     return {};
 }
 
-auto AsmInstructionLine::parse_y_index(
-        InstructionContext* rule,
-        uint16_t pc,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment) -> BuilderResult
+auto AsmInstructionLine::parse_y_index(InstructionContext* rule, uint16_t pc) -> BuilderResult
 {
     if (rule->y_index()->FORCED_BYTE())
     {
@@ -397,9 +314,7 @@ auto AsmInstructionLine::parse_y_index(
             instruction_line_wrapper<ZeroPageYInstructionLine>,
             context,
             AddressMode::ZPG_Y,
-            pc,
-            std::move(label),
-            std::move(comment));
+            pc);
     }
     if (rule->y_index()->FORCED_WORD())
     {
@@ -408,9 +323,7 @@ auto AsmInstructionLine::parse_y_index(
             instruction_line_wrapper<AbsoluteYInstructionLine>,
             context,
             AddressMode::ABS_Y,
-            pc,
-            std::move(label),
-            std::move(comment));
+            pc);
     }
 
     auto opcode_info_result = parse_xy_index(rule, AddressMode::ZPG_Y, AddressMode::ABS_Y);
@@ -424,8 +337,6 @@ auto AsmInstructionLine::parse_y_index(
         instruction = ZeroPageYInstructionLine{
             pc,
             opcode_info.op_id,
-            std::move(label),
-            std::move(comment),
             std::move(opcode_info.expression)};
     }
     else
@@ -433,8 +344,6 @@ auto AsmInstructionLine::parse_y_index(
         instruction = AbsoluteYInstructionLine{
             pc,
             opcode_info.op_id,
-            std::move(label),
-            std::move(comment),
             std::move(opcode_info.expression)};
     }
     return {};
@@ -516,60 +425,38 @@ auto AsmInstructionLine::parse_xy_index(
     return RetType::ok({abs_invalid_mnemonic.get_ok(), abs_mode, expression});
 }
 
-auto AsmInstructionLine::parse_x_indirect(
-        InstructionContext* rule,
-        uint16_t pc,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment) -> BuilderResult
+auto AsmInstructionLine::parse_x_indirect(InstructionContext* rule, uint16_t pc) -> BuilderResult
 {
     auto* context = rule->x_indirect();
     return parse_helper(
         instruction_line_wrapper<XIndirectInstructionLine>,
         context,
         AddressMode::X_IND,
-        pc,
-        std::move(label),
-        std::move(comment));
+        pc);
 }
 
-auto AsmInstructionLine::parse_indirect_y(
-        InstructionContext* rule,
-        uint16_t pc,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment) -> BuilderResult
+auto AsmInstructionLine::parse_indirect_y(InstructionContext* rule, uint16_t pc) -> BuilderResult
 {
     auto* context = rule->indirect_y();
     return parse_helper(
         instruction_line_wrapper<IndirectYInstructionLine>,
         context,
         AddressMode::IND_Y,
-        pc,
-        std::move(label),
-        std::move(comment));
+        pc);
     return {};
 }
 
-auto AsmInstructionLine::parse_absolute(
-        InstructionContext* rule,
-        uint16_t pc,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment) -> BuilderResult
+auto AsmInstructionLine::parse_absolute(InstructionContext* rule, uint16_t pc) -> BuilderResult
 {
     auto* context = rule->absolute();
     return parse_helper(
         instruction_line_wrapper<AbsoluteInstructionLine>,
         context,
         AddressMode::ABS,
-        pc,
-        std::move(label),
-        std::move(comment));
+        pc);
 }
 
-auto AsmInstructionLine::parse_relative(
-        InstructionContext* rule,
-        uint16_t pc,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment) -> BuilderResult
+auto AsmInstructionLine::parse_relative(InstructionContext* rule, uint16_t pc) -> BuilderResult
 {
     auto* context = rule->relative();
     std::string name{context->BRANCH()->getText()};
@@ -588,16 +475,11 @@ auto AsmInstructionLine::parse_relative(
         return arith_result.get_err();
     }
     auto expression = arith_result.get_ok();
-    instruction = RelativeInstructionLine{
-        pc, op_id, std::move(label), std::move(comment), std::move(expression)};
+    instruction = RelativeInstructionLine{pc, op_id, std::move(expression)};
     return {};
 }
 
-auto AsmInstructionLine::parse_jump(
-        InstructionContext* rule,
-        uint16_t pc,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment) -> BuilderResult
+auto AsmInstructionLine::parse_jump(InstructionContext* rule, uint16_t pc) -> BuilderResult
 {
     auto* context = rule->jump();
     auto op_id = OpName::JMP;
@@ -610,23 +492,17 @@ auto AsmInstructionLine::parse_jump(
     auto expression = arith_result.get_ok();
     if (context->LPAREN())
     {
-        instruction = IndirectInstructionLine{
-            pc, op_id, std::move(label), std::move(comment), std::move(expression)};
+        instruction = IndirectInstructionLine{pc, op_id, std::move(expression)};
     }
     else
     {
-        instruction = AbsoluteInstructionLine{
-            pc, op_id, std::move(label), std::move(comment), std::move(expression)};
+        instruction = AbsoluteInstructionLine{pc, op_id, std::move(expression)};
     }
 
     return {};
 }
 
-auto AsmInstructionLine::parse_jsr(
-        InstructionContext* rule,
-        uint16_t pc,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment) -> BuilderResult
+auto AsmInstructionLine::parse_jsr(InstructionContext* rule, uint16_t pc) -> BuilderResult
 {
     auto* context = rule->jsr();
     auto op_id = OpName::JSR;
@@ -636,8 +512,7 @@ auto AsmInstructionLine::parse_jsr(
         return arith_result.get_err();
     }
     auto expression = arith_result.get_ok();
-    instruction = AbsoluteInstructionLine{
-        pc, op_id, std::move(label), std::move(comment), std::move(expression)};
+    instruction = AbsoluteInstructionLine{pc, op_id, std::move(expression)};
     return {};
 }
 
@@ -670,23 +545,17 @@ auto AsmInstructionLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseE
 }
 
 auto AsmInstructionLine::format() const -> std::string {
-    return std::visit([](const auto& v){return v.format();}, instruction);
+    return std::format(
+        "{}{}{}",
+        label != std::nullopt ? std::format("{}:\t", label.value()) : "",
+        std::visit([](const auto& v){return v.format();}, instruction),
+        comment != std::nullopt ? std::format("\t;{}", comment.value()) : ""
+    );
 }
 
 auto AsmInstructionLine::serialize() const -> AsmLineBytes {
     return std::visit(
         [](const auto& v){return AsmLineBytes{v.serialize()};},
-        instruction);
-}
-
-auto AsmInstructionLine::has_label() const -> bool {
-    return std::visit([](const auto& v){return v.has_label();}, instruction);
-}
-
-auto AsmInstructionLine::get_label() const -> const std::string&
-{
-    return std::visit(
-        [](const auto& v)->const std::string& { return v.get_label(); },
         instruction);
 }
 

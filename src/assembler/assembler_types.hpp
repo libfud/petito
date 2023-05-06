@@ -39,25 +39,6 @@ const std::unordered_map<Base, const std::unordered_map<char, int8_t>&> BASE_MAP
     {Base::Hex, HEX_MAP}
 };
 
-enum class AsmError {
-    FailedToLoad,
-    NoTokenToParse,
-    InvalidToken,
-    InvalidPragma,
-    InvalidKeyword,
-    InvalidComma,
-    BadNumber,
-    BadChar,
-    BadAssign,
-    SymbolUndefined,
-    SymbolRedefined,
-    BadEvaluation,
-    BadParse,
-    InvalidRange,
-    BadDecode,
-    Unimplemented,
-};
-
 enum class ParseError {
     FailedToLoad,
     InvalidLabelParse,

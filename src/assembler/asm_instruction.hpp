@@ -22,21 +22,13 @@ using result::Result;
 class InstructionLine {
 public:
     constexpr InstructionLine() = default;
-    constexpr InstructionLine(
-        uint16_t pc,
-        OpName op_id,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment);
+    constexpr InstructionLine(uint16_t pc, OpName op_id);
 
     virtual ~InstructionLine() = default;
     virtual auto address_mode() const -> AddressMode = 0;
 
     constexpr auto format() const -> std::string;
 
-    virtual constexpr auto has_label() const -> bool { return label != std::nullopt; }
-    constexpr auto get_label() const -> const std::string& {
-        return label.value();
-    }
     constexpr auto program_counter() const -> uint16_t
     {
         return pc;
@@ -56,8 +48,6 @@ protected:
     virtual constexpr auto format_instruction() const -> std::string = 0;
     uint16_t pc = {};
     OpName op_id = {};
-    std::optional<std::string> label = {};
-    std::optional<std::string> comment = {};
 };
 
 class NIModeInstructionLine : public InstructionLine
@@ -107,8 +97,6 @@ public:
     NOperandInstructionLine(
         uint16_t pc,
         OpName op_id,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment,
         ArithmeticExpression&& expression);
 protected:
     ArithmeticExpression expression = {};
@@ -118,12 +106,10 @@ template <class T>
 auto instruction_line_wrapper(
     uint16_t pc,
     OpName op_id,
-    std::optional<std::string>&& label,
-    std::optional<std::string>&& comment,
     ArithmeticExpression&& expression) -> T
     requires(std::is_base_of<NOperandInstructionLine, T>::value)
 {
-    return T{pc, op_id, std::move(label), std::move(comment), std::move(expression)};
+    return T{pc, op_id, std::move(expression)};
 }
 
 class OneOperandInstructionLine : public NOperandInstructionLine
@@ -347,45 +333,38 @@ using AsmLineBytes = std::variant<
 class AsmInstructionLine {
 public:
     using ParseResult = Result<AsmInstructionLine, ParseError>;
-    static auto make(asm6502Parser::LineContext* line, uint16_t pc) -> ParseResult;
+    static auto make(
+        asm6502Parser::LineContext* line,
+        uint16_t pc,
+        SymbolMap& symbol_map) -> ParseResult;
 
     auto evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>;
 
     auto format() const -> std::string;
     auto serialize() const -> AsmLineBytes;
 
-    auto has_label() const -> bool;
-    auto get_label() const -> const std::string&;
+    constexpr auto has_label() const -> bool { return label != std::nullopt; }
+    constexpr auto get_label() const -> std::string { return label.value(); }
     auto program_counter() const -> uint16_t;
     auto size() const -> uint16_t;
 
 protected:
     using BuilderResult = std::optional<ParseError>;
     using InstructionContext = asm6502Parser::InstructionContext;
-    auto parse(
-        InstructionContext* rule,
-        uint16_t pc,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment) -> BuilderResult;
-#define DEF_PARSE_RULE(M_RULE_NAME) \
-    auto M_RULE_NAME( \
-        InstructionContext* rule, \
-        uint16_t pc, \
-        std::optional<std::string>&& label, \
-        std::optional<std::string>&& comment) -> BuilderResult
-    DEF_PARSE_RULE(parse_implicit);
-    DEF_PARSE_RULE(parse_acc);
-    DEF_PARSE_RULE(parse_immediate);
-    DEF_PARSE_RULE(parse_zero_page);
-    DEF_PARSE_RULE(parse_x_index);
-    DEF_PARSE_RULE(parse_y_index);
-    DEF_PARSE_RULE(parse_x_indirect);
-    DEF_PARSE_RULE(parse_indirect_y);
-    DEF_PARSE_RULE(parse_absolute);
-    DEF_PARSE_RULE(parse_relative);
-    DEF_PARSE_RULE(parse_jump);
-    DEF_PARSE_RULE(parse_jsr);
-#undef DEF_PARSE_RULE
+    auto parse(InstructionContext* rule, uint16_t pc) -> BuilderResult;
+
+    auto parse_implicit(InstructionContext* rule, uint16_t pc) -> BuilderResult;
+    auto parse_acc(InstructionContext* rule, uint16_t pc) -> BuilderResult;
+    auto parse_immediate(InstructionContext* rule, uint16_t pc) -> BuilderResult;
+    auto parse_zero_page(InstructionContext* rule, uint16_t pc) -> BuilderResult;
+    auto parse_x_index(InstructionContext* rule, uint16_t pc) -> BuilderResult;
+    auto parse_y_index(InstructionContext* rule, uint16_t pc) -> BuilderResult;
+    auto parse_x_indirect(InstructionContext* rule, uint16_t pc) -> BuilderResult;
+    auto parse_indirect_y(InstructionContext* rule, uint16_t pc) -> BuilderResult;
+    auto parse_absolute(InstructionContext* rule, uint16_t pc) -> BuilderResult;
+    auto parse_relative(InstructionContext* rule, uint16_t pc) -> BuilderResult;
+    auto parse_jump(InstructionContext* rule, uint16_t pc) -> BuilderResult;
+    auto parse_jsr(InstructionContext* rule, uint16_t pc) -> BuilderResult;
 
     struct OpInfo {
         OpName op_id;
@@ -394,13 +373,7 @@ protected:
     };
 
     template <typename T, typename U>
-    auto parse_helper(
-        U obj_maker,
-        T* context,
-        AddressMode mode,
-        uint16_t pc,
-        std::optional<std::string>&& label,
-        std::optional<std::string>&& comment) -> BuilderResult
+    auto parse_helper(U obj_maker, T* context, AddressMode mode, uint16_t pc) -> BuilderResult
         requires(HasShiftAndMnemonic<T>)
     {
         std::string name{};
@@ -427,8 +400,7 @@ protected:
         }
         auto expression = arith_result.get_ok();
 
-        instruction = obj_maker(
-            pc, op_id, std::move(label), std::move(comment), std::move(expression));
+        instruction = obj_maker(pc, op_id, std::move(expression));
         return {};
     }
 
@@ -448,6 +420,8 @@ protected:
 
 private:
     InstructionLineMode instruction = {};
+    std::optional<std::string> label = {};
+    std::optional<std::string> comment = {};
 };
 
 } // namespace mos6502
