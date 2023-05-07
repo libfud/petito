@@ -21,23 +21,39 @@ auto OrgLine::make(OrgContext* line, uint16_t pc, const SymbolMap& symbol_map) -
     auto value = eval_result.get_ok();
     if (value > 0xFFFF)
     {
-        return Result<OrgLine, ParseError>::err(ParseError::InvalidRange);
+        return OrgResult::err(ParseError::InvalidRange);
     }
     directive.pc = static_cast<uint16_t>(value);
     return OrgResult::ok(directive);
 }
 
 auto ByteDirectiveLine::make(
-    asm6502Parser::Byte_directiveContext* line, uint16_t pc) -> ByteDirResult
+    asm6502Parser::Byte_directiveContext* line,
+    uint16_t pc) -> ByteDirResult
 {
-    return ByteDirResult::err(ParseError::LogicError);
+    ByteDirectiveLine directive{};
+    const auto& byte_expressions = line->byte_directive_value();
+    directive.bytes.reserve(byte_expressions.size());
+    directive.expressions.reserve(byte_expressions.size());
+    for (const auto& byte_expression : byte_expressions)
+    {
+        auto expression_result = ArithmeticExpression::make(byte_expression->expression());
+        if (expression_result.is_err())
+        {
+            return ByteDirResult::err(expression_result.get_err());
+        }
+        directive.expressions.push_back(expression_result.get_ok());
+    }
+
+    directive.pc = pc;
+    return ByteDirResult::ok(directive);
 }
 
 auto ByteDirectiveLine::format() const -> std::string
 {
     if (bytes.size() == 0)
     {
-        throw std::logic_error{"Byte Directive can't be constructed with no bytes"};
+        throw std::logic_error{"Byte Directive can't be constructed without bytes"};
     }
     std::string output = std::format(".BYTE ${:02X}", bytes[0]);
     if (bytes.size() == 1)
@@ -52,10 +68,45 @@ auto ByteDirectiveLine::format() const -> std::string
     return output;
 }
 
-auto DByteDirectiveLine::make(
-    asm6502Parser::Dbyte_directiveContext* line, uint16_t pc) -> DByteDirResult
+auto ByteDirectiveLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>
 {
-    return DByteDirResult::err(ParseError::LogicError);
+    for (auto& expression : expressions)
+    {
+        auto value_result = expression.evaluate(symbol_map, pc);
+        if (value_result.is_err())
+        {
+            return value_result.get_err();
+        }
+        auto value = value_result.get_ok();
+        if (value > 0xFF)
+        {
+            return ParseError::InvalidRange;
+        }
+        bytes.push_back(static_cast<uint8_t>(value));
+    }
+    return {};
+}
+
+auto DByteDirectiveLine::make(
+    asm6502Parser::Dbyte_directiveContext* line,
+    uint16_t pc) -> DByteDirResult
+{
+    DByteDirectiveLine directive{};
+    const auto& dbyte_expressions = line->byte_directive_value();
+    directive.dbytes.reserve(dbyte_expressions.size());
+    directive.expressions.reserve(dbyte_expressions.size());
+    for (const auto& byte_expression : dbyte_expressions)
+    {
+        auto expression_result = ArithmeticExpression::make(byte_expression->expression());
+        if (expression_result.is_err())
+        {
+            return DByteDirResult::err(expression_result.get_err());
+        }
+        directive.expressions.push_back(expression_result.get_ok());
+    }
+
+    directive.pc = pc;
+    return DByteDirResult::ok(directive);
 }
 
 auto DByteDirectiveLine::format() const -> std::string
@@ -65,7 +116,7 @@ auto DByteDirectiveLine::format() const -> std::string
         throw std::logic_error{"DByte Directive can't be constructed with no bytes"};
     }
 
-    std::string output = std::format(".DBYTE ${:02X}{:02X}", dbytes[0].low, dbytes[0].high);
+    std::string output = std::format(".DBYTE ${:02X}{:02X}", dbytes[0].high, dbytes[0].low);
     if (dbytes.size() == 1)
     {
         return output;
@@ -74,7 +125,7 @@ auto DByteDirectiveLine::format() const -> std::string
 
     for (auto elt : dbytes | std::views::drop(1))
     {
-        output += std::format(", ${:02X}{:02X}", elt.low, elt.high);
+        output += std::format(", ${:02X}{:02X}", elt.high, elt.low);
     }
     return output;
 }
@@ -91,29 +142,66 @@ auto DByteDirectiveLine::serialize() const -> std::vector<uint8_t>
     return bytes;
 }
 
-auto WordDirectiveLine::make(
-    asm6502Parser::Word_directiveContext* line, uint16_t pc) -> WordDirResult
+auto DByteDirectiveLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>
 {
-    return WordDirResult::err(ParseError::LogicError);
+    for (auto& expression : expressions)
+    {
+        auto value_result = expression.evaluate(symbol_map, pc);
+        if (value_result.is_err())
+        {
+            return value_result.get_err();
+        }
+        auto value = value_result.get_ok();
+        if (value > 0xFFFF)
+        {
+            return ParseError::InvalidRange;
+        }
+        auto low = static_cast<uint8_t>(value & 0xFF);
+        auto high = static_cast<uint8_t>((value >> 8) & 0xFF);
+        dbytes.push_back(DByte{low, high});
+    }
+    return {};
+}
+
+auto WordDirectiveLine::make(
+    asm6502Parser::Word_directiveContext* line,
+    uint16_t pc) -> WordDirResult
+{
+    WordDirectiveLine directive{};
+    const auto& word_expressions = line->byte_directive_value();
+    directive.words.reserve(word_expressions.size());
+    directive.expressions.reserve(word_expressions.size());
+    for (const auto& byte_expression : word_expressions)
+    {
+        auto expression_result = ArithmeticExpression::make(byte_expression->expression());
+        if (expression_result.is_err())
+        {
+            return WordDirResult::err(expression_result.get_err());
+        }
+        directive.expressions.push_back(expression_result.get_ok());
+    }
+
+    directive.pc = pc;
+    return WordDirResult::ok(directive);
 }
 
 auto WordDirectiveLine::format() const -> std::string
 {
-    if (dbytes.size() == 0)
+    if (words.size() == 0)
     {
         throw std::logic_error{"Word Directive can't be constructed with no bytes"};
     }
 
-    std::string output = std::format(".WORD ${:02X}{:02X}", dbytes[0].low, dbytes[0].high);
-    if (dbytes.size() == 1)
+    std::string output = std::format(".WORD ${:02X}{:02X}", words[0].high, words[0].low);
+    if (words.size() == 1)
     {
         return output;
     }
     output.reserve(size() * 4);
 
-    for (auto elt : dbytes | std::views::drop(1))
+    for (auto elt : words | std::views::drop(1))
     {
-        output += std::format(", ${:02X}{:02X}", elt.low, elt.high);
+        output += std::format(", ${:02X}{:02X}", elt.high, elt.low);
     }
     return output;
 }
@@ -122,12 +210,33 @@ auto WordDirectiveLine::serialize() const -> std::vector<uint8_t>
 {
     std::vector<uint8_t> bytes{};
     bytes.reserve(size() * 2);
-    for (auto elt : dbytes)
+    for (auto elt : words)
     {
         bytes.push_back(elt.high);
         bytes.push_back(elt.low);
     }
     return bytes;
+}
+
+auto WordDirectiveLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>
+{
+    for (auto& expression : expressions)
+    {
+        auto value_result = expression.evaluate(symbol_map, pc);
+        if (value_result.is_err())
+        {
+            return value_result.get_err();
+        }
+        auto value = value_result.get_ok();
+        if (value > 0xFFFF)
+        {
+            return ParseError::InvalidRange;
+        }
+        auto low = static_cast<uint8_t>(value & 0xFF);
+        auto high = static_cast<uint8_t>((value >> 8) & 0xFF);
+        words.push_back(Word{low, high});
+    }
+    return {};
 }
 
 auto TextDirectiveLine::make(
@@ -152,6 +261,11 @@ auto AlignDirectiveLine::format() const -> std::string
     return std::format(".ALIGN ${:04X} ${:02X}", alignment, fill);
 }
 
+auto AlignDirectiveLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>
+{
+    return ParseError::LogicError;
+}
+
 auto FillDirectiveLine::make(
     asm6502Parser::Fill_directiveContext* line, uint16_t pc) -> FillDirResult
 {
@@ -161,6 +275,11 @@ auto FillDirectiveLine::make(
 auto FillDirectiveLine::format() const -> std::string
 {
     return std::format(".FILL ${:04X} ${:02X}", count, fill);
+}
+
+auto FillDirectiveLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>
+{
+    return ParseError::LogicError;
 }
 
 auto DirectiveLine::make(
@@ -214,7 +333,7 @@ auto DirectiveLine::format() const -> std::string
     std::string comment_str{""};
     if (comment != std::nullopt)
     {
-        comment_str = " ;" + comment.value();
+        comment_str = "\t" + comment.value();
     }
     return std::format(
         "{}{}",
@@ -241,7 +360,7 @@ auto DirectiveLine::size() const -> uint16_t
 
 auto DirectiveLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>
 {
-    return {};
+    return std::visit([&](auto& v){return v.evaluate(symbol_map);}, directive);
 }
 
 } // namespace mos6502

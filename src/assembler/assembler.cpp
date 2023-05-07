@@ -85,6 +85,7 @@ auto Assembler::make_lines(ProgramContext* program_file) -> std::optional<ParseE
     program.reserve(lines.size());
 
     size_t pc = 0;
+    size_t length = 0;
     for (size_t idx = 0; idx < lines.size(); ++idx)
     {
         auto instruction_result = AsmLine::make(lines[idx], pc, symbols);
@@ -93,11 +94,11 @@ auto Assembler::make_lines(ProgramContext* program_file) -> std::optional<ParseE
             return instruction_result.get_err();
         }
         auto instruction = instruction_result.get_ok();
-        auto size = instruction.size();
-        pc += size;
+        length += instruction.size();
+        pc = instruction.program_counter() + instruction.size();
         program.push_back(std::move(instruction));
     }
-    program_bytes.reserve(pc);
+    program_bytes.reserve(length);
 
     return {};
 }
@@ -136,7 +137,7 @@ auto Assembler::size() const -> uint16_t {
     {
         return 0;
     }
-    return program.back().program_counter() + program.back().size();
+    return program_bytes.size();
 }
 
 auto Assembler::serialize() const -> const std::vector<uint8_t>&

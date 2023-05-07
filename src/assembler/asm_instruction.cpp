@@ -110,7 +110,7 @@ auto AsmInstructionLine::make(
     }
 
     AsmInstructionLine instruction{};
-    auto parse_result = instruction.parse(instruction_rule, pc);
+    auto parse_result = instruction.parse(instruction_rule, pc, symbol_map);
     if (parse_result != std::nullopt)
     {
         return ParseResult::err(parse_result.value());
@@ -133,7 +133,10 @@ auto AsmInstructionLine::make(
     return ParseResult::ok(instruction);
 }
 
-auto AsmInstructionLine::parse(InstructionContext* rule, uint16_t pc) -> BuilderResult
+auto AsmInstructionLine::parse(
+    InstructionContext* rule,
+    uint16_t pc,
+    SymbolMap& symbol_map) -> BuilderResult
 {
     if (rule->nop())
     {
@@ -149,9 +152,9 @@ auto AsmInstructionLine::parse(InstructionContext* rule, uint16_t pc) -> Builder
 
     if (rule->zero_page()) { return parse_zero_page(rule, pc); }
 
-    if (rule->x_index()) { return parse_x_index(rule, pc); }
+    if (rule->x_index()) { return parse_x_index(rule, pc, symbol_map); }
 
-    if (rule->y_index()) { return parse_y_index(rule, pc); }
+    if (rule->y_index()) { return parse_y_index(rule, pc, symbol_map); }
 
     if (rule->x_indirect()) { return parse_x_indirect(rule, pc); }
 
@@ -259,168 +262,34 @@ auto AsmInstructionLine::parse_zero_page(InstructionContext* rule, uint16_t pc) 
     return {};
 }
 
-auto AsmInstructionLine::parse_x_index(InstructionContext* rule, uint16_t pc) -> BuilderResult
+auto AsmInstructionLine::parse_x_index(
+    InstructionContext* rule,
+    uint16_t pc,
+    SymbolMap& symbol_map) -> BuilderResult
 {
-    if (rule->x_index()->FORCED_BYTE())
-    {
-        auto* context = rule->x_index();
-        return parse_helper(
-            instruction_line_wrapper<ZeroPageXInstructionLine>,
-            context,
-            AddressMode::ZPG_X,
-            pc);
-    }
-    if (rule->x_index()->FORCED_WORD())
-    {
-        auto* context = rule->x_index();
-        return parse_helper(
-            instruction_line_wrapper<AbsoluteXInstructionLine>,
-            context,
-            AddressMode::ABS_X,
-            pc);
-    }
-
-    auto opcode_info_result = parse_xy_index(rule, AddressMode::ZPG_X, AddressMode::ABS_X);
-    if (opcode_info_result.is_err())
-    {
-        return opcode_info_result.get_err();
-    }
-    auto opcode_info = opcode_info_result.get_ok();
-    if (opcode_info.address_mode == AddressMode::ZPG_X)
-    {
-        instruction = ZeroPageXInstructionLine{
-            pc,
-            opcode_info.op_id,
-            std::move(opcode_info.expression)};
-    }
-    else
-    {
-        instruction = AbsoluteXInstructionLine{
-            pc,
-            opcode_info.op_id,
-            std::move(opcode_info.expression)};
-    }
-    return {};
+    return parse_indexed(
+        rule->x_index(),
+        pc,
+        symbol_map,
+        AddressMode::ZPG_X,
+        AddressMode::ABS_X,
+        instruction_line_wrapper<ZeroPageXInstructionLine>,
+        instruction_line_wrapper<AbsoluteXInstructionLine>);
 }
 
-auto AsmInstructionLine::parse_y_index(InstructionContext* rule, uint16_t pc) -> BuilderResult
+auto AsmInstructionLine::parse_y_index(
+    InstructionContext* rule,
+    uint16_t pc,
+    SymbolMap& symbol_map) -> BuilderResult
 {
-    if (rule->y_index()->FORCED_BYTE())
-    {
-        auto* context = rule->y_index();
-        return parse_helper(
-            instruction_line_wrapper<ZeroPageYInstructionLine>,
-            context,
-            AddressMode::ZPG_Y,
-            pc);
-    }
-    if (rule->y_index()->FORCED_WORD())
-    {
-        auto* context = rule->y_index();
-        return parse_helper(
-            instruction_line_wrapper<AbsoluteYInstructionLine>,
-            context,
-            AddressMode::ABS_Y,
-            pc);
-    }
-
-    auto opcode_info_result = parse_xy_index(rule, AddressMode::ZPG_Y, AddressMode::ABS_Y);
-    if (opcode_info_result.is_err())
-    {
-        return opcode_info_result.get_err();
-    }
-    auto opcode_info = opcode_info_result.get_ok();
-    if (opcode_info.address_mode == AddressMode::ZPG_Y)
-    {
-        instruction = ZeroPageYInstructionLine{
-            pc,
-            opcode_info.op_id,
-            std::move(opcode_info.expression)};
-    }
-    else
-    {
-        instruction = AbsoluteYInstructionLine{
-            pc,
-            opcode_info.op_id,
-            std::move(opcode_info.expression)};
-    }
-    return {};
-}
-
-auto AsmInstructionLine::parse_xy_index(
-        InstructionContext* rule,
-        AddressMode zpg_mode,
-        AddressMode abs_mode) -> Result<OpInfo, ParseError>
-{
-    using RetType = Result<OpInfo, ParseError>;
-    std::string name;
-    auto zpg_invalid_mnemonic = Result<OpName, ParseError>::err(ParseError::LogicError);
-    auto abs_invalid_mnemonic = Result<OpName, ParseError>::err(ParseError::LogicError);
-    asm6502Parser::ExpressionContext* expression_context = nullptr;
-    asm6502Parser::MnemonicContext* mnemonic_context = nullptr;
-    asm6502Parser::ShiftContext* shift_context = nullptr;
-    if (zpg_mode == AddressMode::ZPG_X && abs_mode == AddressMode::ABS_X)
-    {
-        auto* context = rule->x_index();
-        mnemonic_context = context->mnemonic();
-        shift_context = context->shift();
-        expression_context = context->expression();
-    }
-    else if (zpg_mode == AddressMode::ZPG_Y && abs_mode == AddressMode::ABS_Y)
-    {
-        auto* context = rule->y_index();
-        mnemonic_context = context->mnemonic();
-        shift_context = context->shift();
-        expression_context = context->expression();
-    }
-    else
-    {
-        return RetType::err(ParseError::LogicError);
-    }
-
-    if (mnemonic_context)
-    {
-        name = mnemonic_context->MNEMONIC()->getText();
-    }
-    else
-    {
-        name = shift_context->SHIFT()->getText();
-    }
-
-    zpg_invalid_mnemonic = check_mnemonic(name, zpg_mode);
-    abs_invalid_mnemonic = check_mnemonic(name, abs_mode);
-
-    if (zpg_invalid_mnemonic.is_err() && abs_invalid_mnemonic.is_err())
-    {
-        return RetType::err(zpg_invalid_mnemonic.get_err());
-    }
-
-    auto arith_result = ArithmeticExpression::make(expression_context);
-    if (arith_result.is_err())
-    {
-        return RetType::err(arith_result.get_err());
-    }
-    auto expression = arith_result.get_ok();
-    if (!(expression.has_symbols()) ||
-        expression.has_words() ||
-        zpg_invalid_mnemonic.is_err())
-    {
-        SymbolMap empty_map{};
-        auto res = expression.evaluate(empty_map, 0);
-        if (res.is_err() && res.get_err() != ParseError::SymbolUndefined)
-        {
-            return RetType::err(res.get_err());
-        }
-        else if (res.is_ok() && res.get_ok() < 0xFF)
-        {
-            return RetType::ok({zpg_invalid_mnemonic.get_ok(), zpg_mode, expression});
-        }
-    }
-    if (zpg_invalid_mnemonic.is_ok() && abs_invalid_mnemonic.is_err())
-    {
-        return RetType::ok({zpg_invalid_mnemonic.get_ok(), zpg_mode, expression});
-    }
-    return RetType::ok({abs_invalid_mnemonic.get_ok(), abs_mode, expression});
+    return parse_indexed(
+        rule->y_index(),
+        pc,
+        symbol_map,
+        AddressMode::ZPG_Y,
+        AddressMode::ABS_Y,
+        instruction_line_wrapper<ZeroPageYInstructionLine>,
+        instruction_line_wrapper<AbsoluteYInstructionLine>);
 }
 
 auto AsmInstructionLine::parse_x_indirect(InstructionContext* rule, uint16_t pc) -> BuilderResult

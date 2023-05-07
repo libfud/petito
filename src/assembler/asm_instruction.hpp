@@ -343,22 +343,26 @@ public:
     auto format() const -> std::string;
     auto serialize() const -> AsmLineBytes;
 
-    constexpr auto has_label() const -> bool { return label != std::nullopt; }
-    constexpr auto get_label() const -> std::string { return label.value(); }
     auto program_counter() const -> uint16_t;
     auto size() const -> uint16_t;
 
 protected:
     using BuilderResult = std::optional<ParseError>;
     using InstructionContext = asm6502Parser::InstructionContext;
-    auto parse(InstructionContext* rule, uint16_t pc) -> BuilderResult;
+    auto parse(InstructionContext* rule, uint16_t pc, SymbolMap& symbol_map) -> BuilderResult;
 
     auto parse_implicit(InstructionContext* rule, uint16_t pc) -> BuilderResult;
     auto parse_acc(InstructionContext* rule, uint16_t pc) -> BuilderResult;
     auto parse_immediate(InstructionContext* rule, uint16_t pc) -> BuilderResult;
     auto parse_zero_page(InstructionContext* rule, uint16_t pc) -> BuilderResult;
-    auto parse_x_index(InstructionContext* rule, uint16_t pc) -> BuilderResult;
-    auto parse_y_index(InstructionContext* rule, uint16_t pc) -> BuilderResult;
+    auto parse_x_index(
+        InstructionContext* rule,
+        uint16_t pc,
+        SymbolMap& symbol_map) -> BuilderResult;
+    auto parse_y_index(
+        InstructionContext* rule,
+        uint16_t pc,
+        SymbolMap& symbol_map) -> BuilderResult;
     auto parse_x_indirect(InstructionContext* rule, uint16_t pc) -> BuilderResult;
     auto parse_indirect_y(InstructionContext* rule, uint16_t pc) -> BuilderResult;
     auto parse_absolute(InstructionContext* rule, uint16_t pc) -> BuilderResult;
@@ -371,6 +375,70 @@ protected:
         AddressMode address_mode;
         ArithmeticExpression expression;
     };
+
+    template <typename IndexContext, typename ZpgMaker, typename AbsMaker>
+    auto parse_indexed(
+        IndexContext* index_context,
+        uint16_t pc,
+        SymbolMap& symbol_map,
+        AddressMode zpg_mode,
+        AddressMode abs_mode,
+        ZpgMaker zpg_maker,
+        AbsMaker abs_maker) -> BuilderResult
+        requires(HasShiftAndMnemonic<IndexContext>)
+    {
+        if (index_context->FORCED_BYTE())
+        {
+            return parse_helper(zpg_maker, index_context, zpg_mode, pc);
+        }
+        if (index_context->FORCED_WORD())
+        {
+            return parse_helper(abs_maker, index_context, abs_mode, pc);
+        }
+
+        std::string name{};
+        if (index_context->mnemonic())
+        {
+            name = index_context->mnemonic()->MNEMONIC()->getText();
+        }
+        else
+        {
+            name = index_context->shift()->SHIFT()->getText();
+        }
+
+        auto zpg_invalid_mnemonic = check_mnemonic(name, zpg_mode);
+        auto abs_invalid_mnemonic = check_mnemonic(name, abs_mode);
+
+        if (zpg_invalid_mnemonic.is_err() && abs_invalid_mnemonic.is_err())
+        {
+            return zpg_invalid_mnemonic.get_err();
+        }
+
+        auto arith_result = ArithmeticExpression::make(index_context->expression());
+        if (arith_result.is_err())
+        {
+            return arith_result.get_err();
+        }
+        auto expression = arith_result.get_ok();
+        if (zpg_invalid_mnemonic.is_ok())
+        {
+            auto res = expression.evaluate(symbol_map, 0);
+            if (res.is_err() && res.get_err() != ParseError::SymbolUndefined)
+            {
+                return res.get_err();
+            }
+            else if (res.is_ok() && res.get_ok() < 0xFF)
+            {
+                auto op_id = zpg_invalid_mnemonic.get_ok();
+                instruction = zpg_maker(pc, op_id, std::move(expression));
+                return {};
+            }
+        }
+
+        auto op_id = abs_invalid_mnemonic.get_ok();
+        instruction = abs_maker(pc, op_id, std::move(expression));
+        return {};
+    }
 
     template <typename T, typename U>
     auto parse_helper(U obj_maker, T* context, AddressMode mode, uint16_t pc) -> BuilderResult
@@ -403,16 +471,6 @@ protected:
         instruction = obj_maker(pc, op_id, std::move(expression));
         return {};
     }
-
-    auto parse_xy_index(
-        InstructionContext* rule,
-        AddressMode zpg_mode,
-        AddressMode abs_mode) -> Result<OpInfo, ParseError>;
-
-    auto parse_xy_index_2(
-        InstructionContext* rule,
-        AddressMode zpg_mode,
-        AddressMode abs_mode) -> Result<OpInfo, ParseError>;
 
     auto check_mnemonic(
         const std::string& name,

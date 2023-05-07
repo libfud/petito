@@ -24,6 +24,48 @@ TEST(TestAssembler, FromFileName)
     auto assembler = result.get_ok();
 }
 
+TEST(TestAssembler, EmptyLine)
+{
+   const std::string input_1 = std::format("\n");
+    auto result = Assembler::from_text(input_1);
+    ASSERT_TRUE(result.is_ok());
+    auto assembler_1 = result.get_ok();
+    EXPECT_EQ(assembler_1.format(), input_1);
+    EXPECT_EQ(assembler_1.size(), 0);
+    auto prog_bytes = assembler_1.serialize();
+    ASSERT_EQ(prog_bytes.size(), 0);
+}
+
+TEST(TestAssembler, Label)
+{
+    const std::string input_1 = std::format("LABEL1:\n");
+    auto result = Assembler::from_text(input_1);
+    ASSERT_TRUE(result.is_ok());
+    auto assembler_1 = result.get_ok();
+    EXPECT_EQ(assembler_1.format(), input_1);
+    EXPECT_EQ(assembler_1.size(), 0);
+    auto prog_bytes = assembler_1.serialize();
+    ASSERT_EQ(prog_bytes.size(), 0);
+
+    const std::string input_2 = std::format("@LABEL1\n");
+    result = Assembler::from_text(input_2);
+    ASSERT_TRUE(result.is_ok());
+    auto assembler_2 = result.get_ok();
+    EXPECT_EQ(assembler_2.format(), input_1);
+    EXPECT_EQ(assembler_2.size(), 0);
+    prog_bytes = assembler_2.serialize();
+    ASSERT_EQ(prog_bytes.size(), 0);
+
+    const std::string input_3 = std::format("@LABEL1:\t;Comment\n");
+    result = Assembler::from_text(input_3);
+    ASSERT_TRUE(result.is_ok());
+    auto assembler_3 = result.get_ok();
+    EXPECT_EQ(assembler_3.format(), std::format("LABEL1:\t;Comment\n"));
+    EXPECT_EQ(assembler_3.size(), 0);
+    prog_bytes = assembler_3.serialize();
+    ASSERT_EQ(prog_bytes.size(), 0);
+
+}
 TEST(TestAssembler, Nop)
 {
     OpName op_id = OpName::NOP;
@@ -367,8 +409,9 @@ TEST(TestAssembler, OrgDirective)
     EXPECT_EQ(assembler.format(), input);
 
     input = std::format(
-        ".ORG $0400\n",
-        "\tNOP\n");
+        "{}\n{}\n",
+        ".ORG $0400",
+        "\tNOP");
     test_program = std::vector{NOP_IMPL};
     result = Assembler::from_text(input);
     ASSERT_TRUE(result.is_ok());
@@ -377,7 +420,36 @@ TEST(TestAssembler, OrgDirective)
     prog_bytes = assembler.serialize();
     ASSERT_EQ(prog_bytes.size(), test_program.size());
     EXPECT_TRUE(std::equal(prog_bytes.begin(), prog_bytes.end(), test_program.begin()));
+}
 
+TEST(TestAssembler, ByteDirective)
+{
+    uint8_t value = 0x42;
+    std::string line_1{std::format(".BYTE ${:02X}\n", value)};
+    std::string input{line_1};
+    std::vector<uint8_t> test_program{value};
+    auto result = Assembler::from_text(input);
+    if (result.is_err()) { logger::error("Error is {}", static_cast<uint8_t>(result.get_err())); }
+    ASSERT_TRUE(result.is_ok());
+    auto assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    auto prog_bytes = assembler.serialize();
+    ASSERT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_TRUE(std::equal(prog_bytes.begin(), prog_bytes.end(), test_program.begin()));
+    EXPECT_EQ(assembler.format(), input);
+
+    input = std::format(
+        "{}\n{}\n",
+        line_1,
+        "\tNOP");
+    test_program = std::vector{value, NOP_IMPL};
+    result = Assembler::from_text(input);
+    ASSERT_TRUE(result.is_ok());
+    assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    prog_bytes = assembler.serialize();
+    ASSERT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_TRUE(std::equal(prog_bytes.begin(), prog_bytes.end(), test_program.begin()));
 }
 
 } // namespace mos6502

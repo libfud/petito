@@ -24,8 +24,6 @@ struct LabelLine {
     static auto make(LineContext* line, uint16_t pc, SymbolMap& symbol_map) -> LabelResult;
     auto format() const -> std::string;
     constexpr auto serialize() const -> std::array<uint8_t, 0> { return {}; }
-    constexpr auto has_label() const -> bool { return true; }
-    constexpr auto get_label() const -> const std::string& { return label; }
     constexpr auto program_counter() const -> uint16_t
     {
         return pc;
@@ -46,7 +44,6 @@ struct CommentLine {
         return comment;
     }
     constexpr auto serialize() const -> std::array<uint8_t, 0> { return {}; }
-    constexpr auto has_label() const -> bool { return false; }
     constexpr auto program_counter() const -> uint16_t
     {
         return pc;
@@ -69,7 +66,6 @@ public:
         return std::format("{} EQU {}", name, value.value());
     }
     constexpr auto serialize() const -> std::array<uint8_t, 0> { return {}; }
-    constexpr auto has_label() const -> bool { return false; }
     constexpr auto program_counter() const -> uint16_t
     {
         return pc;
@@ -86,7 +82,6 @@ private:
 };
 
 struct EmptyLine {
-    constexpr auto has_label() const -> bool { return false; }
     constexpr auto format() const -> std::string { return ""; };
     constexpr auto program_counter() const -> uint16_t
     {
@@ -114,8 +109,6 @@ class AsmLine {
 public:
     using ParseResult = Result<AsmLine, ParseError>;
     static auto make(LineContext* line, uint16_t pc, SymbolMap& symbols) -> ParseResult;
-    auto has_label() const -> bool;
-    auto get_label() const -> std::string;
     auto program_counter() const -> uint16_t;
     auto size() const -> uint16_t;
     auto evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>;

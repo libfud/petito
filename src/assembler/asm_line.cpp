@@ -22,7 +22,11 @@ auto LabelLine::make(LineContext* context, uint16_t pc, SymbolMap& symbol_map) -
 
 auto LabelLine::format() const -> std::string
 {
-    const auto comment_str = comment == std::nullopt ? "" : std::format("\t;{}", comment.value());
+    std::string comment_str{""};
+    if (comment != std::nullopt)
+    {
+        comment_str = std::format("\t{}", comment.value());
+    }
     return std::format("{}:{}", label, comment_str);
 }
 
@@ -157,27 +161,6 @@ auto AsmLine::make_comment(LineContext* line, uint16_t pc, SymbolMap& symbol_map
     AsmLine asm_line{};
     asm_line.line = comment_line;
     return ParseResult::ok(asm_line);
-}
-
-auto AsmLine::has_label() const -> bool {
-    return std::visit([](const auto& v){return v.has_label();}, line);
-}
-
-auto AsmLine::get_label() const -> std::string
-{
-    if (std::holds_alternative<AsmInstructionLine>(line))
-    {
-        return std::get<AsmInstructionLine>(line).get_label();
-    }
-    else if (std::holds_alternative<LabelLine>(line))
-    {
-        return std::get<LabelLine>(line).get_label();
-    }
-    else
-    {
-        throw std::logic_error(
-            std::format("Line (index {}) can not have a label", line.index()));
-    }
 }
 
 auto AsmLine::program_counter() const -> uint16_t

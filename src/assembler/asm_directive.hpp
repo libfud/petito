@@ -26,11 +26,12 @@ public:
     constexpr auto serialize() const -> std::vector<uint8_t> { return {}; }
     constexpr auto size() const -> uint16_t { return 0; }
     constexpr auto program_counter() const -> uint16_t { return pc; }
-    auto evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>;
+    constexpr auto evaluate(SymbolMap& symbol_map) -> std::optional<ParseError> {
+        return {};
+    }
 private:
     uint16_t pc = 0;
 };
-
 
 class ByteDirectiveLine {
 public:
@@ -42,8 +43,9 @@ public:
     constexpr auto program_counter() const -> uint16_t { return pc; }
     auto evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>;
 private:
-    uint16_t pc;
-    std::vector<uint8_t> bytes;
+    uint16_t pc = 0;
+    std::vector<uint8_t> bytes = {};
+    std::vector<ArithmeticExpression> expressions = {};
 };
 
 class DByteDirectiveLine {
@@ -60,8 +62,9 @@ public:
     constexpr auto program_counter() const -> uint16_t { return pc; }
     auto evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>;
 private:
-    uint16_t pc;
-    std::vector<DByte> dbytes;
+    uint16_t pc = 0;
+    std::vector<DByte> dbytes = {};
+    std::vector<ArithmeticExpression> expressions = {};
 };
 
 class WordDirectiveLine {
@@ -74,12 +77,13 @@ public:
     static auto make(asm6502Parser::Word_directiveContext* line, uint16_t pc) -> WordDirResult;
     auto format() const -> std::string;
     auto serialize() const -> std::vector<uint8_t>;
-    constexpr auto size() const -> uint16_t { return 2 * dbytes.size(); }
+    constexpr auto size() const -> uint16_t { return 2 * words.size(); }
     constexpr auto program_counter() const -> uint16_t { return pc; }
     auto evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>;
 private:
-    uint16_t pc;
-    std::vector<Word> dbytes;
+    uint16_t pc = {};
+    std::vector<Word> words = {};
+    std::vector<ArithmeticExpression> expressions = {};
 };
 
 class TextDirectiveLine {
@@ -90,7 +94,9 @@ public:
     auto serialize() const -> std::vector<uint8_t>;
     constexpr auto size() const -> uint16_t { return text.size(); }
     constexpr auto program_counter() const -> uint16_t { return pc; }
-    auto evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>;
+    constexpr auto evaluate(SymbolMap& symbol_map) -> std::optional<ParseError> {
+        return {};
+    }
 private:
     uint16_t pc;
     std::string text;
