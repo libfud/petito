@@ -140,9 +140,11 @@ public:
     constexpr auto program_counter() const -> uint16_t { return pc; }
     auto evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>;
 private:
-    uint16_t pc;
+    uint16_t pc = 0;
     uint16_t count;
     uint8_t fill = 0;
+    ArithmeticExpression count_expression = {};
+    std::optional<ArithmeticExpression> fill_expression = {};
 };
 
 using DirectiveType = std::variant<

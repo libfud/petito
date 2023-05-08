@@ -288,7 +288,7 @@ auto TextDirectiveLine::format() const -> std::string
         switch (letter)
         {
             case '"':
-                output += "\"";
+                output += "\\\"";
                 break;
             case '\t':
                 output += "\\t";
@@ -395,7 +395,35 @@ auto AlignDirectiveLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseE
 auto FillDirectiveLine::make(
     asm6502Parser::Fill_directiveContext* line, uint16_t pc) -> FillDirResult
 {
-    return FillDirResult::err(ParseError::LogicError);
+    FillDirectiveLine directive{};
+    directive.pc = pc;
+
+    const auto& expressions = line->expression();
+
+    if (expressions.size() == 0 || expressions.size() > 2)
+    {
+        return FillDirResult::err(ParseError::LogicError);
+    }
+
+    auto count_expr_result = ArithmeticExpression::make(expressions[0]);
+    if (count_expr_result.is_err())
+    {
+        return FillDirResult::err(count_expr_result.get_err());
+    }
+    directive.count_expression = count_expr_result.get_ok();
+    if (expressions.size() == 1)
+    {
+        return FillDirResult::ok(directive);
+    }
+
+    auto fill_expr_result = ArithmeticExpression::make(expressions[1]);
+    if (fill_expr_result.is_err())
+    {
+        return FillDirResult::err(fill_expr_result.get_err());
+    }
+    directive.fill_expression = fill_expr_result.get_ok();
+
+    return FillDirResult::ok(directive);
 }
 
 auto FillDirectiveLine::format() const -> std::string
@@ -405,7 +433,34 @@ auto FillDirectiveLine::format() const -> std::string
 
 auto FillDirectiveLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>
 {
-    return ParseError::LogicError;
+    auto count_eval = count_expression.evaluate(symbol_map, pc);
+    if (count_eval.is_err())
+    {
+        return count_eval.get_err();
+    }
+    auto count_value = count_eval.get_ok();
+    if (count_value > 0xFFFF | count_value < 0)
+    {
+        return ParseError::InvalidRange;
+    }
+    count = count_value & 0xFFFF;
+
+    if (fill_expression != std::nullopt)
+    {
+        auto fill_eval = fill_expression.value().evaluate(symbol_map, pc);
+        if (fill_eval.is_err())
+        {
+            return fill_eval.get_err();
+        }
+        auto fill_value = fill_eval.get_ok();
+        if (fill_value > 0xFF || fill_value < 0)
+        {
+            return ParseError::InvalidRange;
+        }
+        fill = fill_value & 0xFF;
+    }
+
+    return {};
 }
 
 auto DirectiveLine::make(

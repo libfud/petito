@@ -570,8 +570,8 @@ TEST(TestAssembler, TextDirective)
 {
     std::string text{"Hello, World\\n"};
     std::string program_text{"Hello, World\n"};
-    std::string line_1{std::format(".TEXT \"{}\"\n", text)};
-    std::string input{line_1};
+    std::string line_1{std::format(".TEXT \"{}\"", text)};
+    std::string input{line_1 + '\n'};
     std::vector<uint8_t> test_program(program_text.begin(), program_text.end());
     auto result = Assembler::from_text(input);
     if (result.is_err()) { logger::error("Error is {}", static_cast<uint8_t>(result.get_err())); }
@@ -599,6 +599,20 @@ TEST(TestAssembler, TextDirective)
     prog_bytes = assembler.serialize();
     ASSERT_EQ(prog_bytes.size(), test_program.size());
     EXPECT_EQ(prog_bytes, test_program);
+    EXPECT_EQ(assembler.format(), input);
+
+    text = std::format("escapes: {}{}\\t\\n\\r", '\\', '"');
+    input = std::format(".TEXT \"{}\"\n", text);
+    program_text = "escapes: \"\t\n\r";
+    test_program = {program_text.begin(), program_text.end()};
+    result = Assembler::from_text(input);
+    ASSERT_TRUE(result.is_ok());
+    assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    prog_bytes = assembler.serialize();
+    ASSERT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_EQ(prog_bytes, test_program);
+    EXPECT_EQ(assembler.format(), input);
 }
 
 TEST(TestAssembler, AlignDirective)
@@ -667,6 +681,94 @@ TEST(TestAssembler, AlignDirective)
     EXPECT_EQ(prog_bytes.size(), test_program.size());
     EXPECT_EQ(prog_bytes, test_program);
     EXPECT_EQ(assembler.format(), normalized_input);
+
+    input = "\tINX\n.ALIGN -1 $EA\n\tINX";
+    result = Assembler::from_text(input);
+    ASSERT_TRUE(result.is_err());
+    ASSERT_EQ(result.get_err(), ParseError::InvalidRange);
+
+    input = "\tINX\n.ALIGN 4 -1\n\tINX";
+    result = Assembler::from_text(input);
+    ASSERT_TRUE(result.is_err());
+    ASSERT_EQ(result.get_err(), ParseError::InvalidRange);
+}
+
+TEST(TestAssembler, FillDirective)
+{
+    std::string input{".FILL 1"};
+    std::string normalized_input{".FILL $0001 $00\n"};
+    std::vector<uint8_t> test_program{0x00};
+    auto result = Assembler::from_text(input);
+    if (result.is_err()) { logger::error("Error is {}", static_cast<uint8_t>(result.get_err())); }
+    ASSERT_TRUE(result.is_ok());
+    auto assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    auto prog_bytes = assembler.serialize();
+    EXPECT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_EQ(prog_bytes, test_program);
+    EXPECT_EQ(assembler.format(), normalized_input);
+
+    input = ".FILL 2";
+    normalized_input = ".FILL $0002 $00\n";
+    test_program = {0x00, 0x00};
+    result = Assembler::from_text(input);
+    if (result.is_err()) { logger::error("Error is {}", static_cast<uint8_t>(result.get_err())); }
+    ASSERT_TRUE(result.is_ok());
+    assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    prog_bytes = assembler.serialize();
+    EXPECT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_EQ(prog_bytes, test_program);
+    EXPECT_EQ(assembler.format(), normalized_input);
+
+    input = ".FILL 2 0";
+    normalized_input = ".FILL $0002 $00\n";
+    test_program = {0x00, 0x00};
+    result = Assembler::from_text(input);
+    if (result.is_err()) { logger::error("Error is {}", static_cast<uint8_t>(result.get_err())); }
+    ASSERT_TRUE(result.is_ok());
+    assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    prog_bytes = assembler.serialize();
+    EXPECT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_EQ(prog_bytes, test_program);
+    EXPECT_EQ(assembler.format(), normalized_input);
+
+    input = ".FILL 4 $EA";
+    normalized_input = ".FILL $0004 $EA\n";
+    test_program = {0xEA, 0xEA, 0xEA, 0xEA};
+    result = Assembler::from_text(input);
+    if (result.is_err()) { logger::error("Error is {}", static_cast<uint8_t>(result.get_err())); }
+    ASSERT_TRUE(result.is_ok());
+    assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    prog_bytes = assembler.serialize();
+    EXPECT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_EQ(prog_bytes, test_program);
+    EXPECT_EQ(assembler.format(), normalized_input);
+
+    input = "\tINX\n.FILL 4 $EA\n\tINX";
+    normalized_input = "\tINX\n.FILL $0004 $EA\n\tINX\n";
+    test_program = {INX_IMPL, 0xEA, 0xEA, 0xEA, 0xEA, INX_IMPL};
+    result = Assembler::from_text(input);
+    if (result.is_err()) { logger::error("Error is {}", static_cast<uint8_t>(result.get_err())); }
+    ASSERT_TRUE(result.is_ok());
+    assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    prog_bytes = assembler.serialize();
+    EXPECT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_EQ(prog_bytes, test_program);
+    EXPECT_EQ(assembler.format(), normalized_input);
+
+    input = "\tINX\n.FILL -1 $EA\n\tINX";
+    result = Assembler::from_text(input);
+    ASSERT_TRUE(result.is_err());
+    ASSERT_EQ(result.get_err(), ParseError::InvalidRange);
+
+    input = "\tINX\n.FILL 4 -1\n\tINX";
+    result = Assembler::from_text(input);
+    ASSERT_TRUE(result.is_err());
+    ASSERT_EQ(result.get_err(), ParseError::InvalidRange);
 }
 
 
