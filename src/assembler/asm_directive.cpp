@@ -19,7 +19,7 @@ auto OrgLine::make(OrgContext* line, uint16_t pc, const SymbolMap& symbol_map) -
         return OrgResult::err(expr_result.get_err());
     }
     auto value = eval_result.get_ok();
-    if (value > 0xFFFF)
+    if (value > 0xFFFF || value < 0)
     {
         return OrgResult::err(ParseError::InvalidRange);
     }
@@ -78,7 +78,7 @@ auto ByteDirectiveLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseEr
             return value_result.get_err();
         }
         auto value = value_result.get_ok();
-        if (value > 0xFF)
+        if (value > 0xFF || value < 0)
         {
             return ParseError::InvalidRange;
         }
@@ -136,8 +136,8 @@ auto DByteDirectiveLine::serialize() const -> std::vector<uint8_t>
     bytes.reserve(size() * 2);
     for (auto elt : dbytes)
     {
-        bytes.push_back(elt.low);
         bytes.push_back(elt.high);
+        bytes.push_back(elt.low);
     }
     return bytes;
 }
@@ -152,7 +152,7 @@ auto DByteDirectiveLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseE
             return value_result.get_err();
         }
         auto value = value_result.get_ok();
-        if (value > 0xFFFF)
+        if (value > 0xFFFF | value < 0)
         {
             return ParseError::InvalidRange;
         }
@@ -212,8 +212,8 @@ auto WordDirectiveLine::serialize() const -> std::vector<uint8_t>
     bytes.reserve(size() * 2);
     for (auto elt : words)
     {
-        bytes.push_back(elt.high);
         bytes.push_back(elt.low);
+        bytes.push_back(elt.high);
     }
     return bytes;
 }
@@ -228,7 +228,7 @@ auto WordDirectiveLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseEr
             return value_result.get_err();
         }
         auto value = value_result.get_ok();
-        if (value > 0xFFFF)
+        if (value > 0xFFFF | value < 0)
         {
             return ParseError::InvalidRange;
         }
@@ -242,7 +242,69 @@ auto WordDirectiveLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseEr
 auto TextDirectiveLine::make(
     asm6502Parser::Text_directiveContext* line, uint16_t pc) -> TextDirResult
 {
-    return TextDirResult::err(ParseError::LogicError);
+    TextDirectiveLine directive{};
+    directive.pc = pc;
+    const auto& text_contents = line->string()->stringContents();
+    directive.text = "";
+    for (const auto& content : text_contents)
+    {
+        if (content->TEXT())
+        {
+            directive.text += content->TEXT()->getText();
+        }
+        else
+        {
+            directive.escape_count++;
+            std::string escape_sequence{content->ESCAPE_SEQUENCE()->getText()};
+            char escape_char = escape_sequence[1];
+            switch (escape_char)
+            {
+            case '"':
+                directive.text += '"';
+                break;
+            case 't':
+                directive.text += '\t';
+                break;
+            case 'n':
+                directive.text += '\n';
+                break;
+            case 'r':
+                directive.text += '\r';
+                break;
+            default:
+                return TextDirResult::err(ParseError::BadEscape);
+            }
+        }
+    }
+
+    return TextDirResult::ok(directive);
+}
+
+auto TextDirectiveLine::format() const -> std::string
+{
+    std::string output{};
+    output.reserve(text.size() + escape_count);
+    for (const char letter : text) {
+        switch (letter)
+        {
+            case '"':
+                output += "\"";
+                break;
+            case '\t':
+                output += "\\t";
+                break;
+            case '\n':
+                output += "\\n";
+                break;
+            case '\r':
+                output += "\\r";
+                break;
+            default:
+                output += letter;
+                break;
+        }
+    }
+    return std::format(".TEXT \"{}\"", output);
 }
 
 auto TextDirectiveLine::serialize() const -> std::vector<uint8_t>
@@ -251,9 +313,43 @@ auto TextDirectiveLine::serialize() const -> std::vector<uint8_t>
 }
 
 auto AlignDirectiveLine::make(
-    asm6502Parser::Align_directiveContext* line, uint16_t pc) -> AlignDirResult
+    asm6502Parser::Align_directiveContext* line,
+    uint16_t pc) -> AlignDirResult
 {
-    return AlignDirResult::err(ParseError::LogicError);
+    AlignDirectiveLine directive{};
+    directive.pc = pc;
+
+    const auto& expressions = line->expression();
+
+    if (expressions.size() == 0)
+    {
+        return AlignDirResult::ok(directive);
+    }
+
+    if (expressions.size() > 2)
+    {
+        return AlignDirResult::err(ParseError::LogicError);
+    }
+
+    auto alignment_expr_result = ArithmeticExpression::make(expressions[0]);
+    if (alignment_expr_result.is_err())
+    {
+        return AlignDirResult::err(alignment_expr_result.get_err());
+    }
+    directive.alignment_expression = alignment_expr_result.get_ok();
+    if (expressions.size() == 1)
+    {
+        return AlignDirResult::ok(directive);
+    }
+
+    auto fill_expr_result = ArithmeticExpression::make(expressions[1]);
+    if (fill_expr_result.is_err())
+    {
+        return AlignDirResult::err(fill_expr_result.get_err());
+    }
+    directive.fill_expression = fill_expr_result.get_ok();
+
+    return AlignDirResult::ok(directive);
 }
 
 auto AlignDirectiveLine::format() const -> std::string
@@ -263,7 +359,37 @@ auto AlignDirectiveLine::format() const -> std::string
 
 auto AlignDirectiveLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>
 {
-    return ParseError::LogicError;
+    if (alignment_expression != std::nullopt)
+    {
+        auto alignment_eval = alignment_expression.value().evaluate(symbol_map, pc);
+        if (alignment_eval.is_err())
+        {
+            return alignment_eval.get_err();
+        }
+        auto alignment_value = alignment_eval.get_ok();
+        if (alignment_value > 0xFFFF | alignment_value < 0)
+        {
+            return ParseError::InvalidRange;
+        }
+        alignment = alignment_value & 0xFFFF;
+    }
+
+    if (fill_expression != std::nullopt)
+    {
+        auto fill_eval = fill_expression.value().evaluate(symbol_map, pc);
+        if (fill_eval.is_err())
+        {
+            return fill_eval.get_err();
+        }
+        auto fill_value = fill_eval.get_ok();
+        if (fill_value > 0xFF || fill_value < 0)
+        {
+            return ParseError::InvalidRange;
+        }
+        fill = fill_value & 0xFF;
+    }
+
+    return {};
 }
 
 auto FillDirectiveLine::make(
@@ -293,17 +419,6 @@ auto DirectiveLine::make(
     {
         directive_line.comment = line->comment()->COMMENT()->getText();
     }
-#define HANDLE_RULE(HYGIENE_RULE, HYGIENE_CLASS)                        \
-    if (directive->HYGIENE_RULE())                                      \
-    {                                                                   \
-        auto result = HYGIENE_CLASS::make(directive->HYGIENE_RULE(), pc); \
-        if (result.is_err())                                            \
-        {                                                               \
-            return DirectiveResult::err(result.get_err());              \
-        }                                                               \
-        directive_line.directive = result.get_ok();                     \
-        return DirectiveResult::ok(directive_line);                     \
-    }
 
     if (directive->org())
     {
@@ -316,15 +431,41 @@ auto DirectiveLine::make(
         return DirectiveResult::ok(directive_line);
     }
 
-    HANDLE_RULE(byte_directive, ByteDirectiveLine);
-    HANDLE_RULE(dbyte_directive, DByteDirectiveLine);
-    HANDLE_RULE(word_directive, WordDirectiveLine);
-    HANDLE_RULE(text_directive, TextDirectiveLine);
-    HANDLE_RULE(align_directive, AlignDirectiveLine);
-    HANDLE_RULE(fill_directive, FillDirectiveLine);
+    auto handle_rule = [&](auto* rule, auto maker){
+        auto result = maker(rule, pc);
+        if (result.is_err())
+        {
+            return DirectiveResult::err(result.get_err());
+        }
+        directive_line.directive = result.get_ok();
+        return DirectiveResult::ok(directive_line);
+    };
 
-#undef HANDLE_RULE
-    std::cerr << "HANDLED NO RULES\n";
+    if (directive->byte_directive())
+    {
+        return handle_rule(directive->byte_directive(), ByteDirectiveLine::make);
+    }
+    if (directive->dbyte_directive())
+    {
+        return handle_rule(directive->dbyte_directive(), DByteDirectiveLine::make);
+    }
+    if (directive->word_directive())
+    {
+        return handle_rule(directive->word_directive(), WordDirectiveLine::make);
+    }
+    if (directive->text_directive())
+    {
+        return handle_rule(directive->text_directive(), TextDirectiveLine::make);
+    }
+    if (directive->align_directive())
+    {
+        return handle_rule(directive->align_directive(), AlignDirectiveLine::make);
+    }
+    if (directive->fill_directive())
+    {
+        return handle_rule(directive->fill_directive(), FillDirectiveLine::make);
+    }
+
     return DirectiveResult::err(ParseError::LogicError);
 }
 
@@ -351,7 +492,6 @@ auto DirectiveLine::program_counter() const -> uint16_t
 {
     return std::visit([](const auto& v){return v.program_counter();}, directive);
 }
-
 
 auto DirectiveLine::size() const -> uint16_t
 {

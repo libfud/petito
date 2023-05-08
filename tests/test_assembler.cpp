@@ -188,12 +188,11 @@ TEST(TestAssembler, ASSIGN_STA_INDEX_X_NESTED_EXPR)
     uint16_t expected_address = 0x200 + (value - 1 + value * 2 - 6);
     uint8_t expected_low = static_cast<uint8_t>(expected_address & 0xFF);
     uint8_t expected_high = static_cast<uint8_t>((expected_address >> 8) & 0xFF);
-    std::array<uint8_t, 5> expected_bytes{
+    std::vector<uint8_t> expected_bytes{
         STA_ZPG_X, static_cast<uint8_t>(value * 2 - 2),
         STA_ABS_X, expected_low, expected_high
     };
-    EXPECT_EQ(std::memcmp(prog_bytes.data(), expected_bytes.data(), prog_bytes.size()), 0);
-    EXPECT_TRUE(std::equal(prog_bytes.begin(), prog_bytes.end(), expected_bytes.begin()));
+    EXPECT_EQ(prog_bytes, expected_bytes);
 }
 
 TEST(TestAssembler, STA_INDEX_Y_NESTED_EXPR)
@@ -217,11 +216,10 @@ TEST(TestAssembler, STA_INDEX_Y_NESTED_EXPR)
     uint16_t expected_address = 0x300 + (value + -(value/2));
     uint8_t expected_low = static_cast<uint8_t>(expected_address & 0xFF);
     uint8_t expected_high = static_cast<uint8_t>((expected_address >> 8) & 0xFF);
-    std::array<uint8_t, 3> expected_bytes{
+    std::vector<uint8_t> expected_bytes{
         STA_ABS_Y, expected_low, expected_high
     };
-    EXPECT_EQ(std::memcmp(prog_bytes.data(), expected_bytes.data(), prog_bytes.size()), 0);
-    EXPECT_TRUE(std::equal(prog_bytes.begin(), prog_bytes.end(), expected_bytes.begin()));
+    EXPECT_EQ(prog_bytes, expected_bytes);
 }
 
 TEST(TestAssembler, STA_INDEX_Y_UNARY_EXPR)
@@ -243,10 +241,10 @@ TEST(TestAssembler, STA_INDEX_Y_UNARY_EXPR)
     ASSERT_EQ(prog_bytes.size(), 2);
 
     constexpr uint8_t expected_byte = -(-value + -(value/2));
-    std::array<uint8_t, 2> expected_bytes{
+    std::vector<uint8_t> expected_bytes{
         STX_ZPG_Y, expected_byte
     };
-    EXPECT_TRUE(std::equal(prog_bytes.begin(), prog_bytes.end(), expected_bytes.begin()));
+    EXPECT_EQ(prog_bytes, expected_bytes);
 }
 
 TEST(TestAssembler, AllAddressModes)
@@ -435,7 +433,7 @@ TEST(TestAssembler, ByteDirective)
     EXPECT_EQ(assembler.size(), test_program.size());
     auto prog_bytes = assembler.serialize();
     ASSERT_EQ(prog_bytes.size(), test_program.size());
-    EXPECT_TRUE(std::equal(prog_bytes.begin(), prog_bytes.end(), test_program.begin()));
+    EXPECT_EQ(prog_bytes, test_program);
     EXPECT_EQ(assembler.format(), input);
 
     input = std::format(
@@ -449,7 +447,227 @@ TEST(TestAssembler, ByteDirective)
     EXPECT_EQ(assembler.size(), test_program.size());
     prog_bytes = assembler.serialize();
     ASSERT_EQ(prog_bytes.size(), test_program.size());
-    EXPECT_TRUE(std::equal(prog_bytes.begin(), prog_bytes.end(), test_program.begin()));
+    EXPECT_EQ(prog_bytes, test_program);
+
+    const uint8_t value_1 = value;
+    const uint8_t value_2 = 0x13;
+    input = std::format("\tINX\n.BYTE ${:02X}, ${:02X}\n\tNOP\n", value_1, value_2);
+    test_program = std::vector{INX_IMPL, value_1, value_2, NOP_IMPL};
+    result = Assembler::from_text(input);
+    ASSERT_TRUE(result.is_ok());
+    assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    prog_bytes = assembler.serialize();
+    ASSERT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_EQ(prog_bytes, test_program);
+    EXPECT_EQ(assembler.format(), input);
 }
+
+TEST(TestAssembler, DByteDirective)
+{
+    uint16_t value = 0x4213;
+    uint8_t low = value & 0xFF;
+    uint8_t high = (value >> 8) & 0xFF;
+    std::string line_1{std::format(".DBYTE ${:04X}\n", value)};
+    std::string input{line_1};
+    std::vector<uint8_t> test_program{high, low};
+    auto result = Assembler::from_text(input);
+    if (result.is_err()) { logger::error("Error is {}", static_cast<uint8_t>(result.get_err())); }
+    ASSERT_TRUE(result.is_ok());
+    auto assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    auto prog_bytes = assembler.serialize();
+    ASSERT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_EQ(prog_bytes, test_program);
+    EXPECT_EQ(assembler.format(), input);
+
+    input = std::format(
+        "{}\n{}\n",
+        line_1,
+        "\tNOP");
+    test_program = std::vector{high, low, NOP_IMPL};
+    result = Assembler::from_text(input);
+    ASSERT_TRUE(result.is_ok());
+    assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    prog_bytes = assembler.serialize();
+    ASSERT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_EQ(prog_bytes, test_program);
+
+    const uint16_t value_1 = value;
+    const uint16_t value_2 = 0xFEED;
+    input = std::format("\tINX\n.DBYTE ${:04X}, ${:04X}\n\tNOP\n", value_1, value_2);
+    test_program = std::vector{
+        INX_IMPL,
+        high,
+        low,
+        static_cast<uint8_t>((value_2 >> 8) & 0xFF),
+        static_cast<uint8_t>(value_2 & 0xFF),
+        NOP_IMPL};
+    result = Assembler::from_text(input);
+    ASSERT_TRUE(result.is_ok());
+    assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    prog_bytes = assembler.serialize();
+    ASSERT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_EQ(prog_bytes, test_program);
+    EXPECT_EQ(assembler.format(), input);
+}
+
+TEST(TestAssembler, WordDirective)
+{
+    uint16_t value = 0x4213;
+    uint8_t low = value & 0xFF;
+    uint8_t high = (value >> 8) & 0xFF;
+    std::string line_1{std::format(".WORD ${:02X}\t;COMMENT\n", value)};
+    std::string input{line_1};
+    std::vector<uint8_t> test_program{low, high};
+    auto result = Assembler::from_text(input);
+    if (result.is_err()) { logger::error("Error is {}", static_cast<uint8_t>(result.get_err())); }
+    ASSERT_TRUE(result.is_ok());
+    auto assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    auto prog_bytes = assembler.serialize();
+    ASSERT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_TRUE(std::equal(prog_bytes.begin(), prog_bytes.end(), test_program.begin()));
+    EXPECT_EQ(prog_bytes, test_program);
+    EXPECT_EQ(assembler.format(), input);
+
+    input = std::format(
+        "{}\n{}\n",
+        line_1,
+        "\tNOP");
+    test_program = std::vector{low, high, NOP_IMPL};
+    result = Assembler::from_text(input);
+    ASSERT_TRUE(result.is_ok());
+    assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    prog_bytes = assembler.serialize();
+    ASSERT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_EQ(prog_bytes, test_program);
+
+    const uint16_t value_1 = value;
+    const uint16_t value_2 = 0xFEED;
+    input = std::format("\tINX\n.WORD ${:04X}, ${:04X}\n\tNOP\n", value_1, value_2);
+    test_program = std::vector{
+        INX_IMPL,
+        low,
+        high,
+        static_cast<uint8_t>(value_2 & 0xFF),
+        static_cast<uint8_t>((value_2 >> 8) & 0xFF),
+        NOP_IMPL};
+    result = Assembler::from_text(input);
+    ASSERT_TRUE(result.is_ok());
+    assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    prog_bytes = assembler.serialize();
+    ASSERT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_EQ(prog_bytes, test_program);
+    EXPECT_EQ(assembler.format(), input);
+}
+
+TEST(TestAssembler, TextDirective)
+{
+    std::string text{"Hello, World\\n"};
+    std::string program_text{"Hello, World\n"};
+    std::string line_1{std::format(".TEXT \"{}\"\n", text)};
+    std::string input{line_1};
+    std::vector<uint8_t> test_program(program_text.begin(), program_text.end());
+    auto result = Assembler::from_text(input);
+    if (result.is_err()) { logger::error("Error is {}", static_cast<uint8_t>(result.get_err())); }
+    ASSERT_TRUE(result.is_ok());
+    auto assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    auto prog_bytes = assembler.serialize();
+    EXPECT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_EQ(prog_bytes, test_program);
+    EXPECT_EQ(assembler.format(), input);
+
+    input = std::format(
+        "{}\n{}\n{}\n",
+        "\tINX",
+        line_1,
+        "\tNOP");
+    test_program = {};
+    test_program.push_back(INX_IMPL);
+    test_program.insert(test_program.end(), program_text.begin(), program_text.end());
+    test_program.push_back(NOP_IMPL);
+    result = Assembler::from_text(input);
+    ASSERT_TRUE(result.is_ok());
+    assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    prog_bytes = assembler.serialize();
+    ASSERT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_EQ(prog_bytes, test_program);
+}
+
+TEST(TestAssembler, AlignDirective)
+{
+    std::string input{".ALIGN"};
+    std::string normalized_input{".ALIGN $0002 $00\n"};
+    std::vector<uint8_t> test_program{0x00, 0x00};
+    auto result = Assembler::from_text(input);
+    if (result.is_err()) { logger::error("Error is {}", static_cast<uint8_t>(result.get_err())); }
+    ASSERT_TRUE(result.is_ok());
+    auto assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    auto prog_bytes = assembler.serialize();
+    EXPECT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_EQ(prog_bytes, test_program);
+    EXPECT_EQ(assembler.format(), normalized_input);
+
+    input = ".ALIGN 2";
+    normalized_input = ".ALIGN $0002 $00\n";
+    test_program = {0x00, 0x00};
+    result = Assembler::from_text(input);
+    if (result.is_err()) { logger::error("Error is {}", static_cast<uint8_t>(result.get_err())); }
+    ASSERT_TRUE(result.is_ok());
+    assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    prog_bytes = assembler.serialize();
+    EXPECT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_EQ(prog_bytes, test_program);
+    EXPECT_EQ(assembler.format(), normalized_input);
+
+    input = ".ALIGN 2 0";
+    normalized_input = ".ALIGN $0002 $00\n";
+    test_program = {0x00, 0x00};
+    result = Assembler::from_text(input);
+    if (result.is_err()) { logger::error("Error is {}", static_cast<uint8_t>(result.get_err())); }
+    ASSERT_TRUE(result.is_ok());
+    assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    prog_bytes = assembler.serialize();
+    EXPECT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_EQ(prog_bytes, test_program);
+    EXPECT_EQ(assembler.format(), normalized_input);
+
+    input = ".ALIGN 4 $EA";
+    normalized_input = ".ALIGN $0004 $EA\n";
+    test_program = {0xEA, 0xEA, 0xEA, 0xEA};
+    result = Assembler::from_text(input);
+    if (result.is_err()) { logger::error("Error is {}", static_cast<uint8_t>(result.get_err())); }
+    ASSERT_TRUE(result.is_ok());
+    assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    prog_bytes = assembler.serialize();
+    EXPECT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_EQ(prog_bytes, test_program);
+    EXPECT_EQ(assembler.format(), normalized_input);
+
+    input = "\tINX\n.ALIGN 4 $EA\n\tINX";
+    normalized_input = "\tINX\n.ALIGN $0004 $EA\n\tINX\n";
+    test_program = {INX_IMPL, 0xEA, 0xEA, 0xEA, INX_IMPL};
+    result = Assembler::from_text(input);
+    if (result.is_err()) { logger::error("Error is {}", static_cast<uint8_t>(result.get_err())); }
+    ASSERT_TRUE(result.is_ok());
+    assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    prog_bytes = assembler.serialize();
+    EXPECT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_EQ(prog_bytes, test_program);
+    EXPECT_EQ(assembler.format(), normalized_input);
+}
+
 
 } // namespace mos6502

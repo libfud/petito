@@ -114,6 +114,9 @@ public:
     auto evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>;
     auto format() const -> std::string;
     auto serialize() const -> AsmLineBytes;
+    constexpr auto is_empty_line() -> bool {
+        return std::holds_alternative<EmptyLine>(line);
+    }
 protected:
     static auto make_instruction(
         LineContext* line,

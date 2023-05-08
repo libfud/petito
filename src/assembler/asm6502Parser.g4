@@ -4,20 +4,22 @@ options {
     tokenVocab = 'asm6502Lexer';
 }
 
-program : line+ EOF ;
+program :
+        NEWLINE*
+        (WHITESPACE? line (NEWLINE+ WHITESPACE? line)*)
+        NEWLINE*
+        EOF
+    ;
 
 line :
-        WHITESPACE? label WHITESPACE instruction WHITESPACE? comment NEWLINE |
-        WHITESPACE? label WHITESPACE instruction WHITESPACE? NEWLINE |
-        WHITESPACE? label WHITESPACE? comment NEWLINE |
-        WHITESPACE? label WHITESPACE? NEWLINE |
-        WHITESPACE? (label WHITESPACE)? assign NEWLINE |
-        WHITESPACE? instruction WHITESPACE? comment NEWLINE |
-        WHITESPACE? instruction WHITESPACE? NEWLINE |
-        WHITESPACE? assign comment? NEWLINE |
-        WHITESPACE? directive comment? NEWLINE |
-        WHITESPACE? repeat_directive comment? NEWLINE |
-        WHITESPACE? comment? NEWLINE
+        label WHITESPACE instruction WHITESPACE? comment? |
+        label WHITESPACE? comment? |
+        assign WHITESPACE? comment? |
+        instruction WHITESPACE? comment? |
+        assign WHITESPACE? comment? |
+        directive WHITESPACE? comment? |
+        repeat_directive WHITESPACE? comment? |
+        comment?
     ;
 
 label :

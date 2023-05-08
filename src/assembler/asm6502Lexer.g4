@@ -157,11 +157,10 @@ ACC: 'A' ;
 SYMBOL :
         IDENTIFIER ;
 
-
 DQUOTE: '"' -> pushMode(IN_STRING);
 
 mode IN_STRING;
 
 TEXT: ~[\\"]+ ; /* " close quote sequence for syntax highlighting */
-ESCAPE_SEQUENCE: '\\' . ;
+ESCAPE_SEQUENCE: '\\' ('"' | 't' | 'n' | 'r') ;
 DQUOTE_IN_STRING: '"' -> type(DQUOTE), popMode;

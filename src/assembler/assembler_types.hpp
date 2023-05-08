@@ -48,6 +48,7 @@ enum class ParseError {
     BadArithmetic,
     BadAssign,
     BadNumber,
+    BadEscape,
     BadEvaluation,
     InvalidRange,
     SymbolUndefined,

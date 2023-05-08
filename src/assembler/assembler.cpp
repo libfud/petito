@@ -6,6 +6,7 @@
 #include <cctype>
 #include <iostream>
 #include <format>
+#include <variant>
 
 namespace mos6502 {
 
@@ -100,6 +101,17 @@ auto Assembler::make_lines(ProgramContext* program_file) -> std::optional<ParseE
     }
     program_bytes.reserve(length);
 
+    while (program.size() > 1)
+    {
+        if (program.back().is_empty_line())
+        {
+            program.pop_back();
+        }
+        else
+        {
+            break;
+        }
+    }
     return {};
 }
 

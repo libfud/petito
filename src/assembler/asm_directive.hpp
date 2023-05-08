@@ -90,7 +90,7 @@ class TextDirectiveLine {
 public:
     using TextDirResult = Result<TextDirectiveLine, ParseError>;
     static auto make(asm6502Parser::Text_directiveContext* line, uint16_t pc) -> TextDirResult;
-    constexpr auto format() const -> std::string { return text; }
+    auto format() const -> std::string;
     auto serialize() const -> std::vector<uint8_t>;
     constexpr auto size() const -> uint16_t { return text.size(); }
     constexpr auto program_counter() const -> uint16_t { return pc; }
@@ -98,21 +98,25 @@ public:
         return {};
     }
 private:
-    uint16_t pc;
-    std::string text;
-    std::vector<char> characters;
+    uint16_t pc = 0;
+    std::string text = {};
+    std::vector<char> characters = {};
+    int escape_count = 0;
 };
 
 class AlignDirectiveLine {
 public:
     using AlignDirResult = Result<AlignDirectiveLine, ParseError>;
-    static auto make(asm6502Parser::Align_directiveContext* line, uint16_t pc) -> AlignDirResult;
+    static auto make(
+        asm6502Parser::Align_directiveContext* line,
+        uint16_t pc) -> AlignDirResult;
     auto format() const -> std::string;
     auto serialize() const -> std::vector<uint8_t> {
         return std::vector<uint8_t>(size(), fill);
     }
     constexpr auto size() const -> uint16_t {
-        return (pc / alignment + 1) * alignment - pc;
+        // return (pc / alignment + 1) * alignment - pc;
+        return alignment - (pc % alignment);
     }
     constexpr auto program_counter() const -> uint16_t { return pc; }
     auto evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>;
@@ -120,6 +124,8 @@ private:
     uint16_t pc;
     uint16_t alignment = 2;
     uint8_t fill = 0;
+    std::optional<ArithmeticExpression> alignment_expression = {};
+    std::optional<ArithmeticExpression> fill_expression = {};
 };
 
 class FillDirectiveLine {
@@ -159,7 +165,6 @@ public:
         const SymbolMap& symbol_map) -> DirectiveResult;
     auto format() const -> std::string;
     auto serialize() const -> std::vector<uint8_t>;
-    constexpr auto has_label() const -> bool { return false; }
     auto program_counter() const -> uint16_t;
     auto size() const -> uint16_t;
     auto evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>;

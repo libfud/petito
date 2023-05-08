@@ -102,6 +102,10 @@ public:
     antlr4::tree::TerminalNode *EOF();
     std::vector<LineContext *> line();
     LineContext* line(size_t i);
+    std::vector<antlr4::tree::TerminalNode *> NEWLINE();
+    antlr4::tree::TerminalNode* NEWLINE(size_t i);
+    std::vector<antlr4::tree::TerminalNode *> WHITESPACE();
+    antlr4::tree::TerminalNode* WHITESPACE(size_t i);
 
    
   };
@@ -117,7 +121,6 @@ public:
     antlr4::tree::TerminalNode* WHITESPACE(size_t i);
     InstructionContext *instruction();
     CommentContext *comment();
-    antlr4::tree::TerminalNode *NEWLINE();
     AssignContext *assign();
     DirectiveContext *directive();
     Repeat_directiveContext *repeat_directive();
