@@ -96,13 +96,34 @@ struct EmptyLine {
     uint16_t pc = 0;
 };
 
+using RepeatType = std::variant<AsmInstructionLine, DirectiveLine>;
+
+class RepeatDirective {
+public:
+    using RepeatContext = asm6502Parser::Repeat_directiveContext;
+    using RepeatResult = Result<RepeatDirective, ParseError>;
+    static auto make(RepeatContext* line, uint16_t pc, SymbolMap& symbol_map) -> RepeatResult;
+    auto format() const -> std::string;
+    auto program_counter() const -> uint16_t;
+    auto size() const -> uint16_t;
+    auto evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>;
+    auto serialize() const -> std::vector<uint8_t>;
+private:
+    static constexpr std::string repeat_var = "R%";
+    uint16_t count = 0;
+    uint16_t total_size = 0;
+    std::vector<AsmInstructionLine> instructions = {};
+    std::vector<DirectiveLine> directives = {};
+};
+
 using AsmLineType = std::variant<
     EmptyLine,
     AsmInstructionLine,
     CommentLine,
     LabelLine,
     AssignLine,
-    DirectiveLine
+    DirectiveLine,
+    RepeatDirective
     >;
 
 class AsmLine {
@@ -131,6 +152,10 @@ protected:
         uint16_t pc,
         SymbolMap& symbol_map) -> ParseResult;
     static auto make_directive(
+        LineContext* line,
+        uint16_t pc,
+        SymbolMap& symbol_map) -> ParseResult;
+    static auto make_repeat(
         LineContext* line,
         uint16_t pc,
         SymbolMap& symbol_map) -> ParseResult;

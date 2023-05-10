@@ -29,37 +29,25 @@ NOperandInstructionLine::NOperandInstructionLine(
 
 auto OneOperandInstructionLine::evaluate(const SymbolMap& symbol_map) -> std::optional<ParseError>
 {
-    auto result = expression.evaluate(symbol_map, pc);
+    auto result = expression.evaluate_byte(symbol_map, pc);
     if (result.is_err())
     {
         return result.get_err();
     }
 
-    auto value = result.get_ok();
-    if (value < 0 || value > 0xFF)
-    {
-        logger::error("Out of range: {}", value);
-        return ParseError::InvalidRange;
-    }
-
-    operand = value;
+    operand = result.get_ok();
     return {};
 }
 
 auto TwoOperandInstructionLine::evaluate(const SymbolMap& symbol_map) -> std::optional<ParseError>
 {
-    auto result = expression.evaluate(symbol_map, pc);
+    auto result = expression.evaluate_word(symbol_map, pc);
     if (result.is_err())
     {
         return result.get_err();
     }
 
     auto value = result.get_ok();
-    if (value < 0 || value > 0xFFFF)
-    {
-        return ParseError::InvalidRange;
-    }
-
     operand_1 = value & 0xFF;
     operand_2 = (value >> 8) & 0xFF;
     return {};
@@ -67,17 +55,13 @@ auto TwoOperandInstructionLine::evaluate(const SymbolMap& symbol_map) -> std::op
 
 auto RelativeInstructionLine::evaluate(const SymbolMap& symbol_map) -> std::optional<ParseError>
 {
-    auto result = expression.evaluate(symbol_map, pc);
+    auto result = expression.evaluate_word(symbol_map, pc);
     if (result.is_err())
     {
         return result.get_err();
     }
 
     auto value = result.get_ok();
-    if (value < 0 || value > 0xFFFF)
-    {
-        return ParseError::InvalidRange;
-    }
 
     // Target address is an absolute address, e.g. a label or a label
     // and an offset evaluated to an address.
@@ -128,6 +112,21 @@ auto AsmInstructionLine::make(
     if (line->comment())
     {
         instruction.comment = line->comment()->COMMENT()->getText();
+    }
+
+    return ParseResult::ok(instruction);
+}
+
+auto AsmInstructionLine::make_plain(
+    asm6502Parser::InstructionContext* instruction_context,
+    uint16_t pc,
+    SymbolMap& symbol_map) -> ParseResult
+{
+    AsmInstructionLine instruction{};
+    auto parse_result = instruction.parse(instruction_context, pc, symbol_map);
+    if (parse_result != std::nullopt)
+    {
+        return ParseResult::err(parse_result.value());
     }
 
     return ParseResult::ok(instruction);

@@ -35,7 +35,9 @@ fragment QUOTE : '\'';
 fragment DOT : '.';
 fragment LETTER : [a-zA-Z] ;
 fragment DIGIT : [0-9] ;
+fragment REPEAT_VAR : 'R%' ;
 fragment IDENTIFIER :
+        REPEAT_VAR |
         (LETTER | UNDERSCORE) ((LETTER | DIGIT | UNDERSCORE)*)? ;
 fragment PRINTABLE : [\u0032-\u0126] ;
 
@@ -104,8 +106,6 @@ DFILL : DOT 'FILL' ;
 
 DREPEAT : DOT 'REPEAT' ;
 
-REPEAT_VAR : 'R%' ;
-
 CHARACTER : QUOTE PRINTABLE ;
 
 EQU : ('EQU' | '=') ;
@@ -154,8 +154,7 @@ MNEMONIC : (LOAD | STORE | COMPARE | LOGIC | ARITH | INC) ;
 
 ACC: 'A' ;
 
-SYMBOL :
-        IDENTIFIER ;
+SYMBOL : IDENTIFIER ;
 
 DQUOTE: '"' -> pushMode(IN_STRING);
 

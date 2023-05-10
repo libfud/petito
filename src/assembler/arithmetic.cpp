@@ -185,6 +185,42 @@ auto ArithmeticExpression::has_symbols() const -> bool { return symbols_encounte
 
 auto ArithmeticExpression::has_words() const -> bool { return words_encountered; }
 
+auto ArithmeticExpression::evaluate_byte(
+    const SymbolMap& symbol_map,
+    uint16_t pc) -> Result<uint8_t, ParseError>
+{
+    using RetType = Result<uint8_t, ParseError>;
+    auto result = evaluate(symbol_map, pc);
+    if (result.is_err())
+    {
+        return RetType::err(result.get_err());
+    }
+    auto value = result.get_ok();
+    if (value > 0xFF || value < 0)
+    {
+        return RetType::err(ParseError::InvalidRange);
+    }
+    return RetType::ok(value & 0xFF);
+}
+
+auto ArithmeticExpression::evaluate_word(
+    const SymbolMap& symbol_map,
+    uint16_t pc) -> Result<uint16_t, ParseError>
+{
+    using RetType = Result<uint16_t, ParseError>;
+    auto result = evaluate(symbol_map, pc);
+    if (result.is_err())
+    {
+        return RetType::err(result.get_err());
+    }
+    auto value = result.get_ok();
+    if (value > 0xFFFF || value < 0)
+    {
+        return RetType::err(ParseError::InvalidRange);
+    }
+    return RetType::ok(value & 0xFFFF);
+}
+
 auto ArithmeticExpression::evaluate(
     const SymbolMap& symbol_map,
     uint16_t pc) -> Result<int32_t, ParseError>

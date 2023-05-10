@@ -40,6 +40,12 @@ auto AssignLine::make(LineContext* context, uint16_t pc, SymbolMap& symbol_map) 
     AssignLine assign_line{};
     assign_line.expression = expr_result.get_ok();
     assign_line.name = context->assign()->SYMBOL()->getText();
+
+    if (assign_line.name == "R%")
+    {
+        return AssignResult::err(ParseError::IllegalRepeatVar);
+    }
+
     if (context->comment())
     {
         assign_line.comment = context->comment()->COMMENT()->getText();
@@ -78,6 +84,192 @@ auto AssignLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>
     return {};
 }
 
+auto RepeatDirective::make(
+    RepeatContext* line,
+    uint16_t pc,
+    SymbolMap& symbol_map) -> RepeatResult
+{
+    RepeatDirective repeat_directive{};
+
+    ArithmeticAtom value{'\0'};
+    auto result = Result<ArithmeticAtom, ParseError>::err(ParseError::LogicError);
+    if (line->byte() != nullptr)
+    {
+        result = make_byte(line->byte());
+    }
+    else if (line->multibyte() != nullptr)
+    {
+        result = make_word(line->multibyte());
+    }
+
+    if (result.is_err())
+    {
+        return RepeatResult::err(result.get_err());
+    }
+    value = result.get_ok();
+    switch (value.get_type())
+    {
+    case ArithAtomType::Byte:
+        repeat_directive.count = value.get<uint8_t>();
+        break;
+    case ArithAtomType::Word:
+        repeat_directive.count = value.get<uint16_t>();
+        break;
+    default:
+        return RepeatResult::err(ParseError::LogicError);
+    }
+
+    if (repeat_directive.count == 0)
+    {
+        return RepeatResult::err(ParseError::BadCount);
+    }
+
+    if (!(line->instruction() == nullptr ^ line->directive() == nullptr))
+    {
+        return RepeatResult::err(ParseError::LogicError);
+    }
+
+    uint16_t iter_pc = pc;
+    uint16_t total_size = 0;
+    if (line->instruction() != nullptr)
+    {
+        for (auto idx = 0; idx < repeat_directive.count; ++idx)
+        {
+            auto* context = line->instruction();
+            symbol_map[repeat_var] = idx;
+            auto instruction_result = AsmInstructionLine::make_plain(
+                context,
+                iter_pc,
+                symbol_map);
+            if (instruction_result.is_err())
+            {
+                return RepeatResult::err(instruction_result.get_err());
+            }
+            auto instruction = instruction_result.get_ok();
+            if ((iter_pc + instruction.size()) > 0xFFFF)
+            {
+                return RepeatResult::err(ParseError::LogicError);
+            }
+            iter_pc += instruction.size();
+            total_size += instruction.size();
+            repeat_directive.instructions.push_back(instruction);
+        }
+    }
+
+    if (line->directive() != nullptr)
+    {
+        for (auto idx = 0; idx < repeat_directive.count; ++idx)
+        {
+            auto* context = line->directive();
+            symbol_map[repeat_var] = idx;
+            auto directive_result = DirectiveLine::make_plain(
+                context,
+                iter_pc,
+                symbol_map);
+            if (directive_result.is_err())
+            {
+                return RepeatResult::err(directive_result.get_err());
+            }
+            auto directive = directive_result.get_ok();
+            if ((iter_pc + directive.size()) > 0xFFFF)
+            {
+                return RepeatResult::err(ParseError::LogicError);
+            }
+            iter_pc = directive.program_counter() + directive.size();
+            total_size += directive.size();
+            repeat_directive.directives.push_back(directive);
+        }
+    }
+
+    symbol_map.erase(repeat_var);
+    repeat_directive.total_size = total_size;
+
+    return RepeatResult::ok(repeat_directive);
+}
+
+auto RepeatDirective::format() const -> std::string
+{
+    std::string output{std::format(".REPEAT ${:04X}", count)};
+
+    for (const auto& instruction : instructions)
+    {
+        output += std::format("\n{}", instruction.format());
+    }
+
+    for (const auto& directive : directives)
+    {
+        output += std::format("\n{}", directive.format());
+    }
+
+    return output;
+}
+
+auto RepeatDirective::program_counter() const -> uint16_t
+{
+    if (instructions.size() > 0)
+    {
+        return instructions[0].program_counter();
+    }
+    else
+    {
+        return directives[0].program_counter();
+    }
+}
+
+auto RepeatDirective::size() const -> uint16_t
+{
+    return total_size;
+}
+
+auto RepeatDirective::evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>
+{
+    uint16_t repetition = 0;
+
+    for (auto& instruction : instructions)
+    {
+        symbol_map[repeat_var] = repetition;
+        auto result = instruction.evaluate(symbol_map);
+        if (result != std::nullopt)
+        {
+            return result;
+        }
+        repetition++;
+    }
+
+    repetition = 0;
+    for (auto& directive : directives)
+    {
+        symbol_map[repeat_var] = repetition;
+        auto result = directive.evaluate(symbol_map);
+        if (result != std::nullopt)
+        {
+            return result;
+        }
+        repetition++;
+    }
+
+    symbol_map.erase(repeat_var);
+
+    return {};
+}
+
+auto RepeatDirective::serialize() const -> std::vector<uint8_t>
+{
+    std::vector<uint8_t> output;
+    for (const auto& instruction : instructions)
+    {
+        std::visit(
+            [&](const auto& v){ output.insert(output.end(), v.begin(), v.end()); },
+            instruction.serialize());
+    }
+    for (const auto& directive : directives)
+    {
+        auto bytes = directive.serialize();
+        output.insert(output.end(), bytes.begin(), bytes.end());
+    }
+    return output;
+}
+
 auto AsmLine::make(LineContext* line, uint16_t pc, SymbolMap& symbol_map) -> ParseResult
 {
     auto* comment_rule = line->comment();
@@ -90,6 +282,8 @@ auto AsmLine::make(LineContext* line, uint16_t pc, SymbolMap& symbol_map) -> Par
     if (line->label() != nullptr) { return make_label(line, pc, symbol_map); }
 
     if (line->directive() != nullptr) { return make_directive(line, pc, symbol_map); }
+
+    if (line->repeat_directive() != nullptr) { return make_repeat(line, pc, symbol_map); }
 
     if (comment_rule != nullptr) { return make_comment(line, pc, symbol_map); }
 
@@ -152,6 +346,18 @@ auto AsmLine::make_directive(LineContext* line, uint16_t pc, SymbolMap& symbol_m
     }
     AsmLine asm_line{};
     asm_line.line = directive_result.get_ok();
+    return ParseResult::ok(asm_line);
+}
+
+auto AsmLine::make_repeat(LineContext* line, uint16_t pc, SymbolMap& symbol_map) -> ParseResult
+{
+    auto repeat_result = RepeatDirective::make(line->repeat_directive(), pc, symbol_map);
+    if (repeat_result.is_err())
+    {
+        return ParseResult::err(repeat_result.get_err());
+    }
+    AsmLine asm_line{};
+    asm_line.line = repeat_result.get_ok();
     return ParseResult::ok(asm_line);
 }
 

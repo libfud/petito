@@ -52,13 +52,67 @@ auto Assembler::from_text(const std::string& text) -> AsmParseResult
     return RetType::ok(assembler);
 }
 
+class LexerErrorListener : public antlr4::BaseErrorListener {
+public:
+    asm6502Lexer *owner;
+
+    LexerErrorListener(asm6502Lexer *aOwner) : owner(aOwner) {}
+
+    void syntaxError(
+        antlr4::Recognizer *recognizer,
+        antlr4::Token *offendingSymbol,
+        size_t line,
+        size_t charPositionInLine,
+        const std::string &msg,
+        std::exception_ptr e) override
+    {
+        throw std::logic_error("Lexing error!");
+    }
+};
+
+class ParserErrorListener : public antlr4::BaseErrorListener {
+public:
+    asm6502Parser *owner;
+
+    ParserErrorListener(asm6502Parser *aOwner) : owner(aOwner) {}
+
+    void syntaxError(
+        antlr4::Recognizer *recognizer,
+        antlr4::Token *offendingSymbol,
+        size_t line,
+        size_t charPositionInLine,
+        const std::string &msg,
+        std::exception_ptr e) override
+    {
+        throw std::logic_error("Parsing error!");
+    }
+};
+
 auto Assembler::from_stream(std::istream& stream) -> std::optional<ParseError>
 {
     antlr4::ANTLRInputStream input(stream);
     asm6502Lexer lexer(&input);
+    lexer.removeErrorListeners();
     antlr4::CommonTokenStream tokens(&lexer);
     asm6502Parser parser(&tokens);
-    ProgramContext* program_file = parser.program();
+    parser.removeErrorListeners();
+    parser.removeParseListeners();
+
+    LexerErrorListener lexer_error_listener{&lexer};
+    ParserErrorListener parser_error_listener{&parser};
+
+    lexer.addErrorListener(&lexer_error_listener);
+    parser.addErrorListener(&parser_error_listener);
+
+    ProgramContext* program_file = nullptr;
+
+    try {
+        program_file = parser.program();
+    }
+    catch (...) {
+        std::cerr << "EXCEPTION!\n";
+        return ParseError::SyntaxError;
+    }
 
     auto make_lines_result = make_lines(program_file);
     if (make_lines_result != std::nullopt)

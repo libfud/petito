@@ -41,10 +41,13 @@ const std::unordered_map<Base, const std::unordered_map<char, int8_t>&> BASE_MAP
 
 enum class ParseError {
     FailedToLoad,
+    SyntaxError,
     InvalidLabelParse,
     InvalidCommentParse,
     InvalidOpIdParse,
     InvalidHashParse,
+    IllegalRepeatVar,
+    BadCount,
     BadArithmetic,
     BadAssign,
     BadNumber,

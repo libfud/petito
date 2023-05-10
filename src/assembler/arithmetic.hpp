@@ -152,6 +152,8 @@ public:
     auto has_words() const -> bool;
 
     auto evaluate(const SymbolMap& symbol_map, uint16_t pc) -> Result<int32_t, ParseError>;
+    auto evaluate_byte(const SymbolMap& symbol_map, uint16_t pc) -> Result<uint8_t, ParseError>;
+    auto evaluate_word(const SymbolMap& symbol_map, uint16_t pc) -> Result<uint16_t, ParseError>;
 
     auto format() const -> std::string;
 

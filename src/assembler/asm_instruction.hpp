@@ -338,6 +338,11 @@ public:
         uint16_t pc,
         SymbolMap& symbol_map) -> ParseResult;
 
+    static auto make_plain(
+        asm6502Parser::InstructionContext* instruction_context,
+        uint16_t pc,
+        SymbolMap& symbol_map) -> ParseResult;
+
     auto evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>;
 
     auto format() const -> std::string;
@@ -349,7 +354,10 @@ public:
 protected:
     using BuilderResult = std::optional<ParseError>;
     using InstructionContext = asm6502Parser::InstructionContext;
-    auto parse(InstructionContext* rule, uint16_t pc, SymbolMap& symbol_map) -> BuilderResult;
+    auto parse(
+        InstructionContext* rule,
+        uint16_t pc,
+        SymbolMap& symbol_map) -> BuilderResult;
 
     auto parse_implicit(InstructionContext* rule, uint16_t pc) -> BuilderResult;
     auto parse_acc(InstructionContext* rule, uint16_t pc) -> BuilderResult;

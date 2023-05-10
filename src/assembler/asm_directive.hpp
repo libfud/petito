@@ -165,6 +165,10 @@ public:
         LineContext* line,
         uint16_t pc,
         const SymbolMap& symbol_map) -> DirectiveResult;
+    static auto make_plain(
+        asm6502Parser::DirectiveContext* directive,
+        uint16_t pc,
+        const SymbolMap& symbol_map) -> DirectiveResult;
     auto format() const -> std::string;
     auto serialize() const -> std::vector<uint8_t>;
     auto program_counter() const -> uint16_t;

@@ -13,17 +13,12 @@ auto OrgLine::make(OrgContext* line, uint16_t pc, const SymbolMap& symbol_map) -
         return OrgResult::err(expr_result.get_err());
     }
     auto expression = expr_result.get_ok();
-    auto eval_result = expression.evaluate(symbol_map, pc);
+    auto eval_result = expression.evaluate_word(symbol_map, pc);
     if (eval_result.is_err())
     {
-        return OrgResult::err(expr_result.get_err());
+        return OrgResult::err(eval_result.get_err());
     }
-    auto value = eval_result.get_ok();
-    if (value > 0xFFFF || value < 0)
-    {
-        return OrgResult::err(ParseError::InvalidRange);
-    }
-    directive.pc = static_cast<uint16_t>(value);
+    directive.pc = eval_result.get_ok();
     return OrgResult::ok(directive);
 }
 
@@ -72,17 +67,12 @@ auto ByteDirectiveLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseEr
 {
     for (auto& expression : expressions)
     {
-        auto value_result = expression.evaluate(symbol_map, pc);
+        auto value_result = expression.evaluate_byte(symbol_map, pc);
         if (value_result.is_err())
         {
             return value_result.get_err();
         }
-        auto value = value_result.get_ok();
-        if (value > 0xFF || value < 0)
-        {
-            return ParseError::InvalidRange;
-        }
-        bytes.push_back(static_cast<uint8_t>(value));
+        bytes.push_back(value_result.get_ok());
     }
     return {};
 }
@@ -146,16 +136,12 @@ auto DByteDirectiveLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseE
 {
     for (auto& expression : expressions)
     {
-        auto value_result = expression.evaluate(symbol_map, pc);
+        auto value_result = expression.evaluate_word(symbol_map, pc);
         if (value_result.is_err())
         {
             return value_result.get_err();
         }
         auto value = value_result.get_ok();
-        if (value > 0xFFFF | value < 0)
-        {
-            return ParseError::InvalidRange;
-        }
         auto low = static_cast<uint8_t>(value & 0xFF);
         auto high = static_cast<uint8_t>((value >> 8) & 0xFF);
         dbytes.push_back(DByte{low, high});
@@ -222,16 +208,12 @@ auto WordDirectiveLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseEr
 {
     for (auto& expression : expressions)
     {
-        auto value_result = expression.evaluate(symbol_map, pc);
+        auto value_result = expression.evaluate_word(symbol_map, pc);
         if (value_result.is_err())
         {
             return value_result.get_err();
         }
         auto value = value_result.get_ok();
-        if (value > 0xFFFF | value < 0)
-        {
-            return ParseError::InvalidRange;
-        }
         auto low = static_cast<uint8_t>(value & 0xFF);
         auto high = static_cast<uint8_t>((value >> 8) & 0xFF);
         words.push_back(Word{low, high});
@@ -361,32 +343,22 @@ auto AlignDirectiveLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseE
 {
     if (alignment_expression != std::nullopt)
     {
-        auto alignment_eval = alignment_expression.value().evaluate(symbol_map, pc);
+        auto alignment_eval = alignment_expression.value().evaluate_word(symbol_map, pc);
         if (alignment_eval.is_err())
         {
             return alignment_eval.get_err();
         }
-        auto alignment_value = alignment_eval.get_ok();
-        if (alignment_value > 0xFFFF | alignment_value < 0)
-        {
-            return ParseError::InvalidRange;
-        }
-        alignment = alignment_value & 0xFFFF;
+        alignment = alignment_eval.get_ok();
     }
 
     if (fill_expression != std::nullopt)
     {
-        auto fill_eval = fill_expression.value().evaluate(symbol_map, pc);
+        auto fill_eval = fill_expression.value().evaluate_byte(symbol_map, pc);
         if (fill_eval.is_err())
         {
             return fill_eval.get_err();
         }
-        auto fill_value = fill_eval.get_ok();
-        if (fill_value > 0xFF || fill_value < 0)
-        {
-            return ParseError::InvalidRange;
-        }
-        fill = fill_value & 0xFF;
+        fill = fill_eval.get_ok();
     }
 
     return {};
@@ -433,31 +405,21 @@ auto FillDirectiveLine::format() const -> std::string
 
 auto FillDirectiveLine::evaluate(SymbolMap& symbol_map) -> std::optional<ParseError>
 {
-    auto count_eval = count_expression.evaluate(symbol_map, pc);
+    auto count_eval = count_expression.evaluate_word(symbol_map, pc);
     if (count_eval.is_err())
     {
         return count_eval.get_err();
     }
-    auto count_value = count_eval.get_ok();
-    if (count_value > 0xFFFF | count_value < 0)
-    {
-        return ParseError::InvalidRange;
-    }
-    count = count_value & 0xFFFF;
+    count = count_eval.get_ok();
 
     if (fill_expression != std::nullopt)
     {
-        auto fill_eval = fill_expression.value().evaluate(symbol_map, pc);
+        auto fill_eval = fill_expression.value().evaluate_byte(symbol_map, pc);
         if (fill_eval.is_err())
         {
             return fill_eval.get_err();
         }
-        auto fill_value = fill_eval.get_ok();
-        if (fill_value > 0xFF || fill_value < 0)
-        {
-            return ParseError::InvalidRange;
-        }
-        fill = fill_value & 0xFF;
+        fill = fill_eval.get_ok();
     }
 
     return {};
@@ -468,12 +430,23 @@ auto DirectiveLine::make(
     uint16_t pc,
     const SymbolMap& symbol_map) -> DirectiveResult
 {
-    DirectiveLine directive_line{};
-    auto directive = line->directive();
-    if (line->comment())
+    auto directive_result = make_plain(line->directive(), pc, symbol_map);
+    if (line->comment() == nullptr || directive_result.is_err())
     {
-        directive_line.comment = line->comment()->COMMENT()->getText();
+        return directive_result;
     }
+
+    auto directive = directive_result.get_ok();
+    directive.comment = line->comment()->COMMENT()->getText();
+    return DirectiveResult::ok(directive);
+}
+
+auto DirectiveLine::make_plain(
+    asm6502Parser::DirectiveContext* directive,
+    uint16_t pc,
+    const SymbolMap& symbol_map) -> DirectiveResult
+{
+    DirectiveLine directive_line{};
 
     if (directive->org())
     {

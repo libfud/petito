@@ -130,6 +130,14 @@ TEST(TestAssembler, LDA_IMM_EXPR)
     EXPECT_EQ(prog_bytes[1], (-value * 5) & 0xFF);
 }
 
+TEST(TestAssembler, ASSIGN_REPEAT_VAR)
+{
+    std::string input{"R% EQU 1"};
+    auto result = Assembler::from_text(input);
+    ASSERT_TRUE(result.is_err());
+    EXPECT_EQ(result.get_err(), ParseError::IllegalRepeatVar);
+}
+
 TEST(TestAssembler, ASSIGN_LDA_ABS)
 {
     OpName op_id = OpName::LDA;
@@ -418,6 +426,14 @@ TEST(TestAssembler, OrgDirective)
     prog_bytes = assembler.serialize();
     ASSERT_EQ(prog_bytes.size(), test_program.size());
     EXPECT_TRUE(std::equal(prog_bytes.begin(), prog_bytes.end(), test_program.begin()));
+
+    input = std::format(
+        "{}\n{}\n",
+        ".ORG -1",
+        "\tNOP");
+    result = Assembler::from_text(input);
+    ASSERT_TRUE(result.is_err());
+    EXPECT_EQ(result.get_err(), ParseError::InvalidRange);
 }
 
 TEST(TestAssembler, ByteDirective)
@@ -461,6 +477,11 @@ TEST(TestAssembler, ByteDirective)
     ASSERT_EQ(prog_bytes.size(), test_program.size());
     EXPECT_EQ(prog_bytes, test_program);
     EXPECT_EQ(assembler.format(), input);
+
+    input = std::format(".BYTE -1");
+    result = Assembler::from_text(input);
+    ASSERT_TRUE(result.is_err());
+    EXPECT_EQ(result.get_err(), ParseError::InvalidRange);
 }
 
 TEST(TestAssembler, DByteDirective)
@@ -613,6 +634,12 @@ TEST(TestAssembler, TextDirective)
     ASSERT_EQ(prog_bytes.size(), test_program.size());
     EXPECT_EQ(prog_bytes, test_program);
     EXPECT_EQ(assembler.format(), input);
+
+    text = std::format("bad escape: \\q\\g\\l");
+    input = std::format(".TEXT \"{}\"\n", text);
+    result = Assembler::from_text(input);
+    ASSERT_TRUE(result.is_err());
+    EXPECT_EQ(result.get_err(), ParseError::SyntaxError);
 }
 
 TEST(TestAssembler, AlignDirective)
@@ -771,5 +798,49 @@ TEST(TestAssembler, FillDirective)
     ASSERT_EQ(result.get_err(), ParseError::InvalidRange);
 }
 
+TEST(TestAssembler, RepeatDirective)
+{
+    std::string input{".REPEAT 1 NOP"};
+    std::string output{".REPEAT $0001\n\tNOP\n"};
+    std::vector<uint8_t> test_program{NOP_IMPL};
+    auto result = Assembler::from_text(input);
+    if (result.is_err()) { logger::error("Error is {}", static_cast<uint8_t>(result.get_err())); }
+    ASSERT_TRUE(result.is_ok());
+    auto assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    auto prog_bytes = assembler.serialize();
+    EXPECT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_EQ(prog_bytes, test_program);
+    EXPECT_EQ(assembler.format(), output);
+
+    input = ".REPEAT 0 NOP";
+    result = Assembler::from_text(input);
+    ASSERT_TRUE(result.is_err());
+    EXPECT_EQ(result.get_err(), ParseError::BadCount);
+
+    input = ".REPEAT 3 LDA #R%";
+    output = ".REPEAT $0003\n\tLDA #$00\n\tLDA #$01\n\tLDA #$02\n";
+    test_program = {LDA_IMM, 0, LDA_IMM, 1, LDA_IMM, 2};
+    result = Assembler::from_text(input);
+    ASSERT_TRUE(result.is_ok());
+    assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    prog_bytes = assembler.serialize();
+    EXPECT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_EQ(prog_bytes, test_program);
+    EXPECT_EQ(assembler.format(), output);
+
+    input = ".REPEAT 3 .FILL R%+1 R%";
+    output = ".REPEAT $0003\n.FILL $0001 $00\n.FILL $0002 $01\n.FILL $0003 $02\n";
+    test_program = {0, 1, 1, 2, 2, 2};
+    result = Assembler::from_text(input);
+    ASSERT_TRUE(result.is_ok());
+    assembler = result.get_ok();
+    EXPECT_EQ(assembler.size(), test_program.size());
+    prog_bytes = assembler.serialize();
+    EXPECT_EQ(prog_bytes.size(), test_program.size());
+    EXPECT_EQ(prog_bytes, test_program);
+    EXPECT_EQ(assembler.format(), output);
+}
 
 } // namespace mos6502
