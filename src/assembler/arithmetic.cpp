@@ -255,6 +255,10 @@ auto ArithmeticExpression::evaluate(
         }
 
         // next may either be a unary operator or a value
+        if (idx >= expression.size())
+        {
+            return RetType::err(ParseError::BadEvaluation);
+        }
         const auto& sub_expr_0 = expression[idx];
         idx++;
         res = evaluate_sub_expr(sub_expr_0, context, symbol_map);
@@ -265,6 +269,10 @@ auto ArithmeticExpression::evaluate(
         if (context.unary_op != std::nullopt)
         {
             // next must be a value
+            if (idx >= expression.size())
+            {
+                return RetType::err(ParseError::BadEvaluation);
+            }
             const auto& sub_expr = expression[idx];
             idx++;
             const auto res = evaluate_sub_expr(sub_expr, context, symbol_map);
@@ -317,6 +325,10 @@ auto ArithmeticExpression::evaluate_init(
     // A leading unary operation is legal if the next atom is a value.
     if (context.unary_op != std::nullopt)
     {
+        if (idx >= expression.size())
+        {
+            return RetType::err(ParseError::BadEvaluation);
+        }
         const auto& sub_expr = expression[idx];
         idx++;
         const auto res = evaluate_sub_expr(sub_expr, context, symbol_map);
