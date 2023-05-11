@@ -409,24 +409,147 @@ TEST(TestArithmetic, MissingBinaryOp)
     ASSERT_TRUE(expression_result.is_err());
     ASSERT_EQ(expression_result.get_err(), ParseError::BadEvaluation);
 
+    ArithmeticExpression expression_2 = {};
+    expression_2.add_atom(Atom{lue});
+    expression_2.add_atom(Atom{BinaryOperator::Multiply});
+    expression_2.add_atom(Atom{UnaryOperator::Minus});
+
+    expression_result = expression_2.evaluate(empty_map, 0);
+    ASSERT_TRUE(expression_result.is_err());
+    ASSERT_EQ(expression_result.get_err(), ParseError::BadEvaluation);
+
+    ArithmeticExpression expression_3 = {};
+    expression_3.add_atom(Atom{lue});
+    expression_3.add_atom(Atom{BinaryOperator::Multiply});
+    expression_3.add_atom(Atom{one});
+    expression_3.add_atom(Atom{BinaryOperator::Divide});
+
+    expression_result = expression_3.evaluate(empty_map, 0);
+    ASSERT_TRUE(expression_result.is_err());
+    ASSERT_EQ(expression_result.get_err(), ParseError::BadEvaluation);
+}
+
+TEST(TestArithmetic, LeadingBinaryOp)
+{
+    // ++42
+    using Atom = ArithmeticExpression::Atom;
+    uint8_t lue = 42;
+    SymbolMap empty_map{};
+
+    ArithmeticExpression expression{};
+    expression.add_atom(Atom{UnaryOperator::Plus});
+    expression.add_atom(Atom{BinaryOperator::Add});
+    expression.add_atom(Atom{lue});
+    auto expression_result = expression.evaluate(empty_map, 0);
+    ASSERT_TRUE(expression_result.is_err());
+    ASSERT_EQ(expression_result.get_err(), ParseError::BadEvaluation);
+}
+
+TEST(TestArithmetic, SoleUnary)
+{
+    using Atom = ArithmeticExpression::Atom;
+    SymbolMap empty_map{};
+
+    ArithmeticExpression expression{};
+    expression.add_atom(Atom{UnaryOperator::Plus});
+    auto expression_result = expression.evaluate(empty_map, 0);
+    ASSERT_TRUE(expression_result.is_err());
+    ASSERT_EQ(expression_result.get_err(), ParseError::BadEvaluation);
+}
+
+TEST(TestArithmetic, EvaluateByte)
+{
+    using Atom = ArithmeticExpression::Atom;
+    uint8_t lue = 42;
+    uint16_t big_lue = 0x4213;
+    SymbolMap empty_map{};
+
+    ArithmeticExpression expression{};
+    expression.add_atom(Atom{lue});
+    auto expression_result = expression.evaluate_byte(empty_map, 0);
+    ASSERT_TRUE(expression_result.is_ok());
+    ASSERT_EQ(expression_result.get_ok(), lue);
+
+    expression = {};
+    expression.add_atom(Atom{big_lue});
+    expression_result = expression.evaluate_byte(empty_map, 0);
+    ASSERT_TRUE(expression_result.is_err());
+    ASSERT_EQ(expression_result.get_err(), ParseError::InvalidRange);
+
+    expression = {};
+    expression.add_atom(Atom{big_lue});
+    expression_result = expression.evaluate_byte(empty_map, 0);
+    ASSERT_TRUE(expression_result.is_err());
+    ASSERT_EQ(expression_result.get_err(), ParseError::InvalidRange);
+
     expression = {};
     expression.add_atom(Atom{lue});
+    expression.add_atom(Atom{BinaryOperator::Subtract});
+    expression.add_atom(Atom{big_lue});
+    expression_result = expression.evaluate_byte(empty_map, 0);
+    ASSERT_TRUE(expression_result.is_err());
+    ASSERT_EQ(expression_result.get_err(), ParseError::InvalidRange);
+}
+
+TEST(TestArithmetic, EvaluateWord)
+{
+    using Atom = ArithmeticExpression::Atom;
+    uint8_t lue = 42;
+    uint16_t big_lue = 0x4213;
+    SymbolMap empty_map{};
+
+    ArithmeticExpression expression = {};
+    expression.add_atom(Atom{big_lue});
+    auto expression_result = expression.evaluate_word(empty_map, 0);
+    ASSERT_TRUE(expression_result.is_ok());
+    ASSERT_EQ(expression_result.get_ok(), big_lue);
+
+    expression = {};
+    expression.add_atom(Atom{lue});
+    expression_result = expression.evaluate_word(empty_map, 0);
+    ASSERT_TRUE(expression_result.is_ok());
+    ASSERT_EQ(expression_result.get_ok(), lue);
+
+    expression = {};
+    expression.add_atom(Atom{big_lue});
     expression.add_atom(Atom{BinaryOperator::Multiply});
+    expression.add_atom(Atom{big_lue});
+    expression_result = expression.evaluate_word(empty_map, 0);
+    ASSERT_TRUE(expression_result.is_err());
+    ASSERT_EQ(expression_result.get_err(), ParseError::InvalidRange);
+
+    expression = {};
+    expression.add_atom(Atom{lue});
+    expression.add_atom(Atom{BinaryOperator::Subtract});
+    expression.add_atom(Atom{big_lue});
+    expression_result = expression.evaluate_word(empty_map, 0);
+    ASSERT_TRUE(expression_result.is_err());
+    ASSERT_EQ(expression_result.get_err(), ParseError::InvalidRange);
+}
+
+TEST(TestArithmeticAtom, Formatting)
+{
+    ArithmeticExpression expression{};
+    uint8_t one = 1;
+    uint16_t 千 = 1000;
+    using Atom = ArithmeticExpression::Atom;
+    expression.add_atom(Atom{UnaryOperator::LowByte});
+    expression.add_atom(Atom{千});
+    expression.add_atom(Atom{BinaryOperator::Add});
     expression.add_atom(Atom{UnaryOperator::Minus});
-
-    expression_result = expression.evaluate(empty_map, 0);
-    ASSERT_TRUE(expression_result.is_err());
-    ASSERT_EQ(expression_result.get_err(), ParseError::BadEvaluation);
-
-    expression = {};
-    expression.add_atom(Atom{lue});
-    expression.add_atom(Atom{BinaryOperator::Multiply});
     expression.add_atom(Atom{one});
+    expression.add_atom(Atom{BinaryOperator::Subtract});
+    expression.add_atom(Atom{UnaryOperator::Plus});
+    expression.add_atom(Atom{PcStar{}});
+    expression.add_atom(Atom{BinaryOperator::Multiply});
+    expression.add_atom(Atom{UnaryOperator::HighByte});
+    expression.add_atom(Atom{std::string{"千"}});
     expression.add_atom(Atom{BinaryOperator::Divide});
+    expression.add_atom(Atom{'A'});
 
-    expression_result = expression.evaluate(empty_map, 0);
-    ASSERT_TRUE(expression_result.is_err());
-    ASSERT_EQ(expression_result.get_err(), ParseError::BadEvaluation);
+    ASSERT_EQ(
+        expression.format(),
+        "<0x03E8+-0x01-+**>千/'A");
 }
 
 } // namespace mos6502
